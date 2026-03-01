@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="mn" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Хөвсгөл Зам ХК - Авто Зам, Гүүр Барилга</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    .font-display { font-family: 'Montserrat', sans-serif; font-weight: 800; }
+    .font-body { font-family: 'Inter', sans-serif; }
+    .navy-bg { background-color: #0f172a; }
+    .gold-text { color: #d97706; }
+    .gold-bg { background-color: #d97706; }
+    /* Бичлэг дээрх текстийг тодруулах сүүдэр */
+    .hero-overlay { background: linear-gradient(to bottom, rgba(15, 23, 42, 0.5), rgba(15, 23, 42, 0.8)); }
+  </style>
+ </head>
+ <body class="h-full font-body text-white navy-bg">
+  <div id="app" class="w-full h-full overflow-auto">
+    <nav class="fixed top-0 w-full z-50 bg-slate-900/95 backdrop-blur-md border-b border-yellow-600/20">
+      <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 gold-bg flex items-center justify-center rounded-sm text-slate-900 font-bold">HZ</div>
+          <span class="font-display text-xl uppercase tracking-tighter">ХӨВСГӨЛ ЗАМ ХК</span>
+        </div>
+        <div class="hidden md:flex gap-8 text-sm font-semibold">
+          <a href="#services" class="hover:text-yellow-500 transition-colors">ҮЙЛЧИЛГЭЭ</a>
+          <a href="#projects" class="hover:text-yellow-500 transition-colors">ТӨСЛҮҮД</a>
+          <a href="#about" class="hover:text-yellow-500 transition-colors">БИДНИЙ ТУХАЙ</a>
+          <a href="#contact" class="gold-bg text-slate-900 px-4 py-2 hover:bg-yellow-500 transition-all">ХОЛБОО БАРИХ</a>
+        </div>
+      </div>
+    </nav>
+
+    <section class="relative h-screen flex items-center justify-center overflow-hidden">
+      <div class="absolute inset-0 z-0">
+        <video autoplay muted loop playsinline class="w-full h-full object-cover">
+          <source src="" type="video/mp4">
+        </video>
+        <div class="absolute inset-0 hero-overlay z-10"></div>
+      </div>
+      
+      <div class="relative z-20 text-center px-6 max-w-5xl">
+        <span class="gold-bg text-slate-900 px-4 py-1 text-xs font-bold tracking-widest mb-6 inline-block uppercase">1995 Оноос Хойш</span>
+        <h1 class="font-display text-4xl md:text-6xl lg:text-7xl mb-6 leading-tight">ИННОВАЦИ ШИНГЭЭСЭН ИНЖЕНЕРЧЛЭЛ</h1>
+        <p class="text-slate-200 text-lg md:text-xl mb-10 max-w-3xl mx-auto font-medium">
+          Хөгжилд тэмүүлсэн замыг хамтдаа бүтээнэ. <br>
+          Ирээдүйн эрсдэлгүй бүтээн байгуулалт — Чанар, стандартыг эрхэмлэнэ.
+        </p>
+        <div class="flex flex-wrap justify-center gap-4">
+          <a href="#projects" class="gold-bg text-slate-900 px-8 py-4 font-bold text-sm tracking-widest hover:scale-105 transition-all">МАНАЙ АЖЛУУД</a>
+          <a href="#contact" class="border-2 border-yellow-600 px-8 py-4 font-bold text-sm tracking-widest hover:bg-yellow-600/10 transition-all">ШУУД ХОЛБОГДОХ</a>
+        </div>
+      </div>
+    </section>
+
+    <section class="gold-bg py-10 relative z-30">
+      <div class="max-w-7xl mx-auto px-6 grid grid-cols-2 md:grid-cols-4 gap-8 text-slate-900 text-center font-bold">
+        <div><div class="font-display text-4xl mb-1">200+</div><div class="text-xs uppercase">Төсөл хэрэгжүүлсэн</div></div>
+        <div><div class="font-display text-4xl mb-1">30+</div><div class="text-xs uppercase">Жилийн туршлага</div></div>
+        <div><div class="font-display text-4xl mb-1">250+</div><div class="text-xs uppercase">Мэргэжлийн баг</div></div>
+        <div><div class="font-display text-4xl mb-1">100%</div><div class="text-xs uppercase">Чанарын баталгаа</div></div>
+      </div>
+    </section>
+  </div>
+ </body>
+</html>
