@@ -12,17 +12,25 @@ export default function Hero() {
 
   return (
     <section className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-background">
-      {/* Background Image / Overlay */}
+      {/* Background Video / Overlay */}
       <div className="absolute inset-0 z-0">
-        {/* landing page hero heavy road construction machinery landscape */}
-        <img 
-          src="https://pixabay.com/get/g9d5d7b25337a2dfe498e3f083730345f57c0bba3ce6367246e7ed8d5253c2c098a00aa29c14852771465dcf083b9079a9bff344f144a3ef3573b9b5c3f41a2a4_1280.jpg" 
-          alt="Road Construction" 
-          className="w-full h-full object-cover animate-pan"
-        />
-        <div className="absolute inset-0 bg-background/80 mix-blend-multiply"></div>
-        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-transparent"></div>
-        <div className="absolute inset-0 industrial-pattern opacity-20"></div>
+        <video 
+          autoPlay 
+          muted 
+          loop 
+          playsInline 
+          className="w-full h-full object-cover"
+        >
+          <source src="/videos/hero-bg.mp4" type="video/mp4" />
+          {/* Fallback image if video fails to load */}
+          <img 
+            src="https://images.unsplash.com/photo-1541888050604-20b12bc12e75?auto=format&fit=crop&q=80" 
+            alt="Road Construction" 
+            className="w-full h-full object-cover"
+          />
+        </video>
+        <div className="absolute inset-0 bg-slate-900/60 mix-blend-multiply"></div>
+        <div className="absolute inset-0 bg-gradient-to-t from-slate-900 via-transparent to-slate-900/40"></div>
       </div>
 
       {/* Content */}
