@@ -34,6 +34,32 @@ export async function registerRoutes(
     }
   });
 
+  app.get(api.content.list.path, async (req, res) => {
+    try {
+      const content = await storage.getContent();
+      res.json(content);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch content" });
+    }
+  });
+
+  app.patch(api.content.update.path, async (req, res) => {
+    try {
+      const section = req.params.section;
+      const input = api.content.update.input.parse(req.body);
+      const updated = await storage.updateContent(section, input);
+      res.json(updated);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      res.status(500).json({ message: "Failed to update content" });
+    }
+  });
+
   // Call this once on startup to ensure we have initial data
   seedDatabase().catch(console.error);
 
@@ -41,6 +67,15 @@ export async function registerRoutes(
 }
 
 async function seedDatabase() {
+  const existingContent = await storage.getContent();
+  if (existingContent.length === 0) {
+    await storage.updateContent('hero', {
+      title: "Ирээдүйг Бүтээнэ",
+      description: "Бид 30 гаруй жилийн туршлагаараа чанар стандартын өндөр түвшинд авто зам, гүүр, барилга байгууламжийн төслүүдийг амжилттай хэрэгжүүлж байна.",
+      ctaText: "Төслүүдтэй танилцах",
+      secondaryCtaText: "Холбогдох"
+    });
+  }
   const existingProjects = await storage.getProjects();
   if (existingProjects.length === 0) {
     const sampleProjects = [

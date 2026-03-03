@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -20,8 +20,19 @@ export const contacts = pgTable("contacts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const content = pgTable("content", {
+  id: serial("id").primaryKey(),
+  section: text("section").notNull().unique(), // e.g., 'hero', 'about'
+  title: text("title").notNull(),
+  description: text("description"),
+  ctaText: text("cta_text"),
+  secondaryCtaText: text("secondary_cta_text"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true, createdAt: true });
+export const insertContentSchema = createInsertSchema(content).omit({ id: true, updatedAt: true });
 
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
@@ -29,5 +40,9 @@ export type InsertProject = z.infer<typeof insertProjectSchema>;
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = z.infer<typeof insertContactSchema>;
 
+export type Content = typeof content.$inferSelect;
+export type InsertContent = z.infer<typeof insertContentSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
+export type ContentResponse = Content;

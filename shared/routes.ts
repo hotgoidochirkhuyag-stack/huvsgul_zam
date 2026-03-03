@@ -34,6 +34,30 @@ export const api = {
         400: errorSchemas.validation,
       },
     },
+  },
+  content: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/content' as const,
+      responses: {
+        200: z.array(z.custom<typeof content.$inferSelect>()),
+      },
+    },
+    update: {
+      method: 'PATCH' as const,
+      path: '/api/content/:section' as const,
+      input: z.object({
+        title: z.string().optional(),
+        description: z.string().optional(),
+        ctaText: z.string().optional(),
+        secondaryCtaText: z.string().optional(),
+      }),
+      responses: {
+        200: z.custom<typeof content.$inferSelect>(),
+        400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
   }
 };
 
