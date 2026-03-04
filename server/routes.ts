@@ -80,7 +80,7 @@ async function seedDatabase() {
   if (existingProjects.length === 0) {
     const sampleProjects = [
       {
-        title: "Улаанбаатар - Дархан чиглэлийн авто зам",
+        title: "Ханх - Мондын чиглэлийн авто зам",
         description: "Олон улсын стандартын шаардлага хангасан хатуу хучилттай авто зам.",
         imageUrl: "https://images.unsplash.com/photo-1541888050604-20b12bc12e75?auto=format&fit=crop&q=80",
         category: "Авто зам"
@@ -92,8 +92,8 @@ async function seedDatabase() {
         category: "Гүүр"
       },
       {
-        title: "Орон нутгийн инженерийн шугам сүлжээ",
-        description: "Дэд бүтцийн шинэчлэл, инженерийн шугам сүлжээний цогц бүтээн байгуулалт.",
+        title: "Барилга угсралт, инжнерийн шугам сүлжээ",
+        description: "Барилгын материал, барилга усралын төслүүд.",
         imageUrl: "https://images.unsplash.com/photo-1541888081691-10c017efbbd1?auto=format&fit=crop&q=80",
         category: "Дэд бүтэц"
       }

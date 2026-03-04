@@ -20,7 +20,7 @@ export default function Projects() {
           >
             <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-sm mb-4 flex items-center gap-4">
               <span className="w-12 h-0.5 bg-primary"></span>
-              Бидний Бүтээлүүд
+              Манай амжилт
             </h2>
             <h3 className="text-4xl md:text-5xl font-display font-black text-foreground uppercase">
               Онцлох <span className="text-transparent border-text">Төслүүд</span>
@@ -42,7 +42,6 @@ export default function Projects() {
             <ArrowRight className="w-4 h-4 transform group-hover:translate-x-1 transition-transform" />
           </motion.button>
         </div>
-
         {/* Projects Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {isLoading ? (

@@ -40,7 +40,7 @@ export default function Footer() {
           <div>
             <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Холбоосууд</h4>
             <ul className="space-y-4">
-              {['Бидний тухай', 'Үйлчилгээ', 'Төслүүд', 'Мэдээ мэдээлэл', 'Холбоо барих'].map((item, idx) => (
+              {['Бидний тухай', 'Хийсэн ажлууд', 'Хамтарч ажиллах','Үнийн санал авах'].map((item, idx) => (
                 <li key={idx}>
                   <button className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
                     {item}
@@ -52,9 +52,9 @@ export default function Footer() {
 
           {/* Services */}
           <div>
-            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Үйлчилгээ</h4>
+            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Хамтарч ажиллах</h4>
             <ul className="space-y-4">
-              {['Авто зам барилга', 'Гүүрийн байгууламж', 'Хүнд машин механизм', 'Зураг төсөл', 'Барилгын материал'].map((item, idx) => (
+              {['Авто зам', 'Гүүрийн байгууламж', 'Хүнд машин механизм', 'Барилгын материал'].map((item, idx) => (
                 <li key={idx}>
                   <button className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
                     {item}
@@ -87,7 +87,7 @@ export default function Footer() {
         {/* Bottom Bar */}
         <div className="pt-8 border-t border-border flex flex-col md:flex-row items-center justify-between gap-4">
           <p className="text-muted-foreground text-sm">
-            © {new Date().getFullYear()} Хөвсгөл Зам ХК. Бүх эрх хуулиар хамгаалагдсан.
+            © {new Date().getFullYear()} Хөвсгөл Зам ХХК. Бүх эрх хуулиар хамгаалагдсан.
           </p>
           <div className="flex items-center gap-6">
             <button className="text-muted-foreground hover:text-foreground text-xs uppercase tracking-wider font-semibold transition-colors">Үйлчилгээний нөхцөл</button>

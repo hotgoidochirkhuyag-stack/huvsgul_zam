@@ -2,12 +2,15 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertContactSchema, type InsertContact } from "@shared/schema";
-import { useCreateContact } from "@/hooks/use-contacts";
 import { Phone, Mail, MapPin, Loader2 } from "lucide-react";
+import emailjs from '@emailjs/browser'; // EmailJS санг импортлох
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Contact() {
-  const { mutate: submitContact, isPending } = useCreateContact();
-  
+  const [isSending, setIsSending] = useState(false); // Илгээж буй төлөвийг хянах
+  const { toast } = useToast();
+
   const form = useForm<InsertContact>({
     resolver: zodResolver(insertContactSchema),
     defaultValues: {
@@ -18,19 +21,46 @@ export default function Contact() {
     }
   });
 
-  const onSubmit = (data: InsertContact) => {
-    submitContact(data, {
-      onSuccess: () => {
-        form.reset();
-      }
-    });
+  const onSubmit = async (data: InsertContact) => {
+    setIsSending(true); // Ачаалж эхлэх
+
+    try {
+      // EmailJS ашиглан huvsgulzam@gmail.com руу мэйл илгээх хэсэг
+      await emailjs.send(
+        'service_zo80ffc',     // Таны Service ID
+        'template_1qp8wlm',    // Таны Template ID
+        {
+          name: data.name,     // Template дээрх {{name}}
+          email: data.email,   // Template дээрх {{email}}
+          phone: data.phone,   // Template дээрх {{phone}}
+          message: data.message // Template дээрх {{message}}
+        },
+        'jMUTsjEJc7DCIHEK4'    // Таны Public Key
+      );
+
+      toast({
+        title: "Амжилттай илгээгдлээ!",
+        description: "Бид таны хүсэлтийг хүлээн авлаа. Тантай тун удахгүй холбогдох болно.",
+      });
+
+      form.reset(); // Формыг цэвэрлэх
+    } catch (error) {
+      console.error("Email error:", error);
+      toast({
+        variant: "destructive",
+        title: "Алдаа гарлаа",
+        description: "Зурвас илгээхэд алдаа гарлаа. Та дахин оролдоно уу.",
+      });
+    } finally {
+      setIsSending(false); // Ачаалж дуусах
+    }
   };
 
   return (
     <section id="contact" className="py-32 bg-card relative border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24">
-          
+
           {/* Contact Info */}
           <motion.div 
             initial={{ opacity: 0, x: -30 }}
@@ -56,7 +86,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide mb-1">Хаяг байршил</h4>
-                  <p className="text-muted-foreground">Улаанбаатар хот, Сүхбаатар дүүрэг, 1-р хороо, Хөвсгөл зам ХК байр</p>
+                  <p className="text-muted-foreground">Улаанбаатар хот, Сүхбаатар дүүрэг, Хөвсгөл зам ХХК байр</p>
                 </div>
               </div>
 
@@ -66,7 +96,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide mb-1">Утас</h4>
-                  <p className="text-muted-foreground">+976 7000-0000, +976 9900-0000</p>
+                  <p className="text-muted-foreground">+976 9911-2701, +976 8904-1506</p>
                 </div>
               </div>
 
@@ -76,7 +106,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide mb-1">И-Мэйл</h4>
-                  <p className="text-muted-foreground">info@khuvsgulzam.mn</p>
+                  <p className="text-muted-foreground">huvsgulzam@gmail.com</p>
                 </div>
               </div>
             </div>
@@ -141,10 +171,10 @@ export default function Contact() {
 
               <button
                 type="submit"
-                disabled={isPending}
+                disabled={isSending}
                 className="w-full py-4 bg-primary text-primary-foreground font-display font-bold uppercase tracking-widest rounded-sm hover:bg-primary/90 transition-all duration-300 active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
               >
-                {isPending ? (
+                {isSending ? (
                   <>
                     <Loader2 className="w-5 h-5 animate-spin" />
                     Илгээж байна...
