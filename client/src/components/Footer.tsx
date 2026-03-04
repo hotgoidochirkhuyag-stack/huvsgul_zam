@@ -1,36 +1,62 @@
-import { HardHat, Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
+import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Footer() {
-  const scrollToTop = () => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+  const { toast } = useToast();
+
+  const scrollToSection = (id: string) => {
+    const el = document.getElementById(id);
+    if (el) {
+      const offset = el.getBoundingClientRect().top + window.scrollY - 80;
+      window.scrollTo({ top: offset, behavior: "smooth" });
+    } else {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  const handleSubscribe = () => {
+    toast({
+      title: "Бүртгэл амжилттай",
+      description: "Та мэдээлэл хүлээн авагчаар амжилттай бүртгэгдлээ.",
+    });
   };
 
   return (
     <footer className="bg-background border-t border-border pt-20 pb-10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
-          
-          {/* Brand */}
+
+          {/* Brand - Дүрсгүй хувилбар */}
           <div className="col-span-1 lg:col-span-1">
             <div 
-              className="flex items-center gap-2 cursor-pointer mb-6"
-              onClick={scrollToTop}
+              className="flex flex-col cursor-pointer mb-6"
+              onClick={() => scrollToSection("hero")}
             >
-              <div className="w-10 h-10 bg-primary flex items-center justify-center rounded-sm">
-                <HardHat className="text-primary-foreground w-6 h-6" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-display font-bold text-xl leading-none tracking-wider text-foreground">ХӨВСГӨЛ ЗАМ</span>
-                <span className="text-[10px] text-primary font-bold tracking-[0.2em] uppercase">Компани</span>
-              </div>
+              <span className="font-display font-bold text-2xl leading-none tracking-wider text-foreground uppercase">
+                Хөвсгөл Зам
+              </span>
+              <span className="text-[11px] text-primary font-bold tracking-[0.3em] uppercase mt-1">
+                Компани
+              </span>
             </div>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6">
               Монгол улсын дэд бүтцийн салбарт чанар, стандартын өндөр түвшинд бүтээн байгуулалт хийж буй тэргүүлэгч компани.
             </p>
             <div className="flex items-center gap-4">
-              {[Facebook, Twitter, Linkedin, Instagram].map((Icon, idx) => (
-                <a key={idx} href="#" className="w-10 h-10 bg-card border border-border flex items-center justify-center rounded-sm hover:border-primary hover:text-primary transition-colors duration-300">
-                  <Icon className="w-4 h-4" />
+              {[
+                { Icon: Facebook, link: "https://facebook.com" },
+                { Icon: Twitter, link: "#" },
+                { Icon: Linkedin, link: "#" },
+                { Icon: Instagram, link: "#" }
+              ].map((item, idx) => (
+                <a 
+                  key={idx} 
+                  href={item.link} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="w-10 h-10 bg-card border border-border flex items-center justify-center rounded-sm hover:border-primary hover:text-primary transition-colors duration-300"
+                >
+                  <item.Icon className="w-4 h-4" />
                 </a>
               ))}
             </div>
@@ -40,23 +66,34 @@ export default function Footer() {
           <div>
             <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Холбоосууд</h4>
             <ul className="space-y-4">
-              {['Бидний тухай', 'Хийсэн ажлууд', 'Хамтарч ажиллах','Үнийн санал авах'].map((item, idx) => (
+              {[
+                { name: 'Бидний тухай', id: 'about' },
+                { name: 'Хийсэн ажлууд', id: 'projects' },
+                { name: 'Хамтарч ажиллах', id: 'services' },
+                { name: 'Үнийн санал авах', id: 'contact' }
+              ].map((item, idx) => (
                 <li key={idx}>
-                  <button className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
-                    {item}
+                  <button 
+                    onClick={() => scrollToSection(item.id)}
+                    className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors"
+                  >
+                    {item.name}
                   </button>
                 </li>
               ))}
             </ul>
           </div>
 
-          {/* Services */}
+          {/* Services / Cooperation */}
           <div>
-            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Хамтарч ажиллах</h4>
+            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Үйлчилгээ</h4>
             <ul className="space-y-4">
               {['Авто зам', 'Гүүрийн байгууламж', 'Хүнд машин механизм', 'Барилгын материал'].map((item, idx) => (
                 <li key={idx}>
-                  <button className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors">
+                  <button 
+                    onClick={() => scrollToSection("services")}
+                    className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors text-left"
+                  >
                     {item}
                   </button>
                 </li>
@@ -74,9 +111,12 @@ export default function Footer() {
               <input 
                 type="email" 
                 placeholder="И-Мэйл хаяг" 
-                className="w-full bg-card border border-border px-4 py-3 rounded-sm text-sm focus:outline-none focus:border-primary"
+                className="w-full bg-card border border-border px-4 py-3 rounded-sm text-sm focus:outline-none focus:border-primary transition-colors"
               />
-              <button className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider py-3 rounded-sm text-sm hover:bg-primary/90 transition-colors">
+              <button 
+                onClick={handleSubscribe}
+                className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider py-3 rounded-sm text-sm hover:bg-primary/90 transition-all active:scale-[0.98]"
+              >
                 Бүртгүүлэх
               </button>
             </div>

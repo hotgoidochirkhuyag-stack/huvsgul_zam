@@ -96,7 +96,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide mb-1">Утас</h4>
-                  <p className="text-muted-foreground">+976 9911-2701, +976 8904-1506</p>
+                  <p className="text-muted-foreground">+976 9911-2701, +976 0000-0000 </p>
                 </div>
               </div>
 

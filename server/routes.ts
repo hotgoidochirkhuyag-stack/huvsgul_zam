@@ -80,7 +80,7 @@ async function seedDatabase() {
   if (existingProjects.length === 0) {
     const sampleProjects = [
       {
-        title: "Ханх - Мондын чиглэлийн авто зам",
+        title: "Улаанбаатар - Дархан чиглэлийн авто зам",
         description: "Олон улсын стандартын шаардлага хангасан хатуу хучилттай авто зам.",
         imageUrl: "https://images.unsplash.com/photo-1541888050604-20b12bc12e75?auto=format&fit=crop&q=80",
         category: "Авто зам"

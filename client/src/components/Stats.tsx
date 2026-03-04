@@ -90,17 +90,10 @@ export default function Stats() {
               Манай чадавхи
             </h2>
           </div>
-          <p 
-            className="text-xl md:text-[22px] font-display font-black text-foreground max-w-5xl uppercase leading-relaxed"
-            style={{ wordSpacing: '0.6rem' }} // Энэ хэсэг үг хоорондын зайг маш тодорхой нэмнэ
-          >
-            инноваци шингэсэн 
-            <span className="text-[#d97706] not-italic ml-4">инженерчлэл</span>
-            <br className="hidden md:block" /> 
-            ирээдүйн эрсдэлгүй 
-            <span className="text-[#d97706] not-italic ml-4">бүтээн байгуулалт</span>
-          </p>
-          
+          <h3 className="text-3xl md:text-4xl lg:text-4xl font-display font-black text-foreground uppercase leading-[1.1] max-w-3xl">
+            Инноваци шингэсэн <span className="text-transparent border-text"> инженерчлэл</span> <br className="hidden md:block" />
+            Ирээдүйн эрсдэлгүй <span className="text-transparent border-text"> бүтээн байгуулалт </span>
+          </h3>
         </motion.div>
 
         {/* Статистик картууд */}
