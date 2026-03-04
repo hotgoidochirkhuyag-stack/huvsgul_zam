@@ -15,6 +15,7 @@ import { eq } from "drizzle-orm";
 export interface IStorage {
   getProjects(): Promise<ProjectResponse[]>;
   createProject(project: InsertProject): Promise<ProjectResponse>;
+  deleteProject(id: number): Promise<void>;
   createContact(contact: InsertContact): Promise<ContactResponse>;
   getContent(): Promise<ContentResponse[]>;
   getContentBySection(section: string): Promise<ContentResponse | undefined>;
@@ -29,6 +30,10 @@ export class DatabaseStorage implements IStorage {
   async createProject(project: InsertProject): Promise<ProjectResponse> {
     const [newProject] = await db.insert(projects).values(project).returning();
     return newProject;
+  }
+
+  async deleteProject(id: number): Promise<void> {
+    await db.delete(projects).where(eq(projects.id, id));
   }
 
   async createContact(contact: InsertContact): Promise<ContactResponse> {

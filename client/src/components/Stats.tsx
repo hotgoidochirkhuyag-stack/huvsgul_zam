@@ -90,7 +90,7 @@ export default function Stats() {
               Манай чадавхи
             </h2>
           </div>
-          <h3 className="text-3xl md:text-4xl lg:text-4xl font-display font-black text-foreground uppercase leading-[1.1] max-w-3xl">
+          <h3 className="text-2xl md:text-3xl lg:text-3xl font-display font-black text-foreground uppercase leading-[1.1] max-w-3xl">
             Инноваци шингэсэн <span className="text-transparent border-text"> инженерчлэл</span> <br className="hidden md:block" />
             Ирээдүйн эрсдэлгүй <span className="text-transparent border-text"> бүтээн байгуулалт </span>
           </h3>

@@ -5,7 +5,7 @@ const servicesData = [
   {
     id: 1,
     icon: Construction,
-    title: "Авто зам гүүр         дэд бүтэц",
+    title: "Авто зам гүүр , дэд бүтцийн ажлууд",
     description: "Олон улсын стандартад нийцсэн бүх төрлийн авто зам гүүр, талбайн барилга угсралт.",
     delay: 0.1
   },
@@ -13,7 +13,7 @@ const servicesData = [
     id: 2,
     icon: Warehouse,
     title: "Бетон зуурмаг үйлдвэр",
-    description: "Манай бетон зуурмагийн үйлдвэр чанарын баталгаатай, тохирлын гэрчилгээтэй бетон зуурмаг нийлүүлэх үйлчилгээ.",
+    description: "Манай бетон зуурмагийн үйлдвэр өндөр чанартай, тохирлын гэрчилгээтэй бетон зуурмаг нийлүүлэх үйлчилгээ.",
     delay: 0.2
   },
   {
@@ -63,7 +63,7 @@ export default function Services() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between w-full gap-8">
             {/* Чиний хүссэн нүсэр загвар */}
             <h3 className="text-3xl md:text-4xl lg:text-4xl font-display font-black text-foreground uppercase leading-[1.1] max-w-3xl">
-              Бид хамтын <span className="text-transparent border-text"> ажиллагаанд</span> <br className="hidden md:block" />
+              Бид хамтын <span className="text-transparent border-text"> ажиллагаандаа</span> <br className="hidden md:block" />
               бүх талын дэмжлэг <span className="text-transparent border-text"> үзүүлнэ</span>
             </h3>
 

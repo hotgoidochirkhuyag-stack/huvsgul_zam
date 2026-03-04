@@ -23,6 +23,23 @@ export const api = {
         200: z.array(z.custom<typeof projects.$inferSelect>()),
       },
     },
+    create: {
+      method: 'POST' as const,
+      path: '/api/projects' as const,
+      input: insertProjectSchema,
+      responses: {
+        201: z.custom<typeof projects.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/projects/:id' as const,
+      responses: {
+        204: z.void(),
+        404: errorSchemas.notFound,
+      },
+    },
   },
   contacts: {
     create: {

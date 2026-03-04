@@ -60,6 +60,32 @@ export async function registerRoutes(
     }
   });
 
+  app.post(api.projects.create.path, async (req, res) => {
+    try {
+      const input = api.projects.create.input.parse(req.body);
+      const project = await storage.createProject(input);
+      res.status(201).json(project);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      res.status(500).json({ message: "Failed to create project" });
+    }
+  });
+
+  app.delete(api.projects.delete.path, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteProject(id);
+      res.status(204).end();
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete project" });
+    }
+  });
+
   // Call this once on startup to ensure we have initial data
   seedDatabase().catch(console.error);
 
