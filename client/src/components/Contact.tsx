@@ -70,13 +70,13 @@ export default function Contact() {
           >
             <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-sm mb-4 flex items-center gap-4">
               <span className="w-12 h-0.5 bg-primary"></span>
-              Бидэнтэй нэгдэх
+             Харилцагчаа дээдэлсэн хамтрагч 
             </h2>
-            <h3 className="text-4xl md:text-5xl font-display font-black text-foreground uppercase mb-8">
+            <h3 className="text-3xl md:text-4xl font-display font-black text-foreground uppercase mb-8">
               Холбоо <span className="text-primary">Барих</span>
             </h3>
             <p className="text-muted-foreground text-lg mb-12 max-w-md leading-relaxed">
-              Мэргэжлийн баг хамт олонтой холбогдож төслийнхөө талаар санал солилцох, үнийн санал авах боломжтой.
+              Манай хамт олонтой доорх холбоо барих хэрэгслүүдийг ашиглан холбогдох боломжтой. Таны шинэ төсөл , ажилд тань  амжилт хүсье. 
             </p>
 
             <div className="space-y-8">
@@ -86,7 +86,8 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide mb-1">Хаяг байршил</h4>
-                  <p className="text-muted-foreground">Улаанбаатар хот, Сүхбаатар дүүрэг, Хөвсгөл зам ХХК байр</p>
+<p className="text-muted-foreground">Улаанбаатар хот, Сүхбаатар дүүрэг, Хөвсгөл зам ХХК байр</p>
+<p className="text-muted-foreground">Хөвсгөл аймаг, Мөрөн сум, Хөвсгөл зам ХХК байр</p>
                 </div>
               </div>
 
@@ -96,7 +97,7 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide mb-1">Утас</h4>
-                  <p className="text-muted-foreground">+976 9911-2701, +976 0000-0000 </p>
+                  <p className="text-muted-foreground">+976 9911-2701, +976 8904-1506 </p>
                 </div>
               </div>
 

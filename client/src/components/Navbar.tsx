@@ -42,7 +42,7 @@ export default function Navbar() {
     { name: "БИДНИЙ ТУХАЙ", id: "about" },    
     { name: "ХИЙСЭН АЖЛУУД", id: "projects" },      
     { name: "ХАМТАРЧ АЖИЛЛАХ", id: "services" },    
-    { name: "УДИРДЛАГЫН ХЯНАЛТ ", id: "admin" }, 
+    { name: "ҮНИЙН САНАЛ ", id: "Pricelist" }, 
   ];
 
   return (
@@ -93,10 +93,10 @@ export default function Navbar() {
               </button>
             ))}
             <button 
-              onClick={() => scrollTo("contact")}
+              onClick={() => scrollTo("admin")}
               className="ml-4 px-6 py-2.5 bg-primary text-primary-foreground font-display font-bold uppercase tracking-wider text-sm rounded-sm hover:bg-primary/90 hover:shadow-[0_0_15px_rgba(217,119,6,0.4)] transition-all duration-300 active:scale-95 whitespace-nowrap"
             >
-              Үнийн санал авах
+              EPR СИСТЕМ
             </button>
           </nav>
 
@@ -131,10 +131,10 @@ export default function Navbar() {
                 </button>
               ))}
               <button 
-                onClick={() => scrollTo("contact")}
+                onClick={() => scrollTo("admin")}
                 className="mt-4 w-full py-4 bg-primary text-primary-foreground font-display font-bold uppercase tracking-wider rounded-sm active:scale-95 transition-transform"
               >
-                Үнийн санал авах
+                EPR СИСТЕМ
               </button>
             </div>
           </motion.div>

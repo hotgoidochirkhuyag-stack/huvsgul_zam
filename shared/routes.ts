@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { insertProjectSchema, insertContactSchema, projects, contacts } from './schema';
+import { insertProjectSchema, insertContactSchema, insertContentSchema, insertSuccessGallerySchema, projects, contacts, content, successGallery } from './schema';
 
 export const errorSchemas = {
   validation: z.object({
@@ -72,6 +72,32 @@ export const api = {
       responses: {
         200: z.custom<typeof content.$inferSelect>(),
         400: errorSchemas.validation,
+        404: errorSchemas.notFound,
+      },
+    },
+  },
+  gallery: {
+    list: {
+      method: 'GET' as const,
+      path: '/api/gallery' as const,
+      responses: {
+        200: z.array(z.custom<typeof successGallery.$inferSelect>()),
+      },
+    },
+    create: {
+      method: 'POST' as const,
+      path: '/api/gallery' as const,
+      input: insertSuccessGallerySchema,
+      responses: {
+        201: z.custom<typeof successGallery.$inferSelect>(),
+        400: errorSchemas.validation,
+      },
+    },
+    delete: {
+      method: 'DELETE' as const,
+      path: '/api/gallery/:id' as const,
+      responses: {
+        204: z.void(),
         404: errorSchemas.notFound,
       },
     },

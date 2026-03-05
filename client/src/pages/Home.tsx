@@ -2,7 +2,8 @@ import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Stats from "@/components/Stats";
 import Projects from "@/components/Projects";
-import Services from "@/components/Services"; // 1. Services-ийг импортлох
+import Services from "@/components/Services"; 
+import Pricelist from "@/components/Pricelist"; 
 import Contact from "@/components/Contact";
 import Footer from "@/components/Footer";
 
@@ -15,9 +16,9 @@ export default function Home() {
         <Hero />
         <Stats />
         <Projects />
-        {/* 2. Services-ийг Projects болон Contact-ын дунд нэмэх */}
         <Services /> 
-        <Contact />
+        <Pricelist />
+        <Contact /> {/* Энд хаалтыг нь зөв хааж, main дотор оруулав */}
       </main>
 
       <Footer />

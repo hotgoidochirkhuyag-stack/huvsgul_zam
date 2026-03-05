@@ -93,7 +93,7 @@ export default function Hero() {
         className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 cursor-pointer z-20"
         onClick={scrollToAbout}
       >
-        <span className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground">Доош гүйлгэх</span>
+        
         <motion.div
           animate={{ y: [0, 10, 0] }}
           transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}

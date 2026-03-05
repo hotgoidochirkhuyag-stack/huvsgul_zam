@@ -44,7 +44,7 @@ export default function Footer() {
             </p>
             <div className="flex items-center gap-4">
               {[
-                { Icon: Facebook, link: "https://facebook.com" },
+                { Icon: Facebook, link: "https://www.facebook.com/h.vsg.l.zam.hhk" },
                 { Icon: Twitter, link: "#" },
                 { Icon: Linkedin, link: "#" },
                 { Icon: Instagram, link: "#" }
@@ -70,7 +70,7 @@ export default function Footer() {
                 { name: 'Бидний тухай', id: 'about' },
                 { name: 'Хийсэн ажлууд', id: 'projects' },
                 { name: 'Хамтарч ажиллах', id: 'services' },
-                { name: 'Үнийн санал авах', id: 'contact' }
+                { name: 'Үнийн санал ', id: 'pricelist' }
               ].map((item, idx) => (
                 <li key={idx}>
                   <button 

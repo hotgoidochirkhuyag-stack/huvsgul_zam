@@ -12,7 +12,7 @@ const servicesData = [
   {
     id: 2,
     icon: Warehouse,
-    title: "Бетон зуурмаг үйлдвэр",
+    title: "Барилга , барилгын суурийн ажил",
     description: "Манай бетон зуурмагийн үйлдвэр өндөр чанартай, тохирлын гэрчилгээтэй бетон зуурмаг нийлүүлэх үйлчилгээ.",
     delay: 0.2
   },
@@ -56,15 +56,15 @@ export default function Services() {
           <div className="flex items-center gap-3 mb-6">
             <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-sm flex items-center gap-4">
               <span className="w-12 h-0.5 bg-primary"></span>
-              Харилцагчаа дээдэлсэн хамтын ажиллагаа
+              Бидэнтэй нэгдэх
             </h2>
           </div>
 
         <div className="flex flex-col lg:flex-row lg:items-end justify-between w-full gap-8">
             {/* Чиний хүссэн нүсэр загвар */}
             <h3 className="text-3xl md:text-4xl lg:text-4xl font-display font-black text-foreground uppercase leading-[1.1] max-w-3xl">
-              Бид хамтын <span className="text-transparent border-text"> ажиллагаандаа</span> <br className="hidden md:block" />
-              бүх талын дэмжлэг <span className="text-transparent border-text"> үзүүлнэ</span>
+              Хөгжилд <span className="text-transparent border-text"> тэмүүлсэн</span> <br className="hidden md:block" />
+              Хамтын  <span className="text-transparent border-text"> ажиллагаа</span>
             </h3>
 
             <motion.div 
@@ -77,10 +77,10 @@ export default function Services() {
                 className="px-8 py-4 bg-transparent border-2 border-primary text-primary font-display font-bold uppercase tracking-widest text-[10px] transition-all relative group overflow-hidden whitespace-nowrap"
               >
                 <span className="absolute inset-0 bg-primary translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
-                <span className="relative z-10 group-hover:text-primary-foreground transition-colors duration-300">
+                <span className="relative z-10 text-lg md:text-xl font-bold uppercase tracking-wider group-hover:text-primary-foreground transition-colors duration-300">
                   хамтран ажиллах санал хүлээн авах
                 </span>
-                <span className="absolute top-0 right-0 w-3 h-3 bg-primary translate-x-1.5 -translate-y-1.5 rotate-45 z-20"></span>
+         <span className="absolute top-0 right-0 w-3 h-3 bg-primary translate-x-1.5 -translate-y-1.5 rotate-45 z-20"></span>
               </button>
             </motion.div>
           </div>

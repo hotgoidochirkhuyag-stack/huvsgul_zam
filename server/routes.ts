@@ -86,6 +86,41 @@ export async function registerRoutes(
     }
   });
 
+  app.get(api.gallery.list.path, async (req, res) => {
+    try {
+      const items = await storage.getGallery();
+      res.json(items);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch gallery" });
+    }
+  });
+
+  app.post(api.gallery.create.path, async (req, res) => {
+    try {
+      const input = api.gallery.create.input.parse(req.body);
+      const item = await storage.createGallery(input);
+      res.status(201).json(item);
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({
+          message: err.errors[0].message,
+          field: err.errors[0].path.join('.'),
+        });
+      }
+      res.status(500).json({ message: "Failed to create gallery item" });
+    }
+  });
+
+  app.delete(api.gallery.delete.path, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteGallery(id);
+      res.status(204).end();
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete gallery item" });
+    }
+  });
+
   // Call this once on startup to ensure we have initial data
   seedDatabase().catch(console.error);
 
@@ -101,6 +136,17 @@ async function seedDatabase() {
       ctaText: "Төслүүдтэй танилцах",
       secondaryCtaText: "Холбогдох"
     });
+  }
+  const existingGallery = await storage.getGallery();
+  if (existingGallery.length === 0) {
+    const sampleImages = [
+      "https://images.unsplash.com/photo-1541888050604-20b12bc12e75",
+      "https://images.unsplash.com/photo-1503387762-592deb58ef4e",
+      "https://images.unsplash.com/photo-1541888081691-10c017efbbd1"
+    ];
+    for (const url of sampleImages) {
+      await storage.createGallery({ imageUrl: url, description: "Манай амжилттай төслүүдийн нэг" });
+    }
   }
   const existingProjects = await storage.getProjects();
   if (existingProjects.length === 0) {

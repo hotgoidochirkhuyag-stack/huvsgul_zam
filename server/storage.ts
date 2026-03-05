@@ -3,12 +3,15 @@ import {
   projects,
   contacts,
   content,
+  successGallery,
   type InsertProject,
   type InsertContact,
   type InsertContent,
+  type InsertSuccessGallery,
   type ProjectResponse,
   type ContactResponse,
-  type ContentResponse
+  type ContentResponse,
+  type SuccessGalleryResponse
 } from "@shared/schema";
 import { eq } from "drizzle-orm";
 
@@ -20,6 +23,9 @@ export interface IStorage {
   getContent(): Promise<ContentResponse[]>;
   getContentBySection(section: string): Promise<ContentResponse | undefined>;
   updateContent(section: string, updates: Partial<InsertContent>): Promise<ContentResponse>;
+  getGallery(): Promise<SuccessGalleryResponse[]>;
+  createGallery(item: InsertSuccessGallery): Promise<SuccessGalleryResponse>;
+  deleteGallery(id: number): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -69,6 +75,19 @@ export class DatabaseStorage implements IStorage {
       return newContent;
     }
     return updated;
+  }
+
+  async getGallery(): Promise<SuccessGalleryResponse[]> {
+    return await db.select().from(successGallery);
+  }
+
+  async createGallery(item: InsertSuccessGallery): Promise<SuccessGalleryResponse> {
+    const [newItem] = await db.insert(successGallery).values(item).returning();
+    return newItem;
+  }
+
+  async deleteGallery(id: number): Promise<void> {
+    await db.delete(successGallery).where(eq(successGallery.id, id));
   }
 }
 
