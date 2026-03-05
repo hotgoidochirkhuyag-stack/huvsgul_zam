@@ -57,7 +57,7 @@ export default function Projects() {
               variant="outline" 
               size="sm" 
               onClick={() => setIsAdding(!isAdding)}
-              className="bg-background/50 backdrop-blur-sm border-primary/50 text-primary hover:bg-primary/20 opacity-0 group-hover/section:opacity-100 transition-opacity"
+              className="bg-primary/10 border-primary/50 text-primary hover:bg-primary/20 transition-all"
             >
               <Plus className="w-4 h-4 mr-2" />
               Төсөл нэмэх
@@ -141,11 +141,11 @@ export default function Projects() {
                 transition={{ duration: 0.5, delay: index * 0.1 }}
                 className="group cursor-pointer relative"
               >
-                <div className="absolute top-4 right-4 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="absolute top-4 right-4 z-30 opacity-100">
                   <Button 
                     variant="destructive" 
                     size="icon"
-                    className="h-8 w-8"
+                    className="h-8 w-8 bg-destructive/80 backdrop-blur-sm hover:bg-destructive"
                     onClick={(e) => {
                       e.stopPropagation();
                       if (confirm("Энэ төслийг устгахдаа итгэлтэй байна уу?")) {
