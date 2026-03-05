@@ -119,7 +119,7 @@ export default function Stats() {
                 variant="outline" 
                 size="sm" 
                 onClick={() => setIsAdding(!isAdding)}
-                className="bg-primary/10 border-primary/30 text-primary hover:bg-primary/20 transition-all"
+                className="bg-background/50 border-primary/30 text-primary opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <Plus className="w-4 h-4 mr-2" /> Зураг нэмэх
               </Button>
@@ -158,11 +158,11 @@ export default function Stats() {
                     </div>
                     
                     {/* Delete button */}
-                    <div className="absolute top-4 right-4 opacity-100">
+                    <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button 
                         variant="destructive" 
                         size="icon" 
-                        className="h-8 w-8 bg-destructive/80 backdrop-blur-sm hover:bg-destructive"
+                        className="h-8 w-8"
                         onClick={() => {
                           if (confirm("Устгах уу?")) deleteGallery.mutate(gallery[currentSlide].id);
                         }}
