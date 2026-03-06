@@ -86,7 +86,7 @@ export default function Pricelist() {
               Үнийн Санал <span className="text-primary">Авах</span>
             </h3>
             <p className="text-muted-foreground text-lg mb-12 max-w-md leading-relaxed">
-              Манай үйлдвэрлэж буй барилгын материалын үнийн саналыг авахын тулд форм бөглөхөд л хангалттай. Бид таны хэрэгцээнд тохирсон хамгийн уян хатан нөхцөлийг санал болгоно.
+              Манай үйлдвэрлэж буй барилгын материалын үнийн саналыг авахын тулд энэ форм бөглөхөд л хангалттай. Бид таны хэрэгцээнд тохирсон хамгийн уян хатан нөхцөлийг санал болгоно.
             </p>
 
             <div className="space-y-10">
@@ -97,16 +97,16 @@ export default function Pricelist() {
                 </div>
                 <div>
                   <h4 className="text-md font-display font-bold text-foreground uppercase tracking-wide">Борлуулалтын алба</h4>
-                  <a href="tel:+97699112701" className="text-primary hover:underline text-xl font-black tracking-tight">+976 99112701</a>
+                  <a href="tel:+976 9911 2701" className="text-primary hover:underline text-xl font-black tracking-tight">+976 9911 2701</a>
                 </div>
               </div>
 
               {/* Сошиал сувгууд: Зөвхөн энэ хэсгийг томруулав */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-10 gap-x-12 pt-10 border-t border-border/50">
                 {[
-                  { icon: Facebook, title: "Facebook", desc: "Хөвсгөл Зам ХХК", link: "https://www.facebook.com/h.vsg.l.zam.hhk" },
-                  { icon: MessageCircle, title: "WhatsApp", desc: "Шууд чатлах", link: "https://wa.me/97699112701" },
-                  { icon: Send, title: "WeChat ID", desc: "HuvsgulZam_Admin", link: null },
+                  { icon: Facebook, title: "Facebook", desc: "хөвсгөл зам ххк", link: "https://www.facebook.com/h.vsg.l.zam.hhk" },
+                  { icon: MessageCircle, title: "WhatsApp", desc: "чатлах", link: "https://wa.me/97699112701" },
+                  { icon: Send, title: "WeChat ID", desc: "huvsgulzam_Admin", link: null },
                   { icon: Phone, title: "Viber", desc: "Viber чат", link: "viber://chat?number=+97699112701" },
                 ].map((item, idx) => (
                   <div key={idx} className="flex items-center gap-6 group">

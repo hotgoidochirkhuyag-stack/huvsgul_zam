@@ -2,13 +2,13 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertContactSchema, type InsertContact } from "@shared/schema";
-import { Phone, Mail, MapPin, Loader2 } from "lucide-react";
-import emailjs from '@emailjs/browser'; // EmailJS санг импортлох
+import { Phone, Facebook, MapPin, Loader2 } from "lucide-react";
+import emailjs from '@emailjs/browser';
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Contact() {
-  const [isSending, setIsSending] = useState(false); // Илгээж буй төлөвийг хянах
+  const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
 
   const form = useForm<InsertContact>({
@@ -22,20 +22,19 @@ export default function Contact() {
   });
 
   const onSubmit = async (data: InsertContact) => {
-    setIsSending(true); // Ачаалж эхлэх
+    setIsSending(true);
 
     try {
-      // EmailJS ашиглан huvsgulzam@gmail.com руу мэйл илгээх хэсэг
       await emailjs.send(
-        'service_zo80ffc',     // Таны Service ID
-        'template_1qp8wlm',    // Таны Template ID
+        'service_zo80ffc',
+        'template_1qp8wlm',
         {
-          name: data.name,     // Template дээрх {{name}}
-          email: data.email,   // Template дээрх {{email}}
-          phone: data.phone,   // Template дээрх {{phone}}
-          message: data.message // Template дээрх {{message}}
+          name: data.name,
+          email: data.email,
+          phone: data.phone,
+          message: data.message
         },
-        'jMUTsjEJc7DCIHEK4'    // Таны Public Key
+        'jMUTsjEJc7DCIHEK4'
       );
 
       toast({
@@ -43,7 +42,7 @@ export default function Contact() {
         description: "Бид таны хүсэлтийг хүлээн авлаа. Тантай тун удахгүй холбогдох болно.",
       });
 
-      form.reset(); // Формыг цэвэрлэх
+      form.reset();
     } catch (error) {
       console.error("Email error:", error);
       toast({
@@ -52,7 +51,7 @@ export default function Contact() {
         description: "Зурвас илгээхэд алдаа гарлаа. Та дахин оролдоно уу.",
       });
     } finally {
-      setIsSending(false); // Ачаалж дуусах
+      setIsSending(false);
     }
   };
 
@@ -70,7 +69,7 @@ export default function Contact() {
           >
             <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-sm mb-4 flex items-center gap-4">
               <span className="w-12 h-0.5 bg-primary"></span>
-             Харилцагчаа дээдэлсэн хамтрагч 
+              Харилцагчаа дээдэлсэн хамтрагч 
             </h2>
             <h3 className="text-3xl md:text-4xl font-display font-black text-foreground uppercase mb-8">
               Холбоо <span className="text-primary">Барих</span>
@@ -86,8 +85,8 @@ export default function Contact() {
                 </div>
                 <div>
                   <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide mb-1">Хаяг байршил</h4>
-<p className="text-muted-foreground">Улаанбаатар хот, Сүхбаатар дүүрэг, Хөвсгөл зам ХХК байр</p>
-<p className="text-muted-foreground">Хөвсгөл аймаг, Мөрөн сум, Хөвсгөл зам ХХК байр</p>
+                  <p className="text-muted-foreground">Улаанбаатар хот, Сүхбаатар дүүрэг, Хөвсгөл зам ХХК байр</p>
+                  <p className="text-muted-foreground">Хөвсгөл аймаг, Мөрөн сум, Хөвсгөл зам ХХК байр</p>
                 </div>
               </div>
 
@@ -101,15 +100,17 @@ export default function Contact() {
                 </div>
               </div>
 
-              <div className="flex items-start gap-6 group">
+              <a 
+                href="https://www.facebook.com/h.vsg.l.zam.hhk" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-6 group"
+              >
                 <div className="w-14 h-14 bg-background border border-primary/20 rounded-sm flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:border-primary transition-all duration-300">
-                  <Mail className="w-6 h-6 text-primary group-hover:text-primary-foreground transition-colors" />
+                  <Facebook className="w-6 h-6 text-primary group-hover:text-primary-foreground transition-colors" /> 
                 </div>
-                <div>
-                  <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide mb-1">И-Мэйл</h4>
-                  <p className="text-muted-foreground">huvsgulzam@gmail.com</p>
-                </div>
-              </div>
+                <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide group-hover:text-primary transition-colors">Facebook хуудас</h4>
+              </a>
             </div>
           </motion.div>
 
