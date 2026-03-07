@@ -35,6 +35,7 @@ export default function Stats() {
   const { data: gallery, createGallery, deleteGallery } = useGallery();
   const [currentSlide, setCurrentSlide] = useState(0);
   const [isAdding, setIsAdding] = useState(false);
+  const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [newImage, setNewImage] = useState({ imageUrl: "", description: "" });
   const [contextMenu, setContextMenu] = useState({ show: false, x: 0, y: 0 });
 
@@ -154,7 +155,18 @@ export default function Stats() {
 
             {isAdding && (
               <motion.div className="absolute inset-0 z-50 bg-background/80 p-8 flex flex-col justify-center gap-4">
-                <Input placeholder="URL" value={newImage.imageUrl} onChange={e => setNewImage({...newImage, imageUrl: e.target.value})} />
+                <div className="flex gap-2">
+                  <Input placeholder="URL" value={newImage.imageUrl} onChange={e => setNewImage({...newImage, imageUrl: e.target.value})} />
+                  <Button type="button" variant="outline" size="sm" onClick={() => setShowMediaPicker(!showMediaPicker)}>
+                    Сонгох
+                  </Button>
+                </div>
+                {showMediaPicker && (
+                  <MediaPicker onSelect={(url) => {
+                    setNewImage({...newImage, imageUrl: url});
+                    setShowMediaPicker(false);
+                  }} allowedTypes={["image"]} />
+                )}
                 <Input placeholder="Тайлбар" value={newImage.description} onChange={e => setNewImage({...newImage, description: e.target.value})} />
                 <div className="flex gap-2"><Button onClick={handleAdd}>Хадгалах</Button><Button variant="outline" onClick={() => setIsAdding(false)}>Цуцлах</Button></div>
               </motion.div>

@@ -3,12 +3,83 @@ import type { Server } from "http";
 import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+const storage_config = multer.diskStorage({
+  destination: function (req, file, cb) {
+    const uploadPath = path.join(process.cwd(), "client", "public", "uploads");
+    if (!fs.existsSync(uploadPath)) {
+      fs.mkdirSync(uploadPath, { recursive: true });
+    }
+    cb(null, uploadPath);
+  },
+  filename: function (req, file, cb) {
+    const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
+    cb(null, uniqueSuffix + path.extname(file.originalname));
+  }
+});
+
+const upload = multer({ 
+  storage: storage_config,
+  limits: { fileSize: 50 * 1024 * 1024 }, // 50MB limit
+});
 
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
   
+  app.post("/api/upload", upload.single("file"), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      const fileType = req.file.mimetype.startsWith("video/") ? "video" : "image";
+      const mediaItem = await storage.createMedia({
+        url: `/uploads/${req.file.filename}`,
+        type: fileType,
+        filename: req.file.originalname,
+      });
+
+      res.status(201).json(mediaItem);
+    } catch (err) {
+      console.error("Upload error:", err);
+      res.status(500).json({ message: "Failed to upload file" });
+    }
+  });
+
+  app.get("/api/media", async (req, res) => {
+    try {
+      const mediaItems = await storage.getMedia();
+      res.json(mediaItems);
+    } catch (err) {
+      res.status(500).json({ message: "Failed to fetch media" });
+    }
+  });
+
+  app.delete("/api/media/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const mediaItems = await storage.getMedia();
+      const item = mediaItems.find(m => m.id === id);
+      
+      if (item) {
+        const filePath = path.join(process.cwd(), "client", "public", item.url);
+        if (fs.existsSync(filePath)) {
+          fs.unlinkSync(filePath);
+        }
+      }
+      
+      await storage.deleteMedia(id);
+      res.status(204).end();
+    } catch (err) {
+      res.status(500).json({ message: "Failed to delete media" });
+    }
+  });
+
   app.get(api.projects.list.path, async (req, res) => {
     try {
       const projects = await storage.getProjects();
