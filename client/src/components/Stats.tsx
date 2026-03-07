@@ -15,6 +15,21 @@ const statsConfig = [
   { id: 4, icon: ShieldCheck, label: "Бетон зуурмагийн чанарын баталгаа", type: "dynamic", value: "Уншиж байна...", delay: 0.4 }
 ];
 
+// UI дотор ашиглахдаа:
+{statsConfig.map((item) => {
+  const Icon = item.icon; 
+
+  return (
+    <div key={item.id} className="flex items-center gap-3 p-4 border rounded-lg">
+      <Icon className="w-8 h-8 text-blue-600" />
+      <div className="flex flex-col">
+        <span className="text-sm text-gray-500">{item.label}</span>
+        <span className="font-bold text-lg">{item.value}</span>
+      </div>
+    </div>
+  );
+})}
+
 export default function Stats() {
   const [stats, setStats] = useState(statsConfig);
   const { data: gallery, createGallery, deleteGallery } = useGallery();
