@@ -6,12 +6,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import MediaPicker from "./MediaPicker";
 
 export default function Projects() {
   const { data: projects, isLoading, isError, createProject, deleteProject } = useProjects();
   const [isAdding, setIsAdding] = useState(false);
-  const [showMediaPicker, setShowMediaPicker] = useState(false);
   const [newProject, setNewProject] = useState({
     title: "",
     description: "",
@@ -94,22 +92,11 @@ export default function Projects() {
                 value={newProject.category}
                 onChange={e => setNewProject({...newProject, category: e.target.value})}
               />
-              <div className="flex gap-2">
-                <Input 
-                  placeholder="Зургийн URL" 
-                  value={newProject.imageUrl}
-                  onChange={e => setNewProject({...newProject, imageUrl: e.target.value})}
-                />
-                <Button type="button" variant="outline" onClick={() => setShowMediaPicker(!showMediaPicker)}>
-                  Сангаас сонгох
-                </Button>
-              </div>
-              {showMediaPicker && (
-                <MediaPicker onSelect={(url) => {
-                  setNewProject({...newProject, imageUrl: url});
-                  setShowMediaPicker(false);
-                }} allowedTypes={["image"]} />
-              )}
+              <Input 
+                placeholder="Зургийн URL" 
+                value={newProject.imageUrl}
+                onChange={e => setNewProject({...newProject, imageUrl: e.target.value})}
+              />
               <Textarea 
                 placeholder="Тайлбар" 
                 value={newProject.description}

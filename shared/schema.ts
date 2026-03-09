@@ -37,19 +37,10 @@ export const successGallery = pgTable("success_gallery", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const media = pgTable("media", {
-  id: serial("id").primaryKey(),
-  url: text("url").notNull(),
-  type: text("type").notNull(), // 'image' or 'video'
-  filename: text("filename").notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
 export const insertContactSchema = createInsertSchema(contacts).omit({ id: true, createdAt: true });
 export const insertContentSchema = createInsertSchema(content).omit({ id: true, updatedAt: true });
 export const insertSuccessGallerySchema = createInsertSchema(successGallery).omit({ id: true, createdAt: true });
-export const insertMediaSchema = createInsertSchema(media).omit({ id: true, createdAt: true });
 
 export type Project = typeof projects.$inferSelect;
 export type InsertProject = z.infer<typeof insertProjectSchema>;
@@ -63,11 +54,7 @@ export type InsertContent = z.infer<typeof insertContentSchema>;
 export type SuccessGallery = typeof successGallery.$inferSelect;
 export type InsertSuccessGallery = z.infer<typeof insertSuccessGallerySchema>;
 
-export type Media = typeof media.$inferSelect;
-export type InsertMedia = z.infer<typeof insertMediaSchema>;
-
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;
 export type SuccessGalleryResponse = SuccessGallery;
-export type MediaResponse = Media;
