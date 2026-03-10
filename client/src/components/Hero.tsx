@@ -3,10 +3,11 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import { useContent } from "@/hooks/use-content";
 
 export default function Hero() {
-  const { data: content, isLoading } = useContent("hero");
-  // ... rest of the code
-}
-    const el = document.getElementById("about");
+  const { getSection } = useContent();
+  const heroContent = getSection("hero");
+
+  const scrollToAbout = () => {
+    const el = document.getElementById("projects") || document.getElementById("about");
     if (el) {
       const offset = el.getBoundingClientRect().top + window.scrollY - 80;
       window.scrollTo({ top: offset, behavior: "smooth" });
@@ -15,7 +16,7 @@ export default function Hero() {
 
   return (
     <section className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-background group">
-      {/* Background Video / Overlay - Одоо байгаа хэвээр нь */}
+      {/* Background Video / Overlay */}
       <div className="absolute inset-0 z-0">
         <video 
           autoPlay 
@@ -51,7 +52,6 @@ export default function Hero() {
             </span>
           </div>
 
-          {/* Текстүүд зураг дээрхтэй яг таарна */}
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black text-foreground uppercase leading-[1.1] mb-6">
             Ирээдүйг <br />
             <span className="text-primary text-glow">Бүтээнэ</span>
