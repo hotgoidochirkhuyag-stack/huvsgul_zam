@@ -3,10 +3,9 @@ import { ArrowRight, ChevronDown } from "lucide-react";
 import { useContent } from "@/hooks/use-content";
 
 export default function Hero() {
-  const { getSection } = useContent();
-  const heroContent = getSection("hero");
-
-  const scrollToAbout = () => {
+  const { data: content, isLoading } = useContent("hero");
+  // ... rest of the code
+}
     const el = document.getElementById("about");
     if (el) {
       const offset = el.getBoundingClientRect().top + window.scrollY - 80;
