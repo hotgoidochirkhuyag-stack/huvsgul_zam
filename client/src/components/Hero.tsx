@@ -16,7 +16,7 @@ export default function Hero() {
 
   return (
     <section className="relative h-screen w-full flex items-center justify-center overflow-hidden bg-background group">
-      {/* Background Video / Overlay */}
+      {/* Background Video / Overlay - Одоо байгаа хэвээр нь */}
       <div className="absolute inset-0 z-0">
         <video 
           autoPlay 
@@ -26,7 +26,6 @@ export default function Hero() {
           className="w-full h-full object-cover"
         >
           <source src="/videos/hero-bg.mp4" type="video/mp4" />
-          {/* Fallback image if video fails to load */}
           <img 
             src="https://images.unsplash.com/photo-1541888050604-20b12bc12e75?auto=format&fit=crop&q=80" 
             alt="Road Construction" 
@@ -45,6 +44,7 @@ export default function Hero() {
           transition={{ duration: 0.8, ease: "easeOut" }}
           className="max-w-4xl"
         >
+          {/* Дээд талын жижиг текст */}
           <div className="inline-flex items-center gap-3 px-4 py-2 bg-primary/10 border border-primary/30 rounded-sm mb-8">
             <span className="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
             <span className="text-primary font-bold tracking-widest uppercase text-xs sm:text-sm">
@@ -52,13 +52,14 @@ export default function Hero() {
             </span>
           </div>
 
+          {/* Текстүүд зураг дээрхтэй яг таарна */}
           <h1 className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-display font-black text-foreground uppercase leading-[1.1] mb-6">
-            {heroContent?.title.split(' ')[0]} <br />
-            <span className="text-primary text-glow">{heroContent?.title.split(' ').slice(1).join(' ')}</span>
+            Ирээдүйг <br />
+            <span className="text-primary text-glow">Бүтээнэ</span>
           </h1>
 
           <p className="text-lg sm:text-xl text-muted-foreground font-medium max-w-2xl mb-10 leading-relaxed border-l-4 border-primary pl-6">
-            {heroContent?.description}
+            Бид чанар стандартын өндөр түвшинд авто зам, гүүр, барилга байгууламжийн төслүүдэд хамтран амжиллахад бэлэн байна.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4">
@@ -69,7 +70,7 @@ export default function Hero() {
               }}
               className="px-8 py-4 bg-primary text-primary-foreground font-display font-bold uppercase tracking-wider rounded-sm flex items-center justify-center gap-3 hover:bg-primary/90 hover:gap-5 transition-all duration-300 box-glow"
             >
-              {heroContent?.ctaText}
+              Бидний амжилттай танилцах
               <ArrowRight className="w-5 h-5" />
             </button>
             <button 
@@ -79,7 +80,7 @@ export default function Hero() {
               }}
               className="px-8 py-4 bg-transparent border-2 border-primary text-primary font-display font-bold uppercase tracking-wider rounded-sm flex items-center justify-center hover:bg-primary/10 transition-colors duration-300"
             >
-              {heroContent?.secondaryCtaText}
+              Холбогдох
             </button>
           </div>
         </motion.div>
@@ -93,7 +94,6 @@ export default function Hero() {
         className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 cursor-pointer z-20"
         onClick={scrollToAbout}
       >
-        
         <motion.div
           animate={{ y: [0, 10, 0] }}
           transition={{ repeat: Infinity, duration: 1.5, ease: "easeInOut" }}

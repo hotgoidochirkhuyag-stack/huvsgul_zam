@@ -42,9 +42,9 @@ const AdminLogin = () => {
 
   const getStatusStyle = (v: string) => {
     switch(v) {
-      case "улаан": return { color: "bg-red-500", shadow: "shadow-[0_0_15px_#ef4444]", label: "СААТАЛТАЙ" };
-      case "ногоон": return { color: "bg-green-500", shadow: "shadow-[0_0_15px_#22c55e]", label: "ХАНГАЛТТАЙ" };
-      case "шар": return { color: "bg-yellow-500", shadow: "shadow-[0_0_15px_#eab308]", label: "ИДЭВХТЭЙ" };
+      case "улаан": return { color: "bg-red-500", shadow: "shadow-[0_0_15px_#ef4444]", label: "АРГА ХЭМЖЭЭ АВАХ" };
+      case "ногоон": return { color: "bg-green-500", shadow: "shadow-[0_0_15px_#22c55e]", label: "ГҮЙЦЭТГЭЛИЙГ ШАЛГАЖ ТАЙЛАГНАХ" };
+      case "шар": return { color: "bg-yellow-500", shadow: "shadow-[0_0_15px_#eab308]", label: "АНХААРАЛ ХАНДУУЛАХ" };
       default: return { color: "bg-slate-500", shadow: "shadow-[0_0_15px_#64748b]", label: "АМРАЛТ" };
     }
   };
