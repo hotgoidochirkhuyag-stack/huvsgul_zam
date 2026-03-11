@@ -1,6 +1,6 @@
 import { type Express } from "express";
-import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
+import { createServer as createViteServer, createLogger } from "vite";
 import viteConfig from "../vite.config";
 import fs from "fs";
 import path from "path";
@@ -42,7 +42,6 @@ export async function setupVite(server: Server, app: Express) {
         "index.html",
       );
 
-      // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
         `src="/src/main.tsx"`,

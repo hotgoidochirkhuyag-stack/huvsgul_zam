@@ -4,7 +4,12 @@ import { useContent } from "@/hooks/use-content";
 
 export default function Hero() {
   const { getSection } = useContent();
-  const heroContent = getSection("hero");
+  const heroContent = getSection("hero") || {
+    title: "Ирээдүйг Бүтээнэ",
+    description: "Бид 30 гаруй жилийн туршлагаараа чанар стандартын өндөр түвшинд авто зам, гүүр, барилга байгууламжийн төслүүдийг амжилттай хэрэгжүүлж байна.",
+    ctaText: "Төслүүдтэй танилцах",
+    secondaryCtaText: "Холбогдох"
+  };
 
   const scrollToAbout = () => {
     const el = document.getElementById("projects") || document.getElementById("about");

@@ -1,14 +1,23 @@
-import { storage } from "./storage";
-import { type Express } from "express";
-import { type Server } from "http";
+import express from "express";
+import { createServer } from "http";
+import { registerRoutes } from "./routes";
+import { setupVite } from "./vite";
 
-export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
-  app.get("/api/projects", async (_req, res) => {
-    // Cache-ийг албаар устгаж байна
-    res.set('Cache-Control', 'no-store');
-    const data = await storage.getProjects();
-    res.json(data);
-  });
+const app = express();
+const httpServer = createServer(app);
 
-  return httpServer;
-}
+// Middleware
+app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
+
+// Setup Vite in development
+await setupVite(httpServer, app);
+
+// Register API routes
+await registerRoutes(httpServer, app);
+
+// Start server
+const PORT = process.env.PORT || 5000;
+httpServer.listen(PORT, () => {
+  console.log(`[express] serving on port ${PORT}`);
+});
