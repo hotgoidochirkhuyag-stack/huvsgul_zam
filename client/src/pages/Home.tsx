@@ -1,7 +1,8 @@
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
 import Stats from "@/components/Stats";
-import Projects from "@/components/Projects";
+import ProjectsCloudinary from "@/components/ProjectsCloudinary";
+import Videos from "@/components/Videos";
 import Services from "@/components/Services"; 
 import Pricelist from "@/components/Pricelist"; 
 import Contact from "@/components/Contact";
@@ -15,10 +16,11 @@ export default function Home() {
       <main className="flex-grow">
         <Hero />
         <Stats />
-        <Projects />
+        <ProjectsCloudinary />
+        <Videos />
         <Services /> 
         <Pricelist />
-        <Contact /> {/* Энд хаалтыг нь зөв хааж, main дотор оруулав */}
+        <Contact />
       </main>
 
       <Footer />
