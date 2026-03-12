@@ -23,12 +23,12 @@ export default function Stats() {
     return () => clearInterval(interval);
   }, [gallery]);
 
-  // ЗАСВАР: Google Sheet-ийн алдааг серверийн прокси ашиглан шийдсэн хувилбар
+  // Google Sheet-ийн өгөгдлийг серверийн прокси ашиглан авах
   const fetchAllData = async () => {
     try {
       const resp = await fetch("/api/sheet-data");
-      const json = await resp.json();
-      const text = json.data;
+      if (!resp.ok) throw new Error("Sheet fetch failed");
+      const text = await resp.text();
       const rows = text.split(/\r?\n/).map((l: string) => l.split(','));
 
       // КОНСОЛ ДЭЭР ХЭВЛЭЖ ШАЛГАХ
