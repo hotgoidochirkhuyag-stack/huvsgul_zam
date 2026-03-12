@@ -80,6 +80,70 @@ export async function registerRoutes(
     }
   });
 
+  // ============ SUBSCRIPTIONS API ============
+  // POST: Footer email бүртгэлийг хадгалах
+  app.post("/api/subscriptions", async (req, res) => {
+    try {
+      const subSchema = z.object({
+        email: z.string().email("Зөв и-мэйл хаяг оруулна уу"),
+        type: z.string().min(1),
+      });
+      const data = subSchema.parse(req.body);
+      const [sub] = await db.insert(schema.subscriptions).values(data).returning();
+      res.status(201).json(sub);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ message: error.errors[0].message });
+      }
+      console.error("Subscription API алдаа:", error);
+      res.status(500).json({ error: "Бүртгэхэд алдаа гарлаа" });
+    }
+  });
+
+  // GET: Бүх subscriptions авах (admin-д зориулсан)
+  app.get("/api/subscriptions", async (_req, res) => {
+    try {
+      const subs = await db.select().from(schema.subscriptions).orderBy(schema.subscriptions.createdAt);
+      res.json(subs);
+    } catch (error) {
+      console.error("Subscriptions GET алдаа:", error);
+      res.status(500).json({ error: "Бүртгэлийг татахад алдаа гарлаа" });
+    }
+  });
+
+  // DELETE: Subscription устгах
+  app.delete("/api/subscriptions/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(schema.subscriptions).where(eq(schema.subscriptions.id, id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Устгахад алдаа гарлаа" });
+    }
+  });
+
+  // GET: Бүх contacts авах (admin-д зориулсан)
+  app.get("/api/contacts", async (_req, res) => {
+    try {
+      const contacts = await db.select().from(schema.contacts).orderBy(schema.contacts.createdAt);
+      res.json(contacts);
+    } catch (error) {
+      console.error("Contacts GET алдаа:", error);
+      res.status(500).json({ error: "Мэдэгдэлүүдийг татахад алдаа гарлаа" });
+    }
+  });
+
+  // DELETE: Contact устгах
+  app.delete("/api/contacts/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(schema.contacts).where(eq(schema.contacts.id, id));
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ error: "Устгахад алдаа гарлаа" });
+    }
+  });
+
   // ============ CONTACTS API ============
   // POST: Холбоо барих формын өгөгдлийг хадгалах
   app.post("/api/contacts", async (req, res) => {

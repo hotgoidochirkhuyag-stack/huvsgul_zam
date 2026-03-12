@@ -54,8 +54,8 @@ const AdminLogin = () => {
     if (username === sheetData.user && password === sheetData.pass) {
       try {
         await fetch(scriptUrl, { method: "POST", mode: "no-cors", body: JSON.stringify({ user: username }) });
-        alert("Тавтай морил, Захирал аа!");
-        window.location.href = "/"; 
+        localStorage.setItem("isAdmin", "true");
+        window.location.href = "/admin/dashboard";
       } catch (err) { alert("Алдаа гарлаа"); }
     } else {
       alert("Нэр эсвэл нууц үг буруу!");

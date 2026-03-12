@@ -1,8 +1,13 @@
+import { useState } from "react";
 import { Facebook, MessageCircle, MessageSquare, PhoneCall } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Footer() {
   const { toast } = useToast();
+  const [jobEmail, setJobEmail] = useState("");
+  const [newsEmail, setNewsEmail] = useState("");
+  const [jobLoading, setJobLoading] = useState(false);
+  const [newsLoading, setNewsLoading] = useState(false);
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -14,11 +19,29 @@ export default function Footer() {
     }
   };
 
-  const handleSubscribe = (type: string) => {
-    toast({
-      title: "Бүртгэл амжилттай",
-      description: `${type} чиглэлээр мэдээлэл хүлээн авагчаар бүртгэгдлээ.`,
-    });
+  const handleSubscribe = async (email: string, type: string, setLoading: (v: boolean) => void, setEmail: (v: string) => void) => {
+    if (!email || !email.includes("@")) {
+      toast({ variant: "destructive", title: "Алдаа", description: "Зөв и-мэйл хаяг оруулна уу." });
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await fetch("/api/subscriptions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, type }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.message || "Алдаа гарлаа");
+      }
+      toast({ title: "Бүртгэл амжилттай", description: `${type} чиглэлээр мэдээлэл хүлээн авагчаар бүртгэгдлээ.` });
+      setEmail("");
+    } catch (e: any) {
+      toast({ variant: "destructive", title: "Алдаа", description: e.message });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -28,19 +51,17 @@ export default function Footer() {
 
           {/* 1. Компани тухай & ЛОГО */}
           <div className="col-span-1">
-            <div 
+            <div
               className="flex flex-col cursor-pointer mb-6 group/logo"
               onClick={() => scrollToSection("hero")}
             >
-              {/* Лого байрлах хэсэг */}
               <div className="mb-4">
-                <img 
-                  src="/logo.png" 
-                  alt="Хөвсгөл Зам Лого" 
+                <img
+                  src="/logo.png"
+                  alt="Хөвсгөл Зам Лого"
                   className="h-16 w-auto object-contain brightness-0 invert dark:brightness-100 dark:invert-0 transition-transform group-hover/logo:scale-105 duration-300"
                 />
               </div>
-
               <span className="font-display font-bold text-2xl leading-none tracking-wider text-foreground uppercase">
                 Хөвсгөл Зам
               </span>
@@ -53,7 +74,7 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* 2. Шууд холбогдох (CLICKABLE) */}
+          {/* 2. Шууд холбогдох */}
           <div>
             <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Холбоо барих</h4>
             <ul className="space-y-5">
@@ -74,7 +95,7 @@ export default function Footer() {
                 </a>
               </li>
               <li>
-                <div 
+                <div
                   className="group flex flex-col cursor-pointer"
                   onClick={() => {
                     navigator.clipboard.writeText("huvsgulzam_Admin");
@@ -107,16 +128,19 @@ export default function Footer() {
               Хөвсгөл зам компанид ажиллахыг хүсвэл и-мэйл хаягаа илгээнэ үү. Бид танд нээлтэй ажлын байрны талаар мэдээлэл илгээн манай хамт олонд нэгдэх боломжийг бүрдүүлэх болно.
             </p>
             <div className="space-y-2">
-              <input 
-                type="email" 
-                placeholder="И-Мэйл хаяг" 
+              <input
+                type="email"
+                value={jobEmail}
+                onChange={(e) => setJobEmail(e.target.value)}
+                placeholder="И-Мэйл хаяг"
                 className="w-full bg-card border border-border px-4 py-2.5 rounded-sm text-sm focus:outline-none focus:border-primary transition-colors"
               />
-              <button 
-                onClick={() => handleSubscribe("Ажлын байр")}
-                className="w-full bg-card border border-primary/50 text-primary font-bold uppercase tracking-widest py-2.5 rounded-sm text-[10px] hover:bg-primary hover:text-white transition-all"
+              <button
+                onClick={() => handleSubscribe(jobEmail, "Ажлын байр", setJobLoading, setJobEmail)}
+                disabled={jobLoading}
+                className="w-full bg-card border border-primary/50 text-primary font-bold uppercase tracking-widest py-2.5 rounded-sm text-[10px] hover:bg-primary hover:text-white transition-all disabled:opacity-50"
               >
-                Илгээх
+                {jobLoading ? "Илгээж байна..." : "Илгээх"}
               </button>
             </div>
           </div>
@@ -130,16 +154,19 @@ export default function Footer() {
               Хэрэгжиж буй болон шинээр эхлэх төсөл, бүтээн байгуулалтын талаар мэдээлэл авахыг хүсвэл и-мэйл хаягаа илгээнэ үү.
             </p>
             <div className="space-y-2">
-              <input 
-                type="email" 
-                placeholder="И-Мэйл хаяг" 
+              <input
+                type="email"
+                value={newsEmail}
+                onChange={(e) => setNewsEmail(e.target.value)}
+                placeholder="И-Мэйл хаяг"
                 className="w-full bg-card border border-border px-4 py-2.5 rounded-sm text-sm focus:outline-none focus:border-primary transition-colors"
               />
-              <button 
-                onClick={() => handleSubscribe("Төслийн мэдээ")}
-                className="w-full bg-primary text-white font-bold uppercase tracking-widest py-2.5 rounded-sm text-[10px] hover:bg-primary/90 transition-all"
+              <button
+                onClick={() => handleSubscribe(newsEmail, "Төслийн мэдээ", setNewsLoading, setNewsEmail)}
+                disabled={newsLoading}
+                className="w-full bg-card border border-primary/50 text-primary font-bold uppercase tracking-widest py-2.5 rounded-sm text-[10px] hover:bg-primary hover:text-white transition-all disabled:opacity-50"
               >
-                Илгээх
+                {newsLoading ? "Илгээж байна..." : "Илгээх"}
               </button>
             </div>
           </div>
@@ -152,7 +179,7 @@ export default function Footer() {
             © {new Date().getFullYear()} Хөвсгөл Зам ХХК. Бүх эрх хуулиар хамгаалагдсан.
           </p>
           <div className="flex items-center gap-6">
-            <button className="text-muted-foreground hover:text-foreground text-xs uppercase tracking-wider font-semibold transition-colors">Үйлчилгээний нөхцөл</button>
+            <a href="/admin" className="text-muted-foreground hover:text-foreground text-xs uppercase tracking-wider font-semibold transition-colors">Удирдах самбар</a>
             <button className="text-muted-foreground hover:text-foreground text-xs uppercase tracking-wider font-semibold transition-colors">Нууцлалын бодлого</button>
           </div>
         </div>
