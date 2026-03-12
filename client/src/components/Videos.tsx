@@ -1,86 +1,63 @@
 import { motion } from "framer-motion";
-import { useVideos } from "@/hooks/use-cloudinary";
+import { useGallery } from "@/hooks/use-gallery";
 import { Play } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function Videos() {
-  const { data: videos, isLoading, isError } = useVideos();
-  const displayVideos = Array.isArray(videos) ? videos.slice(0, 3) : [];
+  const { data: videos, isLoading } = useGallery("/api/videos");
 
   return (
-    <section id="videos" className="py-32 bg-background relative group/section">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        
-        {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-16 gap-8">
-          <motion.div 
-            initial={{ opacity: 0, x: -20 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
-            className="max-w-2xl"
-          >
-            <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-sm mb-4 flex items-center gap-4">
-              <span className="w-12 h-0.5 bg-primary"></span>
-              Бичлэгүүд
-            </h2>
-            <h3 className="text-4xl md:text-5xl font-display font-black text-foreground uppercase">
-              Онцлох <span className="text-transparent border-text">Төслүүд</span>
-            </h3>
-            <style>{`
-              .border-text {
-                -webkit-text-stroke: 1px hsl(var(--foreground));
-              }
-            `}</style>
-          </motion.div>
-        </div>
-
-        {/* Videos Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+    <section id="videos" className="py-32 bg-[#0a1120] text-white">
+      <div className="max-w-7xl mx-auto px-4">
+        <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-sm mb-4 flex items-center gap-4">
+          <span className="w-12 h-0.5 bg-primary"></span>
+          Манай амжилт
+        </h2>
+        <h3 className="text-4xl md:text-5xl font-display font-black text-foreground uppercase">
+          ОНЦЛОХ <span className="text-transparent border-text">БИЧЛЭГҮҮД</span>
+        </h3>
+        <div className="h-16"></div>
+         <style>{`.border-text { -webkit-text-stroke: 1px hsl(var(--foreground)); }`}</style>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {isLoading ? (
+            // Уншиж байх үеийн дүрсүүд
             Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="flex flex-col space-y-4">
-                <Skeleton className="h-[250px] w-full rounded-sm bg-card" />
-                <Skeleton className="h-6 w-3/4 bg-card" />
-              </div>
+              <Skeleton key={i} className="h-[250px] w-full bg-slate-800" />
             ))
-          ) : isError || displayVideos.length === 0 ? (
-            <div className="col-span-full py-20 text-center border-2 border-dashed border-border rounded-sm">
-              <p className="text-muted-foreground font-medium">Cloudinary-д бичлэг байхгүй байна. (videos/ хавтас сунгаа)</p>
-            </div>
-          ) : (
-            displayVideos.map((video: any, index: number) => (
+          ) : Array.isArray(videos) && videos.length > 0 ? (
+            // Дата ирсэн үеийн бичлэгүүд
+            videos.map((video: any) => (
               <motion.a
                 key={video.id}
                 href={video.videoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                initial={{ opacity: 0, y: 30 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: index * 0.1 }}
-                className="group cursor-pointer relative"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="group block relative"
               >
-                <div className="relative h-[250px] overflow-hidden rounded-sm mb-4 bg-card border border-border">
-                  <div className="absolute inset-0 bg-gradient-to-b from-transparent to-background/80 group-hover:to-background transition-colors duration-500 z-10"></div>
-                  
-                  {/* Video thumbnail - extract from URL or show placeholder */}
-                  <div className="w-full h-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center">
-                    <Play className="w-16 h-16 text-primary/40 group-hover:text-primary group-hover:scale-110 transition-all duration-300" />
-                  </div>
-                  
-                  {/* Play button overlay */}
-                  <div className="absolute inset-0 flex items-center justify-center z-20">
-                    <div className="w-16 h-16 rounded-full bg-primary/80 group-hover:bg-primary flex items-center justify-center transition-all duration-300 group-hover:scale-110">
-                      <Play className="w-8 h-8 text-white fill-white ml-1" />
+                {/* Видеоны нүүр зураг */}
+                <div className="relative h-[250px] w-full bg-slate-900 rounded-sm overflow-hidden border border-slate-700">
+                  <img 
+                    src={video.videoUrl.replace('/upload/', '/upload/w_600,h_400,c_fill,q_auto,f_jpg/')} 
+                    alt={video.title}
+                    className="w-full h-full object-cover opacity-60 group-hover:opacity-100 transition-opacity duration-300"
+                  />
+                  {/* Play товчлуур */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <div className="w-16 h-16 rounded-full border-2 border-white/30 flex items-center justify-center group-hover:scale-110 transition-transform duration-300 bg-black/20">
+                      <Play className="w-8 h-8 text-white fill-white" />
                     </div>
                   </div>
                 </div>
-                
-                <h4 className="text-lg font-display font-bold text-foreground group-hover:text-primary transition-colors">
+                {/* Бичлэгийн гарчиг */}
+                <h4 className="mt-4 font-bold text-lg uppercase tracking-wider text-slate-200 group-hover:text-amber-500 transition-colors">
                   {video.title}
                 </h4>
               </motion.a>
             ))
+          ) : (
+            <p className="col-span-3 text-center text-slate-400">Одоогоор бичлэг олдсонгүй.</p>
           )}
         </div>
       </div>

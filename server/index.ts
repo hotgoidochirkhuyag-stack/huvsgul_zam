@@ -3,21 +3,31 @@ import { createServer } from "http";
 import { registerRoutes } from "./routes";
 import { setupVite } from "./vite";
 
-const app = express();
-const httpServer = createServer(app);
+async function startServer() {
+  const app = express();
 
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+  // Middleware-үүд
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: false }));
 
-// Setup Vite in development
-await setupVite(httpServer, app);
+  const httpServer = createServer(app);
 
-// Register API routes
-await registerRoutes(httpServer, app);
+  // ЧУХАЛ: API замуудыг Vite-ээс өмнө бүртгэх
+  // Ингэснээр сервер хүсэлтийг API гэж таньж чадна
+  await registerRoutes(httpServer, app);
 
-// Start server
-const PORT = process.env.PORT || 5000;
-httpServer.listen(PORT, () => {
-  console.log(`[express] serving on port ${PORT}`);
+  // Vite тохиргоо (Хэрэв development горимд бол)
+  if (process.env.NODE_ENV !== 'production') {
+    await setupVite(httpServer, app);
+  }
+
+  // Сервер эхлүүлэх
+  const PORT = process.env.PORT || 5000;
+  httpServer.listen(PORT, "0.0.0.0", () => {
+    console.log(`[express] сервер 5000 порт дээр ажиллаж байна.`);
+  });
+}
+
+startServer().catch((err) => {
+  console.error("Сервер эхлүүлэхэд алдаа гарлаа:", err);
 });

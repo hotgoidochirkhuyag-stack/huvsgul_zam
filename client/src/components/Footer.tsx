@@ -1,4 +1,4 @@
-import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
+import { Facebook, MessageCircle, MessageSquare, PhoneCall } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Footer() {
@@ -14,10 +14,10 @@ export default function Footer() {
     }
   };
 
-  const handleSubscribe = () => {
+  const handleSubscribe = (type: string) => {
     toast({
       title: "Бүртгэл амжилттай",
-      description: "Та мэдээлэл хүлээн авагчаар амжилттай бүртгэгдлээ.",
+      description: `${type} чиглэлээр мэдээлэл хүлээн авагчаар бүртгэгдлээ.`,
     });
   };
 
@@ -26,12 +26,21 @@ export default function Footer() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12 mb-16">
 
-          {/* Brand - Дүрсгүй хувилбар */}
-          <div className="col-span-1 lg:col-span-1">
+          {/* 1. Компани тухай & ЛОГО */}
+          <div className="col-span-1">
             <div 
-              className="flex flex-col cursor-pointer mb-6"
+              className="flex flex-col cursor-pointer mb-6 group/logo"
               onClick={() => scrollToSection("hero")}
             >
+              {/* Лого байрлах хэсэг */}
+              <div className="mb-4">
+                <img 
+                  src="/logo.png" 
+                  alt="Хөвсгөл Зам Лого" 
+                  className="h-16 w-auto object-contain brightness-0 invert dark:brightness-100 dark:invert-0 transition-transform group-hover/logo:scale-105 duration-300"
+                />
+              </div>
+
               <span className="font-display font-bold text-2xl leading-none tracking-wider text-foreground uppercase">
                 Хөвсгөл Зам
               </span>
@@ -42,82 +51,95 @@ export default function Footer() {
             <p className="text-muted-foreground text-sm leading-relaxed mb-6">
               Монгол улсын дэд бүтцийн салбарт чанар, стандартын өндөр түвшинд бүтээн байгуулалт хийж буй тэргүүлэгч компани.
             </p>
-            <div className="flex items-center gap-4">
-              {[
-                { Icon: Facebook, link: "https://www.facebook.com/h.vsg.l.zam.hhk" },
-                { Icon: Twitter, link: "#" },
-                { Icon: Linkedin, link: "#" },
-                { Icon: Instagram, link: "#" }
-              ].map((item, idx) => (
-                <a 
-                  key={idx} 
-                  href={item.link} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="w-10 h-10 bg-card border border-border flex items-center justify-center rounded-sm hover:border-primary hover:text-primary transition-colors duration-300"
-                >
-                  <item.Icon className="w-4 h-4" />
+          </div>
+
+          {/* 2. Шууд холбогдох (CLICKABLE) */}
+          <div>
+            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Холбоо барих</h4>
+            <ul className="space-y-5">
+              <li>
+                <a href="https://www.facebook.com/h.vsg.l.zam.hhk" target="_blank" rel="noreferrer" className="group flex flex-col">
+                  <span className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-widest">
+                    <Facebook className="w-4 h-4" /> Facebook
+                  </span>
+                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">Хөвсгөл Зам ХХК</span>
                 </a>
-              ))}
-            </div>
-          </div>
-
-          {/* Quick Links */}
-          <div>
-            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Холбоосууд</h4>
-            <ul className="space-y-4">
-              {[
-                { name: 'Бидний тухай', id: 'about' },
-                { name: 'Хийсэн ажлууд', id: 'projects' },
-                { name: 'Хамтарч ажиллах', id: 'services' },
-                { name: 'Үнийн санал ', id: 'pricelist' }
-              ].map((item, idx) => (
-                <li key={idx}>
-                  <button 
-                    onClick={() => scrollToSection(item.id)}
-                    className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors"
-                  >
-                    {item.name}
-                  </button>
-                </li>
-              ))}
+              </li>
+              <li>
+                <a href="https://wa.me/97699110000" target="_blank" rel="noreferrer" className="group flex flex-col">
+                  <span className="flex items-center gap-2 text-xs font-bold text-green-500 uppercase tracking-widest">
+                    <MessageCircle className="w-4 h-4" /> WhatsApp
+                  </span>
+                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">Чатлах</span>
+                </a>
+              </li>
+              <li>
+                <div 
+                  className="group flex flex-col cursor-pointer"
+                  onClick={() => {
+                    navigator.clipboard.writeText("huvsgulzam_Admin");
+                    toast({ title: "WeChat ID хуулагдлаа", description: "huvsgulzam_Admin" });
+                  }}
+                >
+                  <span className="flex items-center gap-2 text-xs font-bold text-emerald-500 uppercase tracking-widest">
+                    <MessageSquare className="w-4 h-4" /> WeChat ID
+                  </span>
+                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">huvsgulzam_Admin</span>
+                </div>
+              </li>
+              <li>
+                <a href="viber://chat?number=97699110000" className="group flex flex-col">
+                  <span className="flex items-center gap-2 text-xs font-bold text-purple-500 uppercase tracking-widest">
+                    <PhoneCall className="w-4 h-4" /> Viber
+                  </span>
+                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">Viber чат</span>
+                </a>
+              </li>
             </ul>
           </div>
 
-          {/* Services / Cooperation */}
+          {/* 3. Ажлын байр */}
           <div>
-            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Үйлчилгээ</h4>
-            <ul className="space-y-4">
-              {['Авто зам', 'Гүүрийн байгууламж', 'Хүнд машин механизм', 'Барилгын материал'].map((item, idx) => (
-                <li key={idx}>
-                  <button 
-                    onClick={() => scrollToSection("services")}
-                    className="text-muted-foreground hover:text-primary text-sm font-medium transition-colors text-left"
-                  >
-                    {item}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-
-          {/* Newsletter */}
-          <div>
-            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Мэдээлэл авах</h4>
-            <p className="text-muted-foreground text-sm mb-4">
-              Шинэ төсөл, бүтээн байгуулалтын мэдээллийг цаг алдалгүй хүлээн авах.
+            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6 flex items-center gap-2">
+              Ажлын байр
+            </h4>
+            <p className="text-muted-foreground text-[13px] mb-4">
+              Хөвсгөл зам компанид ажиллахыг хүсвэл и-мэйл хаягаа илгээнэ үү. Бид танд нээлтэй ажлын байрны талаар мэдээлэл илгээн манай хамт олонд нэгдэх боломжийг бүрдүүлэх болно.
             </p>
-            <div className="flex flex-col gap-2">
+            <div className="space-y-2">
               <input 
                 type="email" 
                 placeholder="И-Мэйл хаяг" 
-                className="w-full bg-card border border-border px-4 py-3 rounded-sm text-sm focus:outline-none focus:border-primary transition-colors"
+                className="w-full bg-card border border-border px-4 py-2.5 rounded-sm text-sm focus:outline-none focus:border-primary transition-colors"
               />
               <button 
-                onClick={handleSubscribe}
-                className="w-full bg-primary text-primary-foreground font-bold uppercase tracking-wider py-3 rounded-sm text-sm hover:bg-primary/90 transition-all active:scale-[0.98]"
+                onClick={() => handleSubscribe("Ажлын байр")}
+                className="w-full bg-card border border-primary/50 text-primary font-bold uppercase tracking-widest py-2.5 rounded-sm text-[10px] hover:bg-primary hover:text-white transition-all"
               >
-                Бүртгүүлэх
+                Илгээх
+              </button>
+            </div>
+          </div>
+
+          {/* 4. Төслийн мэдээлэл */}
+          <div>
+            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6 flex items-center gap-2">
+              Төслийн мэдээ
+            </h4>
+            <p className="text-muted-foreground text-[13px] mb-4">
+              Хэрэгжиж буй болон шинээр эхлэх төсөл, бүтээн байгуулалтын талаар мэдээлэл авахыг хүсвэл и-мэйл хаягаа илгээнэ үү.
+            </p>
+            <div className="space-y-2">
+              <input 
+                type="email" 
+                placeholder="И-Мэйл хаяг" 
+                className="w-full bg-card border border-border px-4 py-2.5 rounded-sm text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+              <button 
+                onClick={() => handleSubscribe("Төслийн мэдээ")}
+                className="w-full bg-primary text-white font-bold uppercase tracking-widest py-2.5 rounded-sm text-[10px] hover:bg-primary/90 transition-all"
+              >
+                Илгээх
               </button>
             </div>
           </div>

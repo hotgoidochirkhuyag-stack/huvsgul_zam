@@ -6,9 +6,9 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
   // ============ PROJECTS API ============
-  // GET: Bүх төслүүдийг авах (Cloudinary "done" хавтасаас)
+  // GET: Бүх төслүүдийг авах (Cloudinary "done" хавтасаас)
   app.get("/api/projects", async (_req, res) => {
     try {
       res.set('Cache-Control', 'no-store');
