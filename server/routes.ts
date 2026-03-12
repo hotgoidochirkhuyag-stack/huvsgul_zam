@@ -11,6 +11,31 @@ export async function registerRoutes(
   app: Express
 ): Promise<Server> {
 
+  // ============ ADMIN AUTH API ============
+  // POST: Нэвтрэх - environment variable-аас нэр/нууц үг шалгана
+  app.post("/api/admin/login", (req, res) => {
+    const { username, password } = req.body;
+    const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
+    const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+
+    if (!ADMIN_USERNAME || !ADMIN_PASSWORD) {
+      return res.status(500).json({ message: "Admin тохиргоо хийгдээгүй байна" });
+    }
+
+    if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+      return res.json({ success: true, token: Buffer.from(`${username}:${Date.now()}`).toString("base64") });
+    }
+    return res.status(401).json({ message: "Нэр эсвэл нууц үг буруу байна" });
+  });
+
+  // Middleware: API хамгаалах функц
+  const requireAdmin = (req: any, res: any, next: any) => {
+    const auth = req.headers["x-admin-token"];
+    if (!auth) return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+    // Token байвал зөвшөөрнө (клиент localStorage-д хадгална)
+    next();
+  };
+
   // ============ PROJECTS API ============
   // GET: Бүх төслүүдийг авах (Cloudinary "done/" хавтасаас)
   app.get("/api/projects", async (_req, res) => {
@@ -100,8 +125,8 @@ export async function registerRoutes(
     }
   });
 
-  // GET: Бүх subscriptions авах (admin-д зориулсан)
-  app.get("/api/subscriptions", async (_req, res) => {
+  // GET: Бүх subscriptions авах (admin-д зориулсан, хамгаалагдсан)
+  app.get("/api/subscriptions", requireAdmin, async (_req, res) => {
     try {
       const subs = await db.select().from(schema.subscriptions).orderBy(schema.subscriptions.createdAt);
       res.json(subs);
@@ -111,8 +136,8 @@ export async function registerRoutes(
     }
   });
 
-  // DELETE: Subscription устгах
-  app.delete("/api/subscriptions/:id", async (req, res) => {
+  // DELETE: Subscription устгах (хамгаалагдсан)
+  app.delete("/api/subscriptions/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await db.delete(schema.subscriptions).where(eq(schema.subscriptions.id, id));
@@ -122,8 +147,8 @@ export async function registerRoutes(
     }
   });
 
-  // GET: Бүх contacts авах (admin-д зориулсан)
-  app.get("/api/contacts", async (_req, res) => {
+  // GET: Бүх contacts авах (admin-д зориулсан, хамгаалагдсан)
+  app.get("/api/contacts", requireAdmin, async (_req, res) => {
     try {
       const contacts = await db.select().from(schema.contacts).orderBy(schema.contacts.createdAt);
       res.json(contacts);
@@ -133,8 +158,8 @@ export async function registerRoutes(
     }
   });
 
-  // DELETE: Contact устгах
-  app.delete("/api/contacts/:id", async (req, res) => {
+  // DELETE: Contact устгах (хамгаалагдсан)
+  app.delete("/api/contacts/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await db.delete(schema.contacts).where(eq(schema.contacts.id, id));

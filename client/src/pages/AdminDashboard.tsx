@@ -6,29 +6,52 @@ import { Mail, MessageSquare, Trash2, LogOut, Users, RefreshCw, ExternalLink } f
 import { useToast } from "@/hooks/use-toast";
 import type { Subscription, Contact } from "@shared/schema";
 
+const getToken = () => localStorage.getItem("adminToken") || "";
+
+const adminFetch = (url: string, options: RequestInit = {}) =>
+  fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "x-admin-token": getToken(),
+      ...(options.headers || {}),
+    },
+  });
+
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<"subscriptions" | "contacts">("subscriptions");
 
   useEffect(() => {
-    if (!localStorage.getItem("isAdmin")) {
+    if (!localStorage.getItem("isAdmin") || !localStorage.getItem("adminToken")) {
       window.location.href = "/admin";
     }
   }, []);
 
-  const [activeTab, setActiveTab] = useState<"subscriptions" | "contacts">("subscriptions");
-
   const { data: subscriptions = [], isLoading: subLoading, refetch: refetchSubs } = useQuery<Subscription[]>({
     queryKey: ["/api/subscriptions"],
+    queryFn: async () => {
+      const res = await adminFetch("/api/subscriptions");
+      if (res.status === 401) { window.location.href = "/admin"; throw new Error("Unauthorized"); }
+      if (!res.ok) throw new Error("Татахад алдаа");
+      return res.json();
+    },
   });
 
   const { data: contacts = [], isLoading: contactLoading, refetch: refetchContacts } = useQuery<Contact[]>({
     queryKey: ["/api/contacts"],
+    queryFn: async () => {
+      const res = await adminFetch("/api/contacts");
+      if (res.status === 401) { window.location.href = "/admin"; throw new Error("Unauthorized"); }
+      if (!res.ok) throw new Error("Татахад алдаа");
+      return res.json();
+    },
   });
 
   const deleteSub = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/subscriptions/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Устгахад алдаа гарлаа");
+      const res = await adminFetch(`/api/subscriptions/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Устгахад алдаа");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] });
@@ -38,8 +61,8 @@ export default function AdminDashboard() {
 
   const deleteContact = useMutation({
     mutationFn: async (id: number) => {
-      const res = await fetch(`/api/contacts/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error("Устгахад алдаа гарлаа");
+      const res = await adminFetch(`/api/contacts/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Устгахад алдаа");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/contacts"] });
@@ -49,12 +72,16 @@ export default function AdminDashboard() {
 
   const handleLogout = () => {
     localStorage.removeItem("isAdmin");
+    localStorage.removeItem("adminToken");
     window.location.href = "/admin";
   };
 
   const formatDate = (d: string | Date | null) => {
     if (!d) return "-";
-    return new Date(d).toLocaleDateString("mn-MN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+    return new Date(d).toLocaleDateString("mn-MN", {
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit",
+    });
   };
 
   const jobSubs = subscriptions.filter(s => s.type === "Ажлын байр");
@@ -108,7 +135,7 @@ export default function AdminDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           {[
             { key: "subscriptions", label: "И-мэйл бүртгэл", icon: Mail },
             { key: "contacts", label: "Холбоо барих мэдэгдэл", icon: MessageSquare },
@@ -145,7 +172,7 @@ export default function AdminDashboard() {
                 {subscriptions.map((sub) => (
                   <div key={sub.id} className="px-6 py-4 flex items-center justify-between hover:bg-white/5 transition-colors group">
                     <div className="flex items-center gap-4">
-                      <div className="w-9 h-9 rounded-full bg-blue-600/20 flex items-center justify-center">
+                      <div className="w-9 h-9 rounded-full bg-blue-600/20 flex items-center justify-center shrink-0">
                         <Mail className="w-4 h-4 text-blue-400" />
                       </div>
                       <div>
@@ -160,6 +187,7 @@ export default function AdminDashboard() {
                     </div>
                     <button
                       onClick={() => deleteSub.mutate(sub.id)}
+                      disabled={deleteSub.isPending}
                       className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -208,6 +236,7 @@ export default function AdminDashboard() {
                       </div>
                       <button
                         onClick={() => deleteContact.mutate(c.id)}
+                        disabled={deleteContact.isPending}
                         className="opacity-0 group-hover:opacity-100 p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-all shrink-0"
                       >
                         <Trash2 className="w-4 h-4" />
