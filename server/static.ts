@@ -1,19 +1,25 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
+import { fileURLToPath } from "url";
+
+// ES Module-д __dirname үүсгэх
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(__dirname, "public");
+  // dist эсвэл public хавтас руу заах (Render дээр ихэвчлэн client/dist байдаг)
+  const distPath = path.resolve(__dirname, "../client/dist");
+
   if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
+    console.warn(`[Warning] Build directory олдохгүй байна: ${distPath}`);
+    return; // Алдаа заахын оронд анхааруулга өгөөд үргэлжлүүлнэ
   }
 
   app.use(express.static(distPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("/{*path}", (_req, res) => {
+  // Бүх хүсэлтийг index.html рүү чиглүүлнэ (SPA чиглүүлэлт)
+  app.get("*", (_req, res) => {
     res.sendFile(path.resolve(distPath, "index.html"));
   });
 }

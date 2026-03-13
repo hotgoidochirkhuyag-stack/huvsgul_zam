@@ -1,8 +1,9 @@
 import type { Express } from "express";
 import type { Server } from "http";
-import { storage } from "./storage";
-import { db } from "./db";
-import * as schema from "@shared/schema";
+import { storage } from "./storage.js";
+import { db } from "./db.js";
+// Render болон бусад орчинд ажиллахын тулд харьцангуй замыг ашиглав
+import * as schema from "../shared/schema.js"; 
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 
@@ -12,7 +13,6 @@ export async function registerRoutes(
 ): Promise<Server> {
 
   // ============ ADMIN AUTH API ============
-  // POST: Нэвтрэх - environment variable-аас нэр/нууц үг шалгана
   app.post("/api/admin/login", (req, res) => {
     const { username, password } = req.body;
     const ADMIN_USERNAME = process.env.ADMIN_USERNAME;
@@ -28,16 +28,13 @@ export async function registerRoutes(
     return res.status(401).json({ message: "Нэр эсвэл нууц үг буруу байна" });
   });
 
-  // Middleware: API хамгаалах функц
   const requireAdmin = (req: any, res: any, next: any) => {
     const auth = req.headers["x-admin-token"];
     if (!auth) return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
-    // Token байвал зөвшөөрнө (клиент localStorage-д хадгална)
     next();
   };
 
   // ============ PROJECTS API ============
-  // GET: Бүх төслүүдийг авах (Cloudinary "done/" хавтасаас)
   app.get("/api/projects", async (_req, res) => {
     try {
       res.set('Cache-Control', 'no-store');
@@ -50,7 +47,6 @@ export async function registerRoutes(
   });
 
   // ============ STATS API ============
-  // GET: Stats зурагнуудыг авах (Cloudinary "stats/" хавтасаас)
   app.get("/api/stats", async (_req, res) => {
     try {
       res.set('Cache-Control', 'no-store');
@@ -63,7 +59,6 @@ export async function registerRoutes(
   });
 
   // ============ VIDEOS API ============
-  // GET: Featured videos авах (Cloudinary "videos/" хавтасаас)
   app.get("/api/videos", async (_req, res) => {
     try {
       res.set('Cache-Control', 'no-store');
@@ -76,18 +71,16 @@ export async function registerRoutes(
   });
 
   // ============ CONTENT API ============
-  // GET: Hero болон бусад хэсгийн текст контент (DB-ээс)
   app.get("/api/content", async (_req, res) => {
     try {
       const rows = await db.select().from(schema.content);
       res.json(rows);
     } catch (error) {
       console.error("Content API алдаа:", error);
-      res.json([]); // Алдаа гарвал хоосон массив буцаана (fallback-т зориулж)
+      res.json([]);
     }
   });
 
-  // PATCH: Hero текстийг шинэчлэх
   app.patch("/api/content/:section", async (req, res) => {
     try {
       const { section } = req.params;
@@ -106,7 +99,6 @@ export async function registerRoutes(
   });
 
   // ============ SUBSCRIPTIONS API ============
-  // POST: Footer email бүртгэлийг хадгалах
   app.post("/api/subscriptions", async (req, res) => {
     try {
       const subSchema = z.object({
@@ -125,7 +117,6 @@ export async function registerRoutes(
     }
   });
 
-  // GET: Бүх subscriptions авах (admin-д зориулсан, хамгаалагдсан)
   app.get("/api/subscriptions", requireAdmin, async (_req, res) => {
     try {
       const subs = await db.select().from(schema.subscriptions).orderBy(schema.subscriptions.createdAt);
@@ -136,7 +127,6 @@ export async function registerRoutes(
     }
   });
 
-  // DELETE: Subscription устгах (хамгаалагдсан)
   app.delete("/api/subscriptions/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -147,7 +137,7 @@ export async function registerRoutes(
     }
   });
 
-  // GET: Бүх contacts авах (admin-д зориулсан, хамгаалагдсан)
+  // ============ CONTACTS API ============
   app.get("/api/contacts", requireAdmin, async (_req, res) => {
     try {
       const contacts = await db.select().from(schema.contacts).orderBy(schema.contacts.createdAt);
@@ -158,7 +148,6 @@ export async function registerRoutes(
     }
   });
 
-  // DELETE: Contact устгах (хамгаалагдсан)
   app.delete("/api/contacts/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -169,8 +158,6 @@ export async function registerRoutes(
     }
   });
 
-  // ============ CONTACTS API ============
-  // POST: Холбоо барих формын өгөгдлийг хадгалах
   app.post("/api/contacts", async (req, res) => {
     try {
       const contactSchema = z.object({
@@ -192,7 +179,6 @@ export async function registerRoutes(
   });
 
   // ============ GOOGLE SHEET PROXY API ============
-  // GET: Google Sheets CSV-г серверийн дундуур авах (CORS-ыг шийднэ)
   app.get("/api/sheet-data", async (req, res) => {
     try {
       const url = req.query.url as string || "https://docs.google.com/spreadsheets/d/e/2PACX-1vQb3rZqDRJ1qaDEmvNHcnhlHjAFAR1XBesPxDFH5d20X8GVU8VAsuijvUcz8asTLpe8YgT65Y9-7yFZ/pub?output=csv";
@@ -207,7 +193,6 @@ export async function registerRoutes(
     }
   });
 
-  // Эхний удаад hero контент байхгүй бол үүсгэнэ
   seedInitialContent().catch(console.error);
 
   return httpServer;
@@ -220,7 +205,7 @@ async function seedInitialContent() {
       await db.insert(schema.content).values({
         section: "hero",
         title: "Ирээдүйг Бүтээнэ",
-        description: "Бид 30 гаруй жилийн туршлагаараа чанар стандартын өндөр түвшинд авто зам, гүүр, барилга байгууламжийн төслүүдийг амжилттай хэрэгжүүлж байна.",
+        description: "Бид олон жилийн туршлагаараа чанар стандартын өндөр түвшинд авто зам, гүүр, барилга байгууламжийн төслүүдийг амжилттай хэрэгжүүлж байна.",
         ctaText: "Төслүүдтэй танилцах",
         secondaryCtaText: "Холбогдох",
       });
