@@ -69,8 +69,7 @@ export async function registerRoutes(
   // ============ GOOGLE SHEET PROXY ============
   app.get("/api/sheet-data", async (_req, res) => {
     try {
-      const SHEET_ID = "1D_p41Q5TnkEcb7S48dfXwBhcb-q4TpKU1L9t2HYWSEM";
-      const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/export?format=csv`;
+      const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQb3rZqDRJ1qaDEmvNHcnhlHjAFAR1XBesPxDFH5d20X8GVU8VAsuijvUcz8asTLpe8YgT65Y9-7yFZ/pub?output=csv";
       const response = await fetch(url);
       if (!response.ok) throw new Error(`Sheet HTTP алдаа: ${response.status}`);
       const text = await response.text();
