@@ -3,10 +3,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Users, Briefcase, Factory, ClipboardList, TrendingUp, Award,
-  Plus, Trash2, RefreshCw, Settings, LogOut, Clock, ShieldCheck
+  Plus, Trash2, RefreshCw, Settings, LogOut, Clock, ShieldCheck, QrCode
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
+import QRCard from "@/components/QRCard";
 
 function getAdminHeaders() {
   return { "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" };
@@ -42,6 +43,7 @@ export default function ERPDashboard() {
   const [showAddProj, setShowAddProj] = useState(false);
   const [showAddPlant, setShowAddPlant] = useState(false);
   const [showAddKpi, setShowAddKpi] = useState(false);
+  const [selectedQrEmployee, setSelectedQrEmployee] = useState<any>(null);
 
   const { data: summary } = useQuery<any>({ queryKey: ["/api/erp/summary"], queryFn: () => fetch("/api/erp/summary", { headers: getAdminHeaders() }).then(r => r.json()) });
   const { data: kpiTeam = [], isLoading: kpiLoading } = useQuery<any[]>({ queryKey: ["/api/erp/kpi-team"], queryFn: () => fetch("/api/erp/kpi-team", { headers: getAdminHeaders() }).then(r => r.json()), enabled: tab === "kpi" });
@@ -280,7 +282,16 @@ export default function ERPDashboard() {
                     <td className="p-3 text-slate-300 text-sm">{e.role}</td>
                     <td className="p-3 text-slate-300 text-sm">{e.salaryBase?.toLocaleString()}₮</td>
                     <td className="p-3 text-slate-500 text-xs font-mono">{e.qrCode}</td>
-                    <td className="p-3"><button onClick={() => deleteEmployee.mutate(e.id)} className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg transition-all"><Trash2 className="w-4 h-4" /></button></td>
+                    <td className="p-3 flex items-center gap-1">
+                      <button
+                        onClick={() => setSelectedQrEmployee(e)}
+                        className="p-1.5 text-amber-400 hover:bg-amber-500/20 rounded-lg transition-all"
+                        title="QR код харах / хэвлэх"
+                      >
+                        <QrCode className="w-4 h-4" />
+                      </button>
+                      <button onClick={() => deleteEmployee.mutate(e.id)} className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg transition-all"><Trash2 className="w-4 h-4" /></button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -434,6 +445,14 @@ export default function ERPDashboard() {
           </div>
         )}
       </div>
+
+      {/* QR карт modal */}
+      {selectedQrEmployee && (
+        <QRCard
+          employee={selectedQrEmployee}
+          onClose={() => setSelectedQrEmployee(null)}
+        />
+      )}
     </div>
   );
 }
