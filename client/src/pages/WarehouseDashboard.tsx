@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import {
@@ -155,9 +155,12 @@ function PlantBlock({
       const qty = parseFloat(targetQty);
       if (!qty || qty <= 0) throw new Error("Тоо оруулна уу");
       // save plan
-      const planRes = await apiRequest("POST", "/api/warehouse/plans", {
-        date, plant: plantKey, targetQty: qty, unit: norm.unit,
-      }, { headers });
+      const planRes = await fetch("/api/warehouse/plans", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({ date, plant: plantKey, targetQty: qty, unit: norm.unit }),
+      });
+      if (!planRes.ok) throw new Error(`${planRes.status}: ${await planRes.text()}`);
       const plan = await planRes.json();
       // save material checks
       const checks = norm.materials.map(m => ({
@@ -167,7 +170,12 @@ function PlantBlock({
         fieldQty: parseFloat(matInputs[m.name]?.field ?? "0") || 0,
         unit: m.unit,
       }));
-      await apiRequest("POST", "/api/warehouse/material-checks", { planId: plan.id, checks }, { headers });
+      const chkRes = await fetch("/api/warehouse/material-checks", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...headers },
+        body: JSON.stringify({ planId: plan.id, checks }),
+      });
+      if (!chkRes.ok) throw new Error(`${chkRes.status}: ${await chkRes.text()}`);
       return plan;
     },
     onSuccess: (plan) => {
