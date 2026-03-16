@@ -30,8 +30,6 @@ export default function Stats() {
       const text = await resp.text();
       const rows = text.split(/\r?\n/).map((l: string) => l.split(','));
 
-      console.log("DEBUG: Google Sheet-ийн эхний 10 мөр:", rows.slice(0, 10));
-
       const targetRow = rows[4];
 
       if (targetRow && targetRow.length > 0) {
@@ -79,9 +77,9 @@ export default function Stats() {
                   whileInView={{ opacity: 1, y: 0 }} 
                   viewport={{ once: true }} 
                   transition={{ duration: 0.5, delay: stat.delay }}
-                  whileHover={{ y: -5, scale: 1.02, borderColor: "hsl(var(--primary))" }}
+                  whileHover={{ y: -5, scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  className="bg-background/40 border border-border/50 p-6 rounded-sm relative overflow-hidden flex flex-col justify-between min-h-[140px] cursor-pointer transition-colors duration-300"
+                  className="bg-background/40 border border-border/50 hover:border-primary p-6 rounded-sm relative overflow-hidden flex flex-col justify-between min-h-[140px] cursor-pointer transition-colors duration-300"
                 >
                   <stat.icon className="w-6 h-6 text-primary mb-4" />
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{stat.label}</p>

@@ -25,8 +25,6 @@ export async function registerRoutes(
 
   // ============ ADMIN AUTH API ============
   app.post("/api/admin/login", (req, res) => {
-    console.log("БОДИТ_ХҮСЭЛТ:", req.body);
-
     const { username, password, role } = req.body;
     const cleanRole = (role || "").toString().toUpperCase();
 
@@ -47,7 +45,6 @@ export async function registerRoutes(
       });
     }
 
-    console.log("АЛДАА: Илгээсэн өгөгдөл таарсангүй:", { username, password, cleanRole });
     return res.status(401).json({ message: "Нэр эсвэл нууц үг буруу" });
   });
 
