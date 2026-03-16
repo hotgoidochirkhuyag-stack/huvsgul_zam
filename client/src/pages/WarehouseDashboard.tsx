@@ -111,15 +111,16 @@ function PlantBlock({
   const headers = { "x-admin-token": token };
 
   // Load existing plan for this date
-  const { data: plans } = useQuery<ProductionPlan[]>({
+  const { data: plansRaw } = useQuery({
     queryKey: ["/api/warehouse/plans", date],
     queryFn: async () => {
       const r = await fetch(`/api/warehouse/plans?date=${date}`, { headers });
       return r.json();
     },
   });
+  const plans: ProductionPlan[] = Array.isArray(plansRaw) ? plansRaw : [];
 
-  const myPlan = plans?.find(p => p.plant === plantKey);
+  const myPlan = plans.find(p => p.plant === plantKey);
 
   // Load checks when plan exists
   const { data: savedChecks = [] } = useQuery<MaterialCheck[]>({
@@ -438,13 +439,14 @@ export default function WarehouseDashboard() {
   const token = localStorage.getItem("authToken") ?? "";
   const headers = { "x-admin-token": token };
 
-  const { data: plans = [], refetch: refetchPlans } = useQuery<ProductionPlan[]>({
+  const { data: plansRaw2 } = useQuery({
     queryKey: ["/api/warehouse/plans", date],
     queryFn: async () => {
       const r = await fetch(`/api/warehouse/plans?date=${date}`, { headers });
       return r.json();
     },
   });
+  const plans: ProductionPlan[] = Array.isArray(plansRaw2) ? plansRaw2 : [];
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
