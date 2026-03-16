@@ -30,6 +30,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       BOARD:    { u: "board",    p: "board123" },
       PROJECT:  { u: "project",  p: "proj123" },
       ENGINEER: { u: "engineer", p: "eng123" },
+      HR:       { u: "hr",       p: "hr123" },
     };
 
     const targetUser = users[cleanRole];

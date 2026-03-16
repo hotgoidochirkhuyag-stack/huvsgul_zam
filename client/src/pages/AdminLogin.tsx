@@ -37,13 +37,14 @@ const AdminLogin = () => {
       localStorage.setItem('userRole', data.role); 
 
       // Рольдоо таарсан самбар луу шилжих
-      switch (data.role) {
-        case 'BOARD': setLocation('/dashboard/board'); break;
-        case 'PROJECT': setLocation('/dashboard/project'); break;
-        case 'ADMIN': setLocation('/dashboard/admin'); break;
-        case 'ENGINEER': setLocation('/dashboard/engineer'); break;
-        default: setLocation('/dashboard/admin');
-      }
+      const routes: Record<string, string> = {
+        BOARD:    '/dashboard/board',
+        PROJECT:  '/dashboard/project',
+        ADMIN:    '/dashboard/admin',
+        ENGINEER: '/dashboard/engineer',
+        HR:       '/dashboard/hr',
+      };
+      setLocation(routes[data.role] ?? '/dashboard/admin');
     } catch (e) {
       setError('Серверт холбогдоход алдаа гарлаа');
     } finally {
