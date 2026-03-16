@@ -616,6 +616,64 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
+  // ===================== ҮЙЛДВЭРЛЭЛИЙН ТӨЛӨВЛӨГӨӨ API =====================
+
+  // Өдрийн план авах (date query param)
+  app.get("/api/warehouse/plans", requireToken, async (req, res) => {
+    try {
+      const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+      const plans = await db.select().from(schema.productionPlans).where(eq(schema.productionPlans.date, date));
+      res.json(plans);
+    } catch { res.status(500).json({ error: "DB error" }); }
+  });
+
+  // Тарих эсвэл шинэчлэх
+  app.post("/api/warehouse/plans", requireToken, async (req, res) => {
+    try {
+      const { date, plant, targetQty, unit, notes } = req.body;
+      // existing plan for this date+plant?
+      const existing = await db.select().from(schema.productionPlans)
+        .where(and(eq(schema.productionPlans.date, date), eq(schema.productionPlans.plant, plant)));
+      let plan;
+      if (existing.length > 0) {
+        [plan] = await db.update(schema.productionPlans)
+          .set({ targetQty: Number(targetQty), unit, notes, updatedAt: new Date() })
+          .where(eq(schema.productionPlans.id, existing[0].id))
+          .returning();
+      } else {
+        [plan] = await db.insert(schema.productionPlans).values({ date, plant, targetQty: Number(targetQty), unit: unit || "м³", notes }).returning();
+      }
+      res.json(plan);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Материалын бэлэн байдал хадгалах
+  app.post("/api/warehouse/material-checks", requireToken, async (req, res) => {
+    try {
+      const { planId, checks } = req.body;
+      // delete existing then insert
+      await db.delete(schema.materialChecks).where(eq(schema.materialChecks.planId, Number(planId)));
+      const rows = (checks as any[]).map((c: any) => ({
+        planId: Number(planId),
+        materialName: c.materialName,
+        requiredQty: Number(c.requiredQty),
+        warehouseQty: Number(c.warehouseQty ?? 0),
+        fieldQty: Number(c.fieldQty ?? 0),
+        unit: c.unit,
+      }));
+      const result = await db.insert(schema.materialChecks).values(rows).returning();
+      res.json(result);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.get("/api/warehouse/material-checks/:planId", requireToken, async (req, res) => {
+    try {
+      const rows = await db.select().from(schema.materialChecks)
+        .where(eq(schema.materialChecks.planId, Number(req.params.planId)));
+      res.json(rows);
+    } catch { res.status(500).json({ error: "DB error" }); }
+  });
+
   // Seed data
   seedInitialContent().catch(console.error);
   seedDefaultKpiConfigs().catch(console.error);

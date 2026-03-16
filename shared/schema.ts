@@ -215,6 +215,30 @@ export const warehouseLogs = pgTable("warehouse_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Өдрийн үйлдвэрлэлийн төлөвлөгөө
+export const productionPlans = pgTable("production_plans", {
+  id: serial("id").primaryKey(),
+  date: text("date").notNull(),
+  plant: text("plant").notNull(),          // asphalt | concrete | crushing
+  targetQty: real("target_qty").notNull(), // Хэдэн нэгж гаргах вэ
+  unit: text("unit").notNull(),            // м³ | тн
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Материалын бэлэн байдлын шалгалт (өдөр бүр)
+export const materialChecks = pgTable("material_checks", {
+  id: serial("id").primaryKey(),
+  planId: integer("plan_id").notNull(),
+  materialName: text("material_name").notNull(),
+  requiredQty: real("required_qty").notNull(),  // Норм тооцоолсон хэмжээ
+  warehouseQty: real("warehouse_qty").default(0), // Агуулахад байгаа
+  fieldQty: real("field_qty").default(0),          // Талбай дээр байгаа
+  unit: text("unit").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ===================== INSERT SCHEMAS =====================
 
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
@@ -236,6 +260,8 @@ export const insertVehicleSchema = createInsertSchema(vehicles).omit({ id: true,
 export const insertVehicleInspectionSchema = createInsertSchema(vehicleInspections).omit({ id: true, createdAt: true });
 export const insertWarehouseItemSchema = createInsertSchema(warehouseItems).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWarehouseLogSchema = createInsertSchema(warehouseLogs).omit({ id: true, createdAt: true });
+export const insertProductionPlanSchema = createInsertSchema(productionPlans).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertMaterialCheckSchema = createInsertSchema(materialChecks).omit({ id: true, createdAt: true });
 
 // ===================== TYPES =====================
 
@@ -276,6 +302,10 @@ export type WarehouseItem = typeof warehouseItems.$inferSelect;
 export type InsertWarehouseItem = z.infer<typeof insertWarehouseItemSchema>;
 export type WarehouseLog = typeof warehouseLogs.$inferSelect;
 export type InsertWarehouseLog = z.infer<typeof insertWarehouseLogSchema>;
+export type ProductionPlan = typeof productionPlans.$inferSelect;
+export type InsertProductionPlan = z.infer<typeof insertProductionPlanSchema>;
+export type MaterialCheck = typeof materialChecks.$inferSelect;
+export type InsertMaterialCheck = z.infer<typeof insertMaterialCheckSchema>;
 
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
