@@ -1,5 +1,5 @@
 import { useLocation } from "wouter";
-import { ArrowLeft, Building2, HardHat, Factory, Users, LayoutDashboard, ClipboardList, UserCircle } from "lucide-react";
+import { ArrowLeft, Building2, HardHat, Factory, Users, LayoutDashboard, ClipboardList, UserCircle, Package } from "lucide-react";
 
 const SYSTEM_ROLES = [
   {
@@ -16,6 +16,7 @@ const SYSTEM_ROLES = [
       { name: "Хүний нөөц", desc: "Ажилтан бүртгэл, QR карт", path: "/admin?role=HR", icon: UserCircle, color: "purple" },
       { name: "Ахлах — Даалгавар", desc: "Ажилтанд даалгавар тавих", path: "/admin?role=SUPERVISOR", icon: ClipboardList, color: "blue" },
       { name: "Механик инженер", desc: "Техник, машин бүртгэл", path: "/admin?role=MECHANIC", icon: HardHat, color: "orange" },
+      { name: "Агуулахын нөөц", desc: "Нормативт тулгуурласан нөөц", path: "/admin?role=WAREHOUSE", icon: Package, color: "amber" },
       { name: "Онлайн хурал", desc: "BOARD систем", path: "/admin?role=BOARD", icon: Users, color: "indigo" },
       { name: "Төслийн хяналт", desc: "PROJECT систем", path: "/admin?role=PROJECT", icon: ClipboardList, color: "blue" },
       { name: "Үйлдвэрлэлийн хяналт", desc: "ADMIN систем", path: "/admin?role=ADMIN", icon: LayoutDashboard, color: "slate" },

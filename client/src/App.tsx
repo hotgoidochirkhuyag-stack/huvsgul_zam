@@ -16,6 +16,7 @@ import ERPReport from "@/pages/ERPReport";
 import HRDashboard from "@/pages/HRDashboard";
 import SupervisorDashboard from "@/pages/SupervisorDashboard";
 import MechanicDashboard from "@/pages/MechanicDashboard";
+import WarehouseDashboard from "@/pages/WarehouseDashboard";
 import CheckIn from "@/pages/CheckIn";
 import EquipmentInspection from "@/pages/EquipmentInspection";
 
@@ -34,6 +35,7 @@ const ProtectedRoute = ({ component: Component, role }: { component: React.Compo
       HR:         "/dashboard/hr",
       SUPERVISOR: "/dashboard/supervisor",
       MECHANIC:   "/dashboard/mechanic",
+      WAREHOUSE:  "/dashboard/warehouse",
     };
     return <Redirect to={redirects[userRole ?? ""] ?? `/admin?role=${role}`} />;
   }
@@ -63,6 +65,7 @@ function Router() {
       <Route path="/dashboard/hr"         component={() => <ProtectedRoute component={HRDashboard}         role="HR" />} />
       <Route path="/dashboard/supervisor" component={() => <ProtectedRoute component={SupervisorDashboard} role="SUPERVISOR" />} />
       <Route path="/dashboard/mechanic"   component={() => <ProtectedRoute component={MechanicDashboard}   role="MECHANIC" />} />
+      <Route path="/dashboard/warehouse"  component={() => <ProtectedRoute component={WarehouseDashboard}  role="WAREHOUSE" />} />
 
       {/* ERP Систем */}
       <Route path="/erp" component={() => <ProtectedRoute component={ERPDashboard} role="ADMIN" />} />

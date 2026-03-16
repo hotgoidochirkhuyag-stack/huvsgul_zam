@@ -185,6 +185,36 @@ export const vehicleInspections = pgTable("vehicle_inspections", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ===================== АГУУЛАХ (WAREHOUSE) =====================
+
+// Агуулахын нөөц
+export const warehouseItems = pgTable("warehouse_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),                   // Цемент, Битум, Хайрга 0-2мм г.м
+  category: text("category").notNull(),           // cement | bitumen | stone | sand | mineral | other
+  unit: text("unit").notNull(),                   // тн | м³ | ш
+  plant: text("plant").notNull(),                 // asphalt | concrete | crushing | general
+  currentStock: real("current_stock").default(0), // Одоогийн нөөц
+  minStock: real("min_stock").default(0),         // Хоногийн хэрэгцээ (норм)
+  criticalStock: real("critical_stock").default(0), // Критик (2 хоногийн)
+  normBasis: text("norm_basis"),                  // Норм тооцооны үндэс
+  notes: text("notes"),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Нөөцийн хөдөлгөөний лог
+export const warehouseLogs = pgTable("warehouse_logs", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull(),
+  date: text("date").notNull(),
+  quantity: real("quantity").notNull(),           // Эерэг = орсон, сөрөг = гарсан
+  type: text("type").notNull(),                   // in | out | adjust
+  notes: text("notes"),
+  recordedBy: text("recorded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ===================== INSERT SCHEMAS =====================
 
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
@@ -204,6 +234,8 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, creat
 export const insertWorkReportSchema = createInsertSchema(workReports).omit({ id: true, createdAt: true });
 export const insertVehicleSchema = createInsertSchema(vehicles).omit({ id: true, createdAt: true });
 export const insertVehicleInspectionSchema = createInsertSchema(vehicleInspections).omit({ id: true, createdAt: true });
+export const insertWarehouseItemSchema = createInsertSchema(warehouseItems).omit({ id: true, createdAt: true, updatedAt: true });
+export const insertWarehouseLogSchema = createInsertSchema(warehouseLogs).omit({ id: true, createdAt: true });
 
 // ===================== TYPES =====================
 
@@ -240,6 +272,10 @@ export type Vehicle = typeof vehicles.$inferSelect;
 export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
 export type VehicleInspection = typeof vehicleInspections.$inferSelect;
 export type InsertVehicleInspection = z.infer<typeof insertVehicleInspectionSchema>;
+export type WarehouseItem = typeof warehouseItems.$inferSelect;
+export type InsertWarehouseItem = z.infer<typeof insertWarehouseItemSchema>;
+export type WarehouseLog = typeof warehouseLogs.$inferSelect;
+export type InsertWarehouseLog = z.infer<typeof insertWarehouseLogSchema>;
 
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
