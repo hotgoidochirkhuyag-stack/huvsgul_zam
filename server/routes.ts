@@ -30,7 +30,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       BOARD:    { u: "board",    p: "board123" },
       PROJECT:  { u: "project",  p: "proj123" },
       ENGINEER: { u: "engineer", p: "eng123" },
-      HR:       { u: "hr",       p: "hr123" },
+      HR:         { u: "hr",         p: "hr123" },
+      SUPERVISOR: { u: "supervisor", p: "super123" },
     };
 
     const targetUser = users[cleanRole];
@@ -318,6 +319,155 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/erp/attendance", requireAdmin, async (req, res) => {
     const { date } = req.query as any;
     let rows = await db.select().from(schema.attendance).orderBy(desc(schema.attendance.createdAt));
+    if (date) rows = rows.filter(r => r.date === date);
+    res.json(rows);
+  });
+
+  // ============ НИЙТИЙН CHECK-IN (QR хуудас) ============
+
+  // Ажилтны жагсаалт (нийтийн)
+  app.get("/api/checkin/employees", async (_req, res) => {
+    const emps = await db.select().from(schema.employees).orderBy(schema.employees.name);
+    res.json(emps);
+  });
+
+  // ХАБЭА бөглөж бүртгүүлэх (нийтийн)
+  app.post("/api/checkin/safety", async (req, res) => {
+    const { employeeId } = req.body;
+    if (!employeeId) return res.status(400).json({ message: "employeeId шаардлагатай" });
+    const today = new Date().toISOString().slice(0, 10);
+    const existing = await db.select().from(schema.attendance)
+      .where(eq(schema.attendance.employeeId, employeeId));
+    const todayRow = existing.find(r => r.date === today);
+    if (todayRow) return res.json({ already: true, attendance: todayRow });
+    const now = new Date();
+    const hh = now.getHours().toString().padStart(2, "0");
+    const mm = now.getMinutes().toString().padStart(2, "0");
+    const checkInStr = `${hh}:${mm}`;
+    const startH = 8 * 60;
+    const actualM = now.getHours() * 60 + now.getMinutes();
+    const lateMinutes = Math.max(0, actualM - startH);
+    const [record] = await db.insert(schema.attendance).values({
+      employeeId, date: today, checkIn: checkInStr,
+      safetyConfirmed: true, safetyConfirmedAt: now, lateMinutes,
+    }).returning();
+    res.status(201).json({ already: false, attendance: record });
+  });
+
+  // Өнөөдрийн даалгавар (ажилтанд, нийтийн)
+  app.get("/api/checkin/:employeeId/tasks", async (req, res) => {
+    const empId = parseInt(req.params.employeeId);
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = await db.select().from(schema.tasks)
+      .where(eq(schema.tasks.employeeId, empId));
+    res.json(rows.filter(t => t.date === today));
+  });
+
+  // Даалгавар хүлээн авах (нийтийн)
+  app.patch("/api/checkin/tasks/:id/accept", async (req, res) => {
+    const id = parseInt(req.params.id);
+    const [updated] = await db.update(schema.tasks)
+      .set({ status: "accepted" }).where(eq(schema.tasks.id, id)).returning();
+    res.json(updated);
+  });
+
+  // Ажлын тайлан оруулах (нийтийн)
+  app.post("/api/checkin/reports", async (req, res) => {
+    const { employeeId, taskId, description, quantity, unit, issues } = req.body;
+    if (!employeeId || !description) return res.status(400).json({ message: "employeeId, description шаардлагатай" });
+    const today = new Date().toISOString().slice(0, 10);
+    const [report] = await db.insert(schema.workReports).values({
+      employeeId, taskId: taskId || null, date: today, description, quantity, unit, issues,
+    }).returning();
+    // Даалгавар дуусгагдсан гэж тэмдэглэх
+    if (taskId) {
+      await db.update(schema.tasks).set({ status: "completed" }).where(eq(schema.tasks.id, taskId));
+    }
+    res.status(201).json(report);
+  });
+
+  // ============ TASKS (АХЛАХ УДИРДАНА) ============
+
+  app.get("/api/erp/tasks", requireAdmin, async (req, res) => {
+    const { date, employeeId } = req.query as any;
+    let rows = await db.select().from(schema.tasks).orderBy(desc(schema.tasks.createdAt));
+    if (date) rows = rows.filter(r => r.date === date);
+    if (employeeId) rows = rows.filter(r => r.employeeId === parseInt(employeeId));
+    res.json(rows);
+  });
+
+  app.post("/api/erp/tasks", async (req, res) => {
+    const token = req.headers["x-admin-token"];
+    if (token !== "authenticated") return res.status(401).json({ message: "Зөвшөөрөлгүй" });
+    const { employeeId, date, location, workType, equipment, notes, assignedBy } = req.body;
+    if (!employeeId || !date || !location || !workType)
+      return res.status(400).json({ message: "Заавал талбарууд дутуу байна" });
+    const [task] = await db.insert(schema.tasks).values({
+      employeeId, date, location, workType, equipment, notes, assignedBy, status: "pending",
+    }).returning();
+    res.status(201).json(task);
+  });
+
+  app.delete("/api/erp/tasks/:id", requireAdmin, async (req, res) => {
+    await db.delete(schema.tasks).where(eq(schema.tasks.id, parseInt(req.params.id)));
+    res.json({ success: true });
+  });
+
+  // ============ WORK REPORTS ============
+
+  app.get("/api/erp/work-reports", requireAdmin, async (req, res) => {
+    const { date, employeeId } = req.query as any;
+    let rows = await db.select().from(schema.workReports).orderBy(desc(schema.workReports.createdAt));
+    if (date) rows = rows.filter(r => r.date === date);
+    if (employeeId) rows = rows.filter(r => r.employeeId === parseInt(employeeId));
+    res.json(rows);
+  });
+
+  // ============ ТЕХНИК (МАШИН) ============
+
+  app.get("/api/erp/vehicles", requireAdmin, async (_req, res) => {
+    res.json(await db.select().from(schema.vehicles).orderBy(schema.vehicles.plateNumber));
+  });
+
+  app.post("/api/erp/vehicles", requireAdmin, async (req, res) => {
+    const { plateNumber, name, type, notes } = req.body;
+    if (!plateNumber || !name || !type) return res.status(400).json({ message: "Улсын дугаар, нэр, төрөл шаардлагатай" });
+    const [v] = await db.insert(schema.vehicles).values({ plateNumber: plateNumber.toUpperCase(), name, type, notes }).returning();
+    res.status(201).json(v);
+  });
+
+  app.delete("/api/erp/vehicles/:id", requireAdmin, async (req, res) => {
+    await db.delete(schema.vehicles).where(eq(schema.vehicles.id, parseInt(req.params.id)));
+    res.json({ success: true });
+  });
+
+  // Улсын дугаараар хайх (нийтийн)
+  app.get("/api/checkin/vehicle", async (req, res) => {
+    const plate = ((req.query.plate as string) || "").toUpperCase().trim();
+    if (!plate) return res.status(400).json({ message: "Дугаар оруулна уу" });
+    const rows = await db.select().from(schema.vehicles)
+      .where(eq(schema.vehicles.plateNumber, plate));
+    if (rows.length === 0) return res.status(404).json({ message: `"${plate}" дугаартай техник бүртгэлгүй байна` });
+    res.json(rows[0]);
+  });
+
+  // Үзлэг илгээх (нийтийн)
+  app.post("/api/checkin/vehicle-inspection", async (req, res) => {
+    const { vehicleId, employeeName, checks, passed, notes } = req.body;
+    if (!vehicleId || !employeeName || !checks) return res.status(400).json({ message: "Мэдээлэл дутуу байна" });
+    const today = new Date().toISOString().slice(0, 10);
+    const [insp] = await db.insert(schema.vehicleInspections).values({
+      vehicleId, employeeName, date: today,
+      checks: typeof checks === "string" ? checks : JSON.stringify(checks),
+      passed: passed ?? true, notes,
+    }).returning();
+    res.status(201).json(insp);
+  });
+
+  // Үзлэгүүд (admin)
+  app.get("/api/erp/vehicle-inspections", requireAdmin, async (req, res) => {
+    const { date } = req.query as any;
+    let rows = await db.select().from(schema.vehicleInspections).orderBy(desc(schema.vehicleInspections.createdAt));
     if (date) rows = rows.filter(r => r.date === date);
     res.json(rows);
   });

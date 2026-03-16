@@ -14,6 +14,7 @@ const SYSTEM_ROLES = [
     group: "Удирдлагын систем",
     items: [
       { name: "Хүний нөөц", desc: "Ажилтан бүртгэл, QR карт", path: "/admin?role=HR", icon: UserCircle, color: "purple" },
+      { name: "Ахлах — Даалгавар", desc: "Ажилтанд даалгавар тавих", path: "/admin?role=SUPERVISOR", icon: ClipboardList, color: "blue" },
       { name: "Онлайн хурал", desc: "BOARD систем", path: "/admin?role=BOARD", icon: Users, color: "indigo" },
       { name: "Төслийн хяналт", desc: "PROJECT систем", path: "/admin?role=PROJECT", icon: ClipboardList, color: "blue" },
       { name: "Үйлдвэрлэлийн хяналт", desc: "ADMIN систем", path: "/admin?role=ADMIN", icon: LayoutDashboard, color: "slate" },

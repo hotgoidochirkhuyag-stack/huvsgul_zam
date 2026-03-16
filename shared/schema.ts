@@ -63,7 +63,7 @@ export const employees = pgTable("employees", {
 export const erpProjects = pgTable("erp_projects", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  status: text("status").notNull().default("active"), // active | completed | paused
+  status: text("status").notNull().default("active"),
   location: text("location"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -72,12 +72,12 @@ export const erpProjects = pgTable("erp_projects", {
 export const plants = pgTable("plants", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
-  type: text("type").notNull(), // concrete | crusher | asphalt
+  type: text("type").notNull(),
   location: text("location"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Өдрийн тайлан (Ажилтны гүйцэтгэл)
+// Өдрийн тайлан (хуучин)
 export const dailyReports = pgTable("daily_reports", {
   id: serial("id").primaryKey(),
   employeeId: integer("employee_id").notNull(),
@@ -99,18 +99,18 @@ export const productionLogs = pgTable("production_logs", {
   date: date("date").notNull(),
   outputQuantity: real("output_quantity").notNull(),
   unit: text("unit").notNull(),
-  shift: text("shift").default("өдөр"), // өдөр | шөнө
+  shift: text("shift").default("өдөр"),
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Цагийн бүртгэл + ХАБЭА баталгаажуулалт
+// Цагийн бүртгэл + ХАБЭА
 export const attendance = pgTable("attendance", {
   id: serial("id").primaryKey(),
   employeeId: integer("employee_id").notNull(),
   date: date("date").notNull(),
-  checkIn: text("check_in"),                      // "08:30" форматтай
-  checkOut: text("check_out"),                    // "17:30" форматтай
+  checkIn: text("check_in"),
+  checkOut: text("check_out"),
   safetyConfirmed: boolean("safety_confirmed").default(false),
   safetyConfirmedAt: timestamp("safety_confirmed_at"),
   lateMinutes: integer("late_minutes").default(0),
@@ -118,15 +118,66 @@ export const attendance = pgTable("attendance", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// KPI Тохиргоо (БНбД норм)
+// KPI Тохиргоо
 export const kpiConfigs = pgTable("kpi_configs", {
   id: serial("id").primaryKey(),
   workType: text("work_type").notNull().unique(),
   unit: text("unit").notNull(),
   dailyNorm: real("daily_norm").notNull(),
   rewardPerUnit: real("reward_per_unit").notNull().default(0),
-  source: text("source"), // тушаалын дугаар жишээ нь А-63
+  source: text("source"),
   updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// ===================== ШИНЭ ХҮСНЭГТҮҮД =====================
+
+// Ажлын даалгавар (Ахлахаас ажилтанд)
+export const tasks = pgTable("tasks", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull(),
+  date: text("date").notNull(),           // YYYY-MM-DD
+  location: text("location").notNull(),   // Газрын нэр
+  workType: text("work_type").notNull(),  // Ажлын төрөл
+  equipment: text("equipment"),           // Ашиглах техник
+  notes: text("notes"),                   // Нэмэлт зааварчлага
+  status: text("status").default("pending"), // pending | accepted | completed
+  assignedBy: text("assigned_by"),        // Ахлахын нэр
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Ажлын тайлан (Ажилтнаас, нэг өдөрт олон боломжтой)
+export const workReports = pgTable("work_reports", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull(),
+  taskId: integer("task_id"),             // Аль даалгавартай холбоотой
+  date: text("date").notNull(),
+  description: text("description").notNull(),
+  quantity: text("quantity"),             // Хийсэн хэмжээ
+  unit: text("unit"),                     // Нэгж
+  issues: text("issues"),                 // Бэрхшээл
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Техник (Машин механизм)
+export const vehicles = pgTable("vehicles", {
+  id: serial("id").primaryKey(),
+  plateNumber: text("plate_number").notNull().unique(), // Улсын дугаар
+  name: text("name").notNull(),           // Экскаватор CAT 320
+  type: text("type").notNull(),           // Экскаватор | Бульдозер | Автомашин | Кран | Өөр
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Техникийн өмнөх үзлэг
+export const vehicleInspections = pgTable("vehicle_inspections", {
+  id: serial("id").primaryKey(),
+  vehicleId: integer("vehicle_id").notNull(),
+  employeeName: text("employee_name").notNull(), // Хэн үзлэг хийсэн
+  date: text("date").notNull(),
+  checks: text("checks").notNull(),       // JSON: [{item, ok, note}]
+  passed: boolean("passed").default(true),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
 });
 
 // ===================== INSERT SCHEMAS =====================
@@ -144,6 +195,10 @@ export const insertDailyReportSchema = createInsertSchema(dailyReports).omit({ i
 export const insertProductionLogSchema = createInsertSchema(productionLogs).omit({ id: true, createdAt: true });
 export const insertKpiConfigSchema = createInsertSchema(kpiConfigs).omit({ id: true, updatedAt: true });
 export const insertAttendanceSchema = createInsertSchema(attendance).omit({ id: true, createdAt: true });
+export const insertTaskSchema = createInsertSchema(tasks).omit({ id: true, createdAt: true });
+export const insertWorkReportSchema = createInsertSchema(workReports).omit({ id: true, createdAt: true });
+export const insertVehicleSchema = createInsertSchema(vehicles).omit({ id: true, createdAt: true });
+export const insertVehicleInspectionSchema = createInsertSchema(vehicleInspections).omit({ id: true, createdAt: true });
 
 // ===================== TYPES =====================
 
@@ -172,6 +227,14 @@ export type KpiConfig = typeof kpiConfigs.$inferSelect;
 export type InsertKpiConfig = z.infer<typeof insertKpiConfigSchema>;
 export type Attendance = typeof attendance.$inferSelect;
 export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
+export type Task = typeof tasks.$inferSelect;
+export type InsertTask = z.infer<typeof insertTaskSchema>;
+export type WorkReport = typeof workReports.$inferSelect;
+export type InsertWorkReport = z.infer<typeof insertWorkReportSchema>;
+export type Vehicle = typeof vehicles.$inferSelect;
+export type InsertVehicle = z.infer<typeof insertVehicleSchema>;
+export type VehicleInspection = typeof vehicleInspections.$inferSelect;
+export type InsertVehicleInspection = z.infer<typeof insertVehicleInspectionSchema>;
 
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;

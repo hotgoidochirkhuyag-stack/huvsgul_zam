@@ -14,6 +14,9 @@ import EngineerDashboard from "@/pages/EngineerDashboard";
 import ERPDashboard from "@/pages/ERPDashboard";
 import ERPReport from "@/pages/ERPReport";
 import HRDashboard from "@/pages/HRDashboard";
+import SupervisorDashboard from "@/pages/SupervisorDashboard";
+import CheckIn from "@/pages/CheckIn";
+import EquipmentInspection from "@/pages/EquipmentInspection";
 
 const ProtectedRoute = ({ component: Component, role }: { component: React.ComponentType; role: string }) => {
   const userRole = localStorage.getItem("userRole");
@@ -23,11 +26,12 @@ const ProtectedRoute = ({ component: Component, role }: { component: React.Compo
 
   if (userRole !== role) {
     const redirects: Record<string, string> = {
-      BOARD:    "/dashboard/board",
-      PROJECT:  "/dashboard/project",
-      ADMIN:    "/dashboard/admin",
-      ENGINEER: "/dashboard/engineer",
-      HR:       "/dashboard/hr",
+      BOARD:      "/dashboard/board",
+      PROJECT:    "/dashboard/project",
+      ADMIN:      "/dashboard/admin",
+      ENGINEER:   "/dashboard/engineer",
+      HR:         "/dashboard/hr",
+      SUPERVISOR: "/dashboard/supervisor",
     };
     return <Redirect to={redirects[userRole ?? ""] ?? `/admin?role=${role}`} />;
   }
@@ -45,14 +49,17 @@ function Router() {
       <Route path="/admin" component={AdminLogin} />
       <Route path="/select-role" component={RoleSelection} />
 
-      {/* Удирдлагын самбарууд */}
-      <Route path="/dashboard/board"    component={() => <ProtectedRoute component={BoardDashboard}    role="BOARD" />} />
-      <Route path="/dashboard/project"  component={() => <ProtectedRoute component={ProjectDashboard}  role="PROJECT" />} />
-      <Route path="/dashboard/admin"    component={() => <ProtectedRoute component={AdminDashboard}    role="ADMIN" />} />
-      <Route path="/dashboard/engineer" component={() => <ProtectedRoute component={EngineerDashboard} role="ENGINEER" />} />
+      {/* Нийтийн хуудсууд (нэвтрэлт шаардахгүй) */}
+      <Route path="/checkin" component={CheckIn} />
+      <Route path="/vehicle-inspection" component={EquipmentInspection} />
 
-      {/* HR Самбар */}
-      <Route path="/dashboard/hr" component={() => <ProtectedRoute component={HRDashboard} role="HR" />} />
+      {/* Удирдлагын самбарууд */}
+      <Route path="/dashboard/board"      component={() => <ProtectedRoute component={BoardDashboard}      role="BOARD" />} />
+      <Route path="/dashboard/project"    component={() => <ProtectedRoute component={ProjectDashboard}    role="PROJECT" />} />
+      <Route path="/dashboard/admin"      component={() => <ProtectedRoute component={AdminDashboard}      role="ADMIN" />} />
+      <Route path="/dashboard/engineer"   component={() => <ProtectedRoute component={EngineerDashboard}   role="ENGINEER" />} />
+      <Route path="/dashboard/hr"         component={() => <ProtectedRoute component={HRDashboard}         role="HR" />} />
+      <Route path="/dashboard/supervisor" component={() => <ProtectedRoute component={SupervisorDashboard} role="SUPERVISOR" />} />
 
       {/* ERP Систем */}
       <Route path="/erp" component={() => <ProtectedRoute component={ERPDashboard} role="ADMIN" />} />
