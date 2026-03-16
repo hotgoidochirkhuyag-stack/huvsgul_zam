@@ -1,31 +1,49 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { Lock, Loader2 } from 'lucide-react';
+import { Lock, Loader2, ArrowLeft } from 'lucide-react';
+import { useLocation } from 'wouter';
 
 const AdminLogin = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [, setLocation] = useLocation();
+
+  // URL-аас сонгогдсон ролийг уншиж авах
+  const params = new URLSearchParams(window.location.search);
+  const selectedRole = params.get('role');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
+
     try {
       const res = await fetch('/api/admin/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({ username, password, role: selectedRole }),
       });
+
       const data = await res.json();
+
       if (!res.ok) {
         setError(data.message || 'Нэвтрэхэд алдаа гарлаа');
         return;
       }
-      localStorage.setItem('isAdmin', 'true');
+
       localStorage.setItem('adminToken', data.token);
-      window.location.href = '/admin/dashboard';
+      localStorage.setItem('userRole', data.role); 
+
+      // Рольдоо таарсан самбар луу шилжих
+      switch (data.role) {
+        case 'BOARD': setLocation('/dashboard/board'); break;
+        case 'PROJECT': setLocation('/dashboard/project'); break;
+        case 'ADMIN': setLocation('/dashboard/admin'); break;
+        case 'ENGINEER': setLocation('/dashboard/engineer'); break;
+        default: setLocation('/dashboard/admin');
+      }
     } catch (e) {
       setError('Серверт холбогдоход алдаа гарлаа');
     } finally {
@@ -35,23 +53,36 @@ const AdminLogin = () => {
 
   return (
     <div className="min-h-screen bg-[#020617] flex items-center justify-center p-4">
+      {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-[10%] -left-[10%] w-[40%] h-[40%] bg-blue-600/10 blur-[120px] rounded-full"></div>
         <div className="absolute -bottom-[10%] -right-[10%] w-[40%] h-[40%] bg-indigo-600/10 blur-[120px] rounded-full"></div>
       </div>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
+      <motion.div 
+        initial={{ opacity: 0, y: 20 }} 
+        animate={{ opacity: 1, y: 0 }} 
         className="w-full max-w-sm relative z-10"
       >
-        <div className="bg-slate-900/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl">
-          <div className="flex items-center gap-3 mb-8">
+        <div className="bg-slate-900/60 backdrop-blur-xl p-8 rounded-3xl border border-white/10 shadow-2xl relative">
+
+          {/* БУЦАХ ТОВЧ */}
+          <button 
+            onClick={() => setLocation('/select-role')}
+            className="absolute top-4 left-4 p-2 text-slate-500 hover:text-white hover:bg-white/5 rounded-full transition-all"
+            title="Үүрэг сонгох руу буцах"
+          >
+            <ArrowLeft size={20} />
+          </button>
+
+          <div className="flex items-center gap-3 mb-8 mt-6">
             <div className="p-3 bg-blue-600/20 rounded-2xl">
               <Lock className="w-6 h-6 text-blue-400" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-white uppercase tracking-tight">Удирдах самбар</h2>
+              <h2 className="text-lg font-bold text-white uppercase tracking-tight">
+                {selectedRole ? `${selectedRole} - Нэвтрэх` : "Удирдах самбар"}
+              </h2>
               <p className="text-xs text-slate-500">Хөвсгөл Зам ХХК</p>
             </div>
           </div>
@@ -63,7 +94,7 @@ const AdminLogin = () => {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-600"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-blue-500/50 outline-none transition-all"
                 placeholder="Username"
                 required
               />
@@ -74,31 +105,18 @@ const AdminLogin = () => {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-blue-500/50 focus:ring-4 focus:ring-blue-500/10 outline-none transition-all placeholder:text-slate-600"
+                className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-blue-500/50 outline-none transition-all"
                 placeholder="••••••••"
                 required
               />
             </div>
-
-            {error && (
-              <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400">
-                {error}
-              </div>
-            )}
-
+            {error && <div className="bg-red-500/10 border border-red-500/30 rounded-xl px-4 py-3 text-sm text-red-400">{error}</div>}
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all active:scale-[0.98] mt-4 flex items-center justify-center gap-2 disabled:opacity-70"
+              className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-4 rounded-2xl transition-all flex items-center justify-center gap-2"
             >
-              {loading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Нэвтэрч байна...
-                </>
-              ) : (
-                "НЭВТРЭХ"
-              )}
+              {loading ? <><Loader2 className="w-4 h-4 animate-spin" /> Нэвтэрч байна...</> : "НЭВТРЭХ"}
             </button>
           </form>
         </div>

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin } from "lucide-react";
+import { MapPin, X } from "lucide-react"; // X икон нэмлээ
 import { useGallery } from "@/hooks/use-gallery";
 
 export default function ProjectsCloudinary() {
@@ -33,29 +33,35 @@ export default function ProjectsCloudinary() {
 
 function AutoRotatingSlot({ title, images }: { title: string, images: any[] }) {
   const [index, setIndex] = useState(0);
+  const [isExpanded, setIsExpanded] = useState(false); // Танилцуулга нээлттэй эсэх
 
   useEffect(() => {
-    if (images.length <= 1) return;
+    if (images.length <= 1 || isExpanded) return; // Танилцуулга нээлттэй үед зураг солигдохыг зогсооно
     const timer = setInterval(() => {
       setIndex((prev) => (prev + 1) % images.length);
     }, 3500);
     return () => clearInterval(timer);
-  }, [images]);
+  }, [images, isExpanded]);
+
+  const currentProject = images[index];
 
   return (
-    <div className="group cursor-pointer relative">
+    <div 
+      className="group cursor-pointer relative"
+      onClick={() => images.length > 0 && setIsExpanded(!isExpanded)}
+    >
       {/* Слот хүрээ */}
-      <div className="relative h-[400px] w-full overflow-hidden rounded-sm border border-border shadow-lg">
+      <div className={`relative h-[400px] w-full overflow-hidden rounded-sm border transition-all duration-500 ${isExpanded ? 'border-primary shadow-2xl' : 'border-border shadow-lg'}`}>
         {images.length > 0 ? (
           <AnimatePresence mode="wait">
             <motion.img
-              key={images[index].id}
-              src={images[index].imageUrl}
+              key={currentProject.id}
+              src={currentProject.imageUrl}
               initial={{ opacity: 0, scale: 1.1 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.8, ease: "easeInOut" }}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+              className={`w-full h-full object-cover transition-transform duration-700 ${!isExpanded && 'group-hover:scale-110'}`}
             />
           </AnimatePresence>
         ) : (
@@ -65,7 +71,7 @@ function AutoRotatingSlot({ title, images }: { title: string, images: any[] }) {
         )}
 
         {/* Gradient Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-70 group-hover:opacity-90 transition-opacity duration-300" />
+        <div className={`absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent transition-opacity duration-300 ${isExpanded ? 'opacity-95' : 'opacity-70 group-hover:opacity-90'}`} />
 
         {/* Category Label */}
         <div className="absolute top-4 left-4 z-20">
@@ -74,13 +80,42 @@ function AutoRotatingSlot({ title, images }: { title: string, images: any[] }) {
           </span>
         </div>
 
-        {/* Hover үед гарч ирэх гарчиг */}
-        <div className="absolute bottom-6 left-6 z-20 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-          <h4 className="text-white text-lg font-bold uppercase tracking-wide">
-            {images.length > 0 ? images[index].title : title}
-          </h4>
-          <div className="w-12 h-1 bg-primary mt-2"></div>
-        </div>
+        {/* Танилцуулга хэсэг (Comment маягаар гарч ирнэ) */}
+        <AnimatePresence>
+          {isExpanded && currentProject && (
+            <motion.div 
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 10 }}
+              className="absolute inset-0 z-30 p-8 flex flex-col justify-end bg-primary/10 backdrop-blur-[2px]"
+            >
+              <button 
+                onClick={(e) => { e.stopPropagation(); setIsExpanded(false); }}
+                className="absolute top-4 right-4 text-white/50 hover:text-white transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <h4 className="text-white text-2xl font-black uppercase mb-4 leading-tight">
+                {currentProject.title}
+              </h4>
+              <p className="text-white/80 text-sm leading-relaxed mb-6 line-clamp-6">
+                {currentProject.description || "Энэхүү төслийн дэлгэрэнгүй мэдээлэл удахгүй шинэчлэгдэн орох болно. Бид чанартай гүйцэтгэлийг эрхэмлэдэг."}
+              </p>
+              <div className="w-16 h-1 bg-primary"></div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Hover үед гарч ирэх үндсэн гарчиг (Expanded биш үед л харагдана) */}
+        {!isExpanded && (
+          <div className="absolute bottom-6 left-6 z-20 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+            <h4 className="text-white text-lg font-bold uppercase tracking-wide">
+              {images.length > 0 ? currentProject.title : title}
+            </h4>
+            <p className="text-primary text-[10px] font-bold mt-1">ДЭЛГЭРЭНГҮЙ ҮЗЭХ</p>
+          </div>
+        )}
       </div>
     </div>
   );

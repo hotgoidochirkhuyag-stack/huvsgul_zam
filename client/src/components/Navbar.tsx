@@ -17,18 +17,16 @@ export default function Navbar() {
   const scrollTo = (id) => {
     setMobileMenuOpen(false);
 
-    // Удирдлага хэсэг рүү үсрэх логик
+    // Өөрчлөлт: admin гэсэн ID-г дарахад шууд сонголтын хуудас руу шилжинэ
     if (id === "admin") {
-      window.location.href = "/admin"; 
+      window.location.href = "/select-role"; 
       return;
     }
 
     const element = document.getElementById(id);
     if (element) {
       const offset = 80;
-      const bodyRect = document.body.getBoundingClientRect().top;
-      const elementRect = element.getBoundingClientRect().top;
-      const elementPosition = elementRect - bodyRect;
+      const elementPosition = element.getBoundingClientRect().top + window.scrollY;
       const offsetPosition = elementPosition - offset;
 
       window.scrollTo({
@@ -66,11 +64,10 @@ export default function Navbar() {
                 src="/logo.png" 
                 alt="Хөвсгөл зам лого" 
                 className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-300"
-                onError={(e) => { e.target.style.display = 'none'; }} 
+                onError={(e: any) => { e.target.style.display = 'none'; }} 
               />
             </div>
             <div className="flex flex-col text-left">
-              {/* whitespace-nowrap нэмж нэрийг таслахгүй болгов */}
               <span className="font-display font-bold text-base leading-none tracking-wider text-foreground uppercase whitespace-nowrap">
                 ХӨВСГӨЛ ЗАМ
               </span>

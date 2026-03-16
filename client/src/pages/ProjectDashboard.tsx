@@ -1,0 +1,1 @@
+export default function ProjectDashboard() { return <div className="text-white p-10">Төслийн удирдлагын самбар</div>; }

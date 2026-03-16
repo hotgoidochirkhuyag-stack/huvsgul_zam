@@ -23,7 +23,6 @@ export default function Stats() {
     return () => clearInterval(interval);
   }, [gallery]);
 
-  // Google Sheet-ийн өгөгдлийг серверийн прокси ашиглан авах
   const fetchAllData = async () => {
     try {
       const resp = await fetch("/api/sheet-data");
@@ -31,10 +30,9 @@ export default function Stats() {
       const text = await resp.text();
       const rows = text.split(/\r?\n/).map((l: string) => l.split(','));
 
-      // КОНСОЛ ДЭЭР ХЭВЛЭЖ ШАЛГАХ
       console.log("DEBUG: Google Sheet-ийн эхний 10 мөр:", rows.slice(0, 10));
 
-      const targetRow = rows[4]; // Хэрэв дата чинь 4-р мөрөнд биш бол энийг өөрчлөх хэрэгтэй
+      const targetRow = rows[4];
 
       if (targetRow && targetRow.length > 0) {
         setStats(prev => prev.map((s, index) => {
@@ -75,7 +73,16 @@ export default function Stats() {
 
             <div className="grid grid-cols-2 gap-6 md:gap-8">
               {stats.map((stat) => (
-                <motion.div key={stat.id} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ duration: 0.5, delay: stat.delay }} className="bg-background/40 border border-border/50 p-6 rounded-sm relative overflow-hidden flex flex-col justify-between min-h-[140px]">
+                <motion.div 
+                  key={stat.id} 
+                  initial={{ opacity: 0, y: 20 }} 
+                  whileInView={{ opacity: 1, y: 0 }} 
+                  viewport={{ once: true }} 
+                  transition={{ duration: 0.5, delay: stat.delay }}
+                  whileHover={{ y: -5, scale: 1.02, borderColor: "hsl(var(--primary))" }}
+                  whileTap={{ scale: 0.98 }}
+                  className="bg-background/40 border border-border/50 p-6 rounded-sm relative overflow-hidden flex flex-col justify-between min-h-[140px] cursor-pointer transition-colors duration-300"
+                >
                   <stat.icon className="w-6 h-6 text-primary mb-4" />
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{stat.label}</p>
                   <h3 className="text-2xl md:text-3xl font-black text-foreground leading-tight">{stat.value}</h3>

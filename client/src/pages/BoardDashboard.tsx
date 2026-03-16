@@ -1,0 +1,1 @@
+export default function BoardDashboard() { return <div className="text-white p-10">ТУЗ-ын хяналтын самбар</div>; }
