@@ -26,12 +26,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const cleanRole = (role || "").toString().toUpperCase();
 
     const users: Record<string, { u: string; p: string }> = {
-      ADMIN:    { u: "admin",    p: "admin123" },
-      BOARD:    { u: "board",    p: "board123" },
-      PROJECT:  { u: "project",  p: "proj123" },
-      ENGINEER: { u: "engineer", p: "eng123" },
-      HR:         { u: "hr",         p: "hr123" },
-      SUPERVISOR: { u: "supervisor", p: "super123" },
+      ADMIN:      { u: "admin", p: "admin" },
+      BOARD:      { u: "admin", p: "admin" },
+      PROJECT:    { u: "admin", p: "admin" },
+      ENGINEER:   { u: "admin", p: "admin" },
+      HR:         { u: "admin", p: "admin" },
+      SUPERVISOR: { u: "admin", p: "admin" },
     };
 
     const targetUser = users[cleanRole];
