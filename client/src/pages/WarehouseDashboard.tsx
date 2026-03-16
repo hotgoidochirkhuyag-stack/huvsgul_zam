@@ -444,7 +444,7 @@ export default function WarehouseDashboard() {
   const [, setLocation] = useLocation();
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
-  const token = localStorage.getItem("authToken") ?? "";
+  const token = localStorage.getItem("adminToken") ?? "";
   const headers = { "x-admin-token": token };
 
   const { data: plansRaw2 } = useQuery({
@@ -483,7 +483,7 @@ export default function WarehouseDashboard() {
             </div>
             <button
               data-testid="btn-logout"
-              onClick={() => { localStorage.removeItem("authToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
+              onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
               className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white/70 transition-colors border border-white/10 rounded-xl px-3 py-2"
             >
               <LogOut className="w-4 h-4" /> Гарах
