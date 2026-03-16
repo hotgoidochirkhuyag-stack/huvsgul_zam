@@ -15,6 +15,7 @@ const SYSTEM_ROLES = [
     items: [
       { name: "Хүний нөөц", desc: "Ажилтан бүртгэл, QR карт", path: "/admin?role=HR", icon: UserCircle, color: "purple" },
       { name: "Ахлах — Даалгавар", desc: "Ажилтанд даалгавар тавих", path: "/admin?role=SUPERVISOR", icon: ClipboardList, color: "blue" },
+      { name: "Механик инженер", desc: "Техник, машин бүртгэл", path: "/admin?role=MECHANIC", icon: HardHat, color: "orange" },
       { name: "Онлайн хурал", desc: "BOARD систем", path: "/admin?role=BOARD", icon: Users, color: "indigo" },
       { name: "Төслийн хяналт", desc: "PROJECT систем", path: "/admin?role=PROJECT", icon: ClipboardList, color: "blue" },
       { name: "Үйлдвэрлэлийн хяналт", desc: "ADMIN систем", path: "/admin?role=ADMIN", icon: LayoutDashboard, color: "slate" },
@@ -31,6 +32,7 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string; icon
   indigo: { bg: "bg-indigo-600/10", border: "border-indigo-500/20 hover:border-indigo-400/60", text: "text-indigo-300", icon: "text-indigo-400" },
   slate:  { bg: "bg-slate-600/10",  border: "border-slate-500/20 hover:border-slate-400/60",  text: "text-slate-300",  icon: "text-slate-400" },
   red:    { bg: "bg-red-600/10",    border: "border-red-500/20 hover:border-red-400/60",    text: "text-red-300",    icon: "text-red-400" },
+  orange: { bg: "bg-orange-600/10", border: "border-orange-500/20 hover:border-orange-400/60", text: "text-orange-300", icon: "text-orange-400" },
 };
 
 export default function RoleSelection() {

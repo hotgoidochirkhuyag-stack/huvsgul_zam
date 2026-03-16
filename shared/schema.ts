@@ -162,8 +162,13 @@ export const workReports = pgTable("work_reports", {
 export const vehicles = pgTable("vehicles", {
   id: serial("id").primaryKey(),
   plateNumber: text("plate_number").notNull().unique(), // Улсын дугаар
-  name: text("name").notNull(),           // Экскаватор CAT 320
-  type: text("type").notNull(),           // Экскаватор | Бульдозер | Автомашин | Кран | Өөр
+  name: text("name").notNull(),              // Экскаватор CAT 320
+  type: text("type").notNull(),              // Экскаватор | Бульдозер | Автомашин | Кран | Өөр
+  capacity: text("capacity"),                // Хүчин чадал (жишээ: 20 тн, 320 к.с.)
+  lastInspectionDate: text("last_inspection_date"), // Улсын үзлэгт орсон огноо YYYY-MM-DD
+  nextInspectionDate: text("next_inspection_date"), // Дараагийн үзлэгийн огноо
+  isReady: boolean("is_ready").default(true),       // Ажилд бэлэн эсэх
+  readyNote: text("ready_note"),             // Бэлэн бус бол шалтгаан
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });

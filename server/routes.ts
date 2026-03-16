@@ -32,6 +32,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       ENGINEER:   { u: "admin", p: "admin" },
       HR:         { u: "admin", p: "admin" },
       SUPERVISOR: { u: "admin", p: "admin" },
+      MECHANIC:   { u: "admin", p: "admin" },
     };
 
     const targetUser = users[cleanRole];
@@ -425,18 +426,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ============ ТЕХНИК (МАШИН) ============
 
-  app.get("/api/erp/vehicles", requireAdmin, async (_req, res) => {
+  const requireToken = (req: any, res: any, next: any) => {
+    if (req.headers["x-admin-token"] !== "authenticated")
+      return res.status(401).json({ message: "Зөвшөөрөлгүй" });
+    next();
+  };
+
+  app.get("/api/erp/vehicles", requireToken, async (_req, res) => {
     res.json(await db.select().from(schema.vehicles).orderBy(schema.vehicles.plateNumber));
   });
 
-  app.post("/api/erp/vehicles", requireAdmin, async (req, res) => {
-    const { plateNumber, name, type, notes } = req.body;
+  app.post("/api/erp/vehicles", requireToken, async (req, res) => {
+    const { plateNumber, name, type, capacity, lastInspectionDate, nextInspectionDate, isReady, readyNote, notes } = req.body;
     if (!plateNumber || !name || !type) return res.status(400).json({ message: "Улсын дугаар, нэр, төрөл шаардлагатай" });
-    const [v] = await db.insert(schema.vehicles).values({ plateNumber: plateNumber.toUpperCase(), name, type, notes }).returning();
+    const [v] = await db.insert(schema.vehicles).values({
+      plateNumber: plateNumber.toUpperCase(), name, type, capacity,
+      lastInspectionDate, nextInspectionDate,
+      isReady: isReady !== undefined ? isReady : true,
+      readyNote, notes,
+    }).returning();
     res.status(201).json(v);
   });
 
-  app.delete("/api/erp/vehicles/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/erp/vehicles/:id", requireToken, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const { isReady, readyNote, lastInspectionDate, nextInspectionDate, capacity, notes } = req.body;
+    const updates: any = {};
+    if (isReady !== undefined) updates.isReady = isReady;
+    if (readyNote !== undefined) updates.readyNote = readyNote;
+    if (lastInspectionDate !== undefined) updates.lastInspectionDate = lastInspectionDate;
+    if (nextInspectionDate !== undefined) updates.nextInspectionDate = nextInspectionDate;
+    if (capacity !== undefined) updates.capacity = capacity;
+    if (notes !== undefined) updates.notes = notes;
+    const [updated] = await db.update(schema.vehicles).set(updates).where(eq(schema.vehicles.id, id)).returning();
+    res.json(updated);
+  });
+
+  app.delete("/api/erp/vehicles/:id", requireToken, async (req, res) => {
     await db.delete(schema.vehicles).where(eq(schema.vehicles.id, parseInt(req.params.id)));
     res.json({ success: true });
   });
