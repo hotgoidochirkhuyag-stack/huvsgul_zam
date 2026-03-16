@@ -4,22 +4,19 @@ import express from "express";
 import { storage } from "./storage.js";
 import { db } from "./db.js";
 import * as schema from "../shared/schema.js";
-import { eq } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 import { z } from "zod";
+import { calculateEmployeeKpi, calculateTeamKpi, seedDefaultKpiConfigs } from "./kpiEngine.js";
+import { syncNormsFromOrder } from "./normAgent.js";
 
 // ============ ADMIN AUTH MIDDLEWARE ============
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const token = req.headers["x-admin-token"];
-  if (token === "authenticated") {
-    return next();
-  }
+  if (token === "authenticated") return next();
   return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
 }
 
-export async function registerRoutes(
-  httpServer: Server,
-  app: Express,
-): Promise<Server> {
+export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
@@ -36,77 +33,49 @@ export async function registerRoutes(
     };
 
     const targetUser = users[cleanRole];
-
     if (targetUser && username === targetUser.u && password === targetUser.p) {
-      return res.json({
-        success: true,
-        token: "authenticated",
-        role: cleanRole,
-      });
+      return res.json({ success: true, token: "authenticated", role: cleanRole });
     }
-
     return res.status(401).json({ message: "Нэр эсвэл нууц үг буруу" });
   });
 
-  // ============ PROJECTS API ============
+  // ============ WEBSITE API ============
   app.get("/api/projects", async (_req, res) => {
-    const projects = await storage.getProjects();
-    res.json(projects);
+    res.json(await storage.getProjects());
   });
-
-  // ============ STATS IMAGES API ============
   app.get("/api/stats", async (_req, res) => {
-    const stats = await storage.getStats();
-    res.json(stats);
+    res.json(await storage.getStats());
   });
-
-  // ============ VIDEOS API ============
   app.get("/api/videos", async (_req, res) => {
-    const videos = await storage.getFeaturedVideos();
-    res.json(videos);
+    res.json(await storage.getFeaturedVideos());
   });
-
-  // ============ GOOGLE SHEET PROXY ============
   app.get("/api/sheet-data", async (_req, res) => {
     try {
       const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQb3rZqDRJ1qaDEmvNHcnhlHjAFAR1XBesPxDFH5d20X8GVU8VAsuijvUcz8asTLpe8YgT65Y9-7yFZ/pub?output=csv";
       const response = await fetch(url);
-      if (!response.ok) throw new Error(`Sheet HTTP алдаа: ${response.status}`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
       const text = await response.text();
       res.setHeader("Content-Type", "text/plain");
       res.send(text);
     } catch (e) {
-      console.error("Sheet proxy алдаа:", e);
       res.status(500).json({ error: "Sheet татахад алдаа гарлаа" });
     }
   });
-
-  // ============ CONTENT API ============
   app.get("/api/content", async (_req, res) => {
-    const rows = await db.select().from(schema.content);
-    res.json(rows);
+    res.json(await db.select().from(schema.content));
   });
 
-  // ============ SUBSCRIPTIONS API ============
+  // ============ SUBSCRIPTIONS ============
   app.post("/api/subscriptions", async (req, res) => {
     try {
-      const subSchema = z.object({
-        email: z.string().email(),
-        type: z.string().min(1),
-      });
-      const data = subSchema.parse(req.body);
+      const data = z.object({ email: z.string().email(), type: z.string().min(1) }).parse(req.body);
       const [sub] = await db.insert(schema.subscriptions).values(data).returning();
       res.status(201).json(sub);
-    } catch (e) {
-      res.status(500).json({ error: "И-мэйл хадгалахад алдаа гарлаа" });
-    }
+    } catch { res.status(500).json({ error: "Хадгалахад алдаа" }); }
   });
-
   app.get("/api/subscriptions", requireAdmin, async (_req, res) => {
-    const subs = await db.select().from(schema.subscriptions).orderBy(schema.subscriptions.createdAt);
-    res.json(subs);
+    res.json(await db.select().from(schema.subscriptions).orderBy(schema.subscriptions.createdAt));
   });
-
   app.delete("/api/subscriptions/:id", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: "Буруу ID" });
@@ -114,28 +83,20 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
-  // ============ CONTACTS API ============
+  // ============ CONTACTS ============
   app.post("/api/contacts", async (req, res) => {
     try {
-      const contactSchema = z.object({
-        name: z.string().min(1),
-        email: z.string().email(),
-        phone: z.string().optional(),
-        message: z.string().min(1),
-      });
-      const data = contactSchema.parse(req.body);
-      const [contact] = await db.insert(schema.contacts).values(data).returning();
-      res.status(201).json(contact);
-    } catch (e) {
-      res.status(500).json({ error: "Хадгалахад алдаа гарлаа" });
-    }
+      const data = z.object({
+        name: z.string().min(1), email: z.string().email(),
+        phone: z.string().optional(), message: z.string().min(1),
+      }).parse(req.body);
+      const [c] = await db.insert(schema.contacts).values(data).returning();
+      res.status(201).json(c);
+    } catch { res.status(500).json({ error: "Хадгалахад алдаа" }); }
   });
-
   app.get("/api/contacts", requireAdmin, async (_req, res) => {
-    const msgs = await db.select().from(schema.contacts).orderBy(schema.contacts.createdAt);
-    res.json(msgs);
+    res.json(await db.select().from(schema.contacts).orderBy(schema.contacts.createdAt));
   });
-
   app.delete("/api/contacts/:id", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: "Буруу ID" });
@@ -143,7 +104,167 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  // =====================================================
+  // ERP API ROUTES
+  // =====================================================
+
+  // ============ EMPLOYEES ============
+  app.get("/api/erp/employees", requireAdmin, async (_req, res) => {
+    res.json(await db.select().from(schema.employees).orderBy(schema.employees.name));
+  });
+  app.post("/api/erp/employees", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertEmployeeSchema.parse(req.body);
+      const qrCode = `EMP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
+      const [emp] = await db.insert(schema.employees).values({ ...data, qrCode }).returning();
+      res.status(201).json(emp);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/erp/employees/:id", requireAdmin, async (req, res) => {
+    await db.delete(schema.employees).where(eq(schema.employees.id, parseInt(req.params.id)));
+    res.json({ success: true });
+  });
+
+  // QR кодоор ажилтан хайх (нэвтрэх шаардлагагүй - QR уншуулах үед)
+  app.get("/api/erp/employee-by-qr/:qr", async (req, res) => {
+    const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.qrCode, req.params.qr));
+    if (!emp) return res.status(404).json({ error: "Ажилтан олдсонгүй" });
+    res.json(emp);
+  });
+
+  // ============ ERP PROJECTS ============
+  app.get("/api/erp/projects", async (_req, res) => {
+    res.json(await db.select().from(schema.erpProjects).orderBy(desc(schema.erpProjects.createdAt)));
+  });
+  app.post("/api/erp/projects", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertErpProjectSchema.parse(req.body);
+      const [p] = await db.insert(schema.erpProjects).values(data).returning();
+      res.status(201).json(p);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.patch("/api/erp/projects/:id", requireAdmin, async (req, res) => {
+    const { status } = req.body;
+    const [p] = await db.update(schema.erpProjects).set({ status }).where(eq(schema.erpProjects.id, parseInt(req.params.id))).returning();
+    res.json(p);
+  });
+
+  // ============ PLANTS ============
+  app.get("/api/erp/plants", async (_req, res) => {
+    res.json(await db.select().from(schema.plants).orderBy(schema.plants.name));
+  });
+  app.post("/api/erp/plants", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertPlantSchema.parse(req.body);
+      const [pl] = await db.insert(schema.plants).values(data).returning();
+      res.status(201).json(pl);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // ============ DAILY REPORTS ============
+  app.post("/api/erp/daily-reports", async (req, res) => {
+    try {
+      const data = schema.insertDailyReportSchema.parse(req.body);
+      const [report] = await db.insert(schema.dailyReports).values(data).returning();
+      // KPI тооцоол
+      const kpi = await calculateEmployeeKpi(report.id);
+      res.status(201).json({ report, kpi });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.get("/api/erp/daily-reports", requireAdmin, async (req, res) => {
+    const { startDate, endDate, employeeId } = req.query as any;
+    let rows = await db.select().from(schema.dailyReports).orderBy(desc(schema.dailyReports.createdAt));
+    if (startDate) rows = rows.filter(r => r.date >= startDate);
+    if (endDate) rows = rows.filter(r => r.date <= endDate);
+    if (employeeId) rows = rows.filter(r => r.employeeId === parseInt(employeeId));
+    res.json(rows);
+  });
+
+  // Ажилтны өөрийн тайланг харах (QR-аар)
+  app.get("/api/erp/my-reports/:employeeId", async (req, res) => {
+    const empId = parseInt(req.params.employeeId);
+    const rows = await db.select().from(schema.dailyReports)
+      .where(eq(schema.dailyReports.employeeId, empId))
+      .orderBy(desc(schema.dailyReports.createdAt));
+    res.json(rows);
+  });
+
+  // ============ PRODUCTION LOGS ============
+  app.post("/api/erp/production-logs", async (req, res) => {
+    try {
+      const data = schema.insertProductionLogSchema.parse(req.body);
+      const [log] = await db.insert(schema.productionLogs).values(data).returning();
+      res.status(201).json(log);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.get("/api/erp/production-logs", requireAdmin, async (_req, res) => {
+    res.json(await db.select().from(schema.productionLogs).orderBy(desc(schema.productionLogs.date)));
+  });
+
+  // ============ KPI CONFIGS ============
+  app.get("/api/erp/kpi-configs", async (_req, res) => {
+    res.json(await db.select().from(schema.kpiConfigs).orderBy(schema.kpiConfigs.workType));
+  });
+  app.post("/api/erp/kpi-configs", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertKpiConfigSchema.parse(req.body);
+      const [kpi] = await db.insert(schema.kpiConfigs).values(data).returning();
+      res.status(201).json(kpi);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.patch("/api/erp/kpi-configs/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const [updated] = await db.update(schema.kpiConfigs)
+      .set({ ...req.body })
+      .where(eq(schema.kpiConfigs.id, id))
+      .returning();
+    res.json(updated);
+  });
+  app.delete("/api/erp/kpi-configs/:id", requireAdmin, async (req, res) => {
+    await db.delete(schema.kpiConfigs).where(eq(schema.kpiConfigs.id, parseInt(req.params.id)));
+    res.json({ success: true });
+  });
+
+  // ============ KPI ENGINE ============
+  app.get("/api/erp/kpi-team", requireAdmin, async (req, res) => {
+    const { startDate, endDate, department } = req.query as any;
+    const start = startDate ?? new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10);
+    const end = endDate ?? new Date().toISOString().slice(0, 10);
+    const results = await calculateTeamKpi(start, end, department);
+    res.json(results);
+  });
+
+  // ============ AI НОРМ АГЕНТ ============
+  app.post("/api/erp/sync-norms", requireAdmin, async (req, res) => {
+    const { orderNumber } = req.body;
+    if (!orderNumber) return res.status(400).json({ error: "Тушаалын дугаар шаардлагатай" });
+    const result = await syncNormsFromOrder(orderNumber);
+    res.json(result);
+  });
+
+  // ============ SUMMARY STATS ============
+  app.get("/api/erp/summary", requireAdmin, async (_req, res) => {
+    const [employees, projects, plants, reports, logs] = await Promise.all([
+      db.select().from(schema.employees),
+      db.select().from(schema.erpProjects),
+      db.select().from(schema.plants),
+      db.select().from(schema.dailyReports),
+      db.select().from(schema.productionLogs),
+    ]);
+    const today = new Date().toISOString().slice(0, 10);
+    res.json({
+      totalEmployees: employees.length,
+      activeProjects: projects.filter(p => p.status === "active").length,
+      totalPlants: plants.length,
+      todayReports: reports.filter(r => r.date === today).length,
+      totalBonusPaid: reports.reduce((sum, r) => sum + (r.bonus ?? 0), 0),
+    });
+  });
+
+  // Seed data
   seedInitialContent().catch(console.error);
+  seedDefaultKpiConfigs().catch(console.error);
   return httpServer;
 }
 
@@ -159,5 +280,5 @@ async function seedInitialContent() {
         secondaryCtaText: "Холбогдох",
       });
     }
-  } catch (e) {}
+  } catch {}
 }

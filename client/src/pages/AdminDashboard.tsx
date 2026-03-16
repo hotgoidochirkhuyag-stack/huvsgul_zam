@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { motion } from "framer-motion";
-import { Mail, MessageSquare, Trash2, Users, Video } from "lucide-react";
+import { Mail, MessageSquare, Trash2, Users, Video, LayoutDashboard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import LogoutButton from "@/components/LogoutButton";
 import { FactoryControl } from "@/components/FactoryControl";
+import { useLocation } from "wouter";
 
 function getAdminHeaders() {
   return {
@@ -16,6 +17,7 @@ function getAdminHeaders() {
 
 export default function AdminDashboard() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [activeTab, setActiveTab] = useState<"subscriptions" | "contacts" | "video">("subscriptions");
   const [connectionMode, setConnectionMode] = useState<"DIRECTOR_ENGINEER" | "ENGINEER_WORKER" | "VENDOR_SUPPORT">("DIRECTOR_ENGINEER");
 
@@ -72,7 +74,16 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-white">Админ Самбар</h1>
           <p className="text-slate-400">Хөвсгөл Зам ХХК - Удирдлагын систем</p>
         </div>
-        <LogoutButton />
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setLocation("/erp")}
+            data-testid="btn-erp-dashboard"
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 border border-amber-500/30 rounded-xl text-sm font-bold transition-all"
+          >
+            <LayoutDashboard className="w-4 h-4" /> ERP Систем
+          </button>
+          <LogoutButton />
+        </div>
       </header>
 
       {/* Stats cards */}
