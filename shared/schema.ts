@@ -1,4 +1,4 @@
-import { pgTable, text, serial, timestamp, integer, real, date } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, timestamp, integer, real, date, boolean } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -104,6 +104,20 @@ export const productionLogs = pgTable("production_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Цагийн бүртгэл + ХАБЭА баталгаажуулалт
+export const attendance = pgTable("attendance", {
+  id: serial("id").primaryKey(),
+  employeeId: integer("employee_id").notNull(),
+  date: date("date").notNull(),
+  checkIn: text("check_in"),                      // "08:30" форматтай
+  checkOut: text("check_out"),                    // "17:30" форматтай
+  safetyConfirmed: boolean("safety_confirmed").default(false),
+  safetyConfirmedAt: timestamp("safety_confirmed_at"),
+  lateMinutes: integer("late_minutes").default(0),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // KPI Тохиргоо (БНбД норм)
 export const kpiConfigs = pgTable("kpi_configs", {
   id: serial("id").primaryKey(),
@@ -129,6 +143,7 @@ export const insertPlantSchema = createInsertSchema(plants).omit({ id: true, cre
 export const insertDailyReportSchema = createInsertSchema(dailyReports).omit({ id: true, createdAt: true, bonus: true });
 export const insertProductionLogSchema = createInsertSchema(productionLogs).omit({ id: true, createdAt: true });
 export const insertKpiConfigSchema = createInsertSchema(kpiConfigs).omit({ id: true, updatedAt: true });
+export const insertAttendanceSchema = createInsertSchema(attendance).omit({ id: true, createdAt: true });
 
 // ===================== TYPES =====================
 
@@ -155,6 +170,8 @@ export type ProductionLog = typeof productionLogs.$inferSelect;
 export type InsertProductionLog = z.infer<typeof insertProductionLogSchema>;
 export type KpiConfig = typeof kpiConfigs.$inferSelect;
 export type InsertKpiConfig = z.infer<typeof insertKpiConfigSchema>;
+export type Attendance = typeof attendance.$inferSelect;
+export type InsertAttendance = z.infer<typeof insertAttendanceSchema>;
 
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;

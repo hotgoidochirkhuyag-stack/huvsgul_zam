@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Users, Briefcase, Factory, ClipboardList, TrendingUp, Award,
-  Plus, Trash2, RefreshCw, Settings, LogOut, ChevronDown, ChevronUp
+  Plus, Trash2, RefreshCw, Settings, LogOut, Clock, ShieldCheck
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -26,7 +26,7 @@ function StatCard({ label, value, icon: Icon, color }: any) {
   );
 }
 
-type Tab = "kpi" | "employees" | "projects" | "plants" | "kpi-config" | "norm-agent";
+type Tab = "kpi" | "attendance" | "employees" | "projects" | "plants" | "kpi-config" | "norm-agent";
 
 export default function ERPDashboard() {
   const { toast } = useToast();
@@ -85,8 +85,16 @@ export default function ERPDashboard() {
     onSuccess: (d) => { toast({ title: d.message }); qc.invalidateQueries({ queryKey: ["/api/erp/kpi-configs"] }); },
   });
 
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: attendanceList = [] } = useQuery<any[]>({
+    queryKey: ["/api/erp/attendance", today],
+    queryFn: () => fetch(`/api/erp/attendance?date=${today}`, { headers: getAdminHeaders() }).then(r => r.json()),
+    enabled: tab === "attendance",
+  });
+
   const TABS: { key: Tab; label: string; icon: any }[] = [
     { key: "kpi", label: "KPI", icon: TrendingUp },
+    { key: "attendance", label: "Ирц / ХАБЭА", icon: Clock },
     { key: "employees", label: "Ажилтан", icon: Users },
     { key: "projects", label: "Төсөл", icon: Briefcase },
     { key: "plants", label: "Үйлдвэр", icon: Factory },
@@ -177,6 +185,58 @@ export default function ERPDashboard() {
                         <td className="p-3 text-amber-400 font-medium">{r.bonus > 0 ? `+${r.bonus.toLocaleString()}₮` : "—"}</td>
                         <td className="p-3">
                           <span className={`px-2 py-1 rounded-lg text-xs font-medium ${statusLabel[r.status]?.cls}`}>{statusLabel[r.status]?.label}</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Ирц / ХАБЭА */}
+        {tab === "attendance" && (
+          <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
+              <div>
+                <h2 className="font-bold">Өнөөдрийн ирц — {today}</h2>
+                <p className="text-xs text-slate-500 mt-0.5">ХАБЭА баталгаажуулалтын байдал</p>
+              </div>
+              <button onClick={() => qc.invalidateQueries({ queryKey: ["/api/erp/attendance", today] })} className="text-slate-400 hover:text-white transition-all">
+                <RefreshCw className="w-4 h-4" />
+              </button>
+            </div>
+            {attendanceList.length === 0 ? (
+              <div className="p-10 text-center text-slate-400 text-sm">Өнөөдрийн бүртгэл байхгүй байна</div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-slate-800/50">
+                    <tr>{["Ажилтан", "Ирсэн цаг", "Явсан цаг", "ХАБЭА", "Хожимдол", "Байдал"].map(h => (
+                      <th key={h} className="text-left p-3 text-slate-400 text-xs uppercase tracking-wider">{h}</th>
+                    ))}</tr>
+                  </thead>
+                  <tbody>
+                    {attendanceList.map((a: any) => (
+                      <tr key={a.id} className="border-t border-white/5 hover:bg-white/3">
+                        <td className="p-3 text-white font-medium text-sm">#{a.employeeId}</td>
+                        <td className="p-3 text-green-400 font-mono font-bold">{a.checkIn ?? "—"}</td>
+                        <td className="p-3 text-blue-400 font-mono">{a.checkOut ?? <span className="text-slate-600">Яваагүй</span>}</td>
+                        <td className="p-3">
+                          {a.safetyConfirmed
+                            ? <span className="flex items-center gap-1 text-green-400 text-xs"><ShieldCheck className="w-3.5 h-3.5" /> Баталгаажсан</span>
+                            : <span className="text-slate-500 text-xs">—</span>}
+                        </td>
+                        <td className="p-3">
+                          {(a.lateMinutes ?? 0) > 0
+                            ? <span className="text-amber-400 text-sm font-bold">+{a.lateMinutes} мин</span>
+                            : <span className="text-green-400 text-xs">Цагт ирсэн</span>}
+                        </td>
+                        <td className="p-3">
+                          <span className={`px-2 py-1 rounded-lg text-xs font-medium ${a.checkOut ? "bg-blue-500/10 text-blue-400" : "bg-green-500/10 text-green-400"}`}>
+                            {a.checkOut ? "Дууссан" : "Ажиллаж байна"}
+                          </span>
                         </td>
                       </tr>
                     ))}

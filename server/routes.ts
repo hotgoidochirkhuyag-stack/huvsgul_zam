@@ -243,6 +243,84 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(result);
   });
 
+  // ============ ATTENDANCE (Цагийн бүртгэл + ХАБЭА) ============
+
+  // Өнөөдрийн бүртгэл харах (QR-аар)
+  app.get("/api/erp/attendance/:employeeId/today", async (req, res) => {
+    const empId = parseInt(req.params.employeeId);
+    const today = new Date().toISOString().slice(0, 10);
+    const rows = await db
+      .select()
+      .from(schema.attendance)
+      .where(eq(schema.attendance.employeeId, empId));
+    const todayRow = rows.find(r => r.date === today);
+    res.json(todayRow ?? null);
+  });
+
+  // Ирсэн цаг бүртгэх (Check-in) + ХАБЭА баталгаа
+  app.post("/api/erp/attendance/checkin", async (req, res) => {
+    try {
+      const { employeeId, safetyConfirmed } = req.body;
+      const today = new Date().toISOString().slice(0, 10);
+      const now = new Date();
+      const timeStr = now.toTimeString().slice(0, 5); // "HH:MM"
+
+      // Хуучин бүртгэл байгаа эсэх
+      const existing = await db.select().from(schema.attendance)
+        .where(eq(schema.attendance.employeeId, employeeId));
+      const todayRow = existing.find(r => r.date === today);
+
+      if (todayRow) {
+        return res.json({ already: true, attendance: todayRow });
+      }
+
+      // Хожимдолт тооцоол (ажлын цаг 08:00)
+      const startHour = 8, startMin = 0;
+      const lateMinutes = Math.max(0, (now.getHours() - startHour) * 60 + (now.getMinutes() - startMin));
+
+      const [record] = await db.insert(schema.attendance).values({
+        employeeId,
+        date: today,
+        checkIn: timeStr,
+        safetyConfirmed: !!safetyConfirmed,
+        safetyConfirmedAt: safetyConfirmed ? now : null,
+        lateMinutes,
+      }).returning();
+
+      res.status(201).json({ already: false, attendance: record });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Явсан цаг бүртгэх (Check-out)
+  app.post("/api/erp/attendance/checkout", async (req, res) => {
+    try {
+      const { employeeId } = req.body;
+      const today = new Date().toISOString().slice(0, 10);
+      const timeStr = new Date().toTimeString().slice(0, 5);
+
+      const existing = await db.select().from(schema.attendance)
+        .where(eq(schema.attendance.employeeId, employeeId));
+      const todayRow = existing.find(r => r.date === today);
+
+      if (!todayRow) return res.status(404).json({ error: "Ирсэн бүртгэл олдсонгүй" });
+
+      const [updated] = await db.update(schema.attendance)
+        .set({ checkOut: timeStr })
+        .where(eq(schema.attendance.id, todayRow.id))
+        .returning();
+
+      res.json(updated);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Цагийн бүртгэлийн жагсаалт (Менежер)
+  app.get("/api/erp/attendance", requireAdmin, async (req, res) => {
+    const { date } = req.query as any;
+    let rows = await db.select().from(schema.attendance).orderBy(desc(schema.attendance.createdAt));
+    if (date) rows = rows.filter(r => r.date === date);
+    res.json(rows);
+  });
+
   // ============ SUMMARY STATS ============
   app.get("/api/erp/summary", requireAdmin, async (_req, res) => {
     const [employees, projects, plants, reports, logs] = await Promise.all([
