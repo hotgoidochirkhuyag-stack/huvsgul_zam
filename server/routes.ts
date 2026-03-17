@@ -615,6 +615,49 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(rows);
   });
 
+  // ============ ТЕХНИКИЙН ЭВДРЭЛ — Breakdown Requests ============
+  app.get("/api/erp/breakdowns", requireToken, async (_req, res) => {
+    const rows = await db.select().from(schema.breakdownRequests)
+      .orderBy(desc(schema.breakdownRequests.createdAt));
+    res.json(rows);
+  });
+
+  app.post("/api/erp/breakdowns", requireToken, async (req, res) => {
+    try {
+      const { vehicleId, vehicleName, reportedBy, phone, location, problem } = req.body;
+      if (!reportedBy || !location || !problem) return res.status(400).json({ error: "Мэдээлэл дутуу" });
+      const [row] = await db.insert(schema.breakdownRequests).values({
+        vehicleId: vehicleId ? Number(vehicleId) : null,
+        vehicleName: vehicleName || null,
+        reportedBy, phone: phone || null, location, problem,
+        status: "open",
+      }).returning();
+      res.status(201).json(row);
+    } catch { res.status(500).json({ error: "Хадгалахад алдаа" }); }
+  });
+
+  app.patch("/api/erp/breakdowns/:id", requireToken, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) return res.status(400).json({ error: "Буруу ID" });
+      const { status, assignedTo, resolvedNote } = req.body;
+      const updates: Record<string, any> = { updatedAt: new Date() };
+      if (status) updates.status = status;
+      if (assignedTo !== undefined) updates.assignedTo = assignedTo;
+      if (resolvedNote !== undefined) updates.resolvedNote = resolvedNote;
+      const [row] = await db.update(schema.breakdownRequests)
+        .set(updates).where(eq(schema.breakdownRequests.id, id)).returning();
+      res.json(row);
+    } catch { res.status(500).json({ error: "Шинэчлэхэд алдаа" }); }
+  });
+
+  app.delete("/api/erp/breakdowns/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    if (isNaN(id)) return res.status(400).json({ error: "Буруу ID" });
+    await db.delete(schema.breakdownRequests).where(eq(schema.breakdownRequests.id, id));
+    res.json({ success: true });
+  });
+
   // ============ SUMMARY STATS ============
   app.get("/api/erp/summary", requireAdmin, async (_req, res) => {
     const [employees, projects, plants, reports, logs] = await Promise.all([

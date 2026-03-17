@@ -462,6 +462,26 @@ export const normAuditLog = pgTable("norm_audit_log", {
 
 export type NormAuditEntry = typeof normAuditLog.$inferSelect;
 
+// ============ ТЕХНИКИЙН ЭВДРЭЛ — Breakdown requests ============
+export const breakdownRequests = pgTable("breakdown_requests", {
+  id:           serial("id").primaryKey(),
+  vehicleId:    integer("vehicle_id"),               // холбогдох техник (заавал биш)
+  vehicleName:  text("vehicle_name"),                // Кэш: "ЧН-1234 Экскаватор"
+  reportedBy:   text("reported_by").notNull(),       // Хэн мэдэгдсэн
+  phone:        text("phone"),                       // Мэдэгдсэн хүний утас
+  location:     text("location").notNull(),          // Хаана эвдэрсэн
+  problem:      text("problem").notNull(),           // Юу болсон тайлбар
+  status:       text("status").notNull().default("open"), // open | in_progress | resolved
+  assignedTo:   text("assigned_to"),                 // Хэн зассан/очсон
+  resolvedNote: text("resolved_note"),               // Хэрхэн шийдвэрлэсэн
+  createdAt:    timestamp("created_at").defaultNow(),
+  updatedAt:    timestamp("updated_at").defaultNow(),
+});
+
+export const insertBreakdownSchema = createInsertSchema(breakdownRequests).omit({ id: true, createdAt: true, updatedAt: true });
+export type BreakdownRequest = typeof breakdownRequests.$inferSelect;
+export type InsertBreakdown = z.infer<typeof insertBreakdownSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;
