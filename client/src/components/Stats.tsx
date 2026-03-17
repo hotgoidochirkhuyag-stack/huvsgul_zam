@@ -42,7 +42,7 @@ function AutoRotatingSlot({ images }: { images: { id: string; imageUrl: string; 
 
         {/* Ангилал тэмдэглэгэ */}
         <div className="absolute top-4 left-4 z-20">
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white bg-primary/90 px-3 py-1 rounded-sm">
+          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white px-3 py-1">
             <MapPin size={10} /> ХӨВСГӨЛ ЗАМ ХХК
           </span>
         </div>
