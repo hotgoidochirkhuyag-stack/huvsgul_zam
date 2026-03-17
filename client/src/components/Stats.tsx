@@ -9,7 +9,7 @@ function AutoRotatingSlot({ images }: { images: { id: string; imageUrl: string; 
 
   useEffect(() => {
     if (images.length <= 1) return;
-    const timer = setInterval(() => setIndex(p => (p + 1) % images.length), 3500);
+    const timer = setInterval(() => setIndex(p => (p + 1) % images.length), 7000);
     return () => clearInterval(timer);
   }, [images]);
 
