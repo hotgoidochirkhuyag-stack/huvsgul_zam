@@ -7,7 +7,7 @@ export default function LogoutButton() {
   const handleLogout = () => {
     localStorage.removeItem('adminToken');
     localStorage.removeItem('userRole');
-    setLocation('/admin');
+    setLocation('/select-role');
   };
 
   return (
