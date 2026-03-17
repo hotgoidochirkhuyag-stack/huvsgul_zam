@@ -8,7 +8,7 @@ import {
 import {
   UserCheck, ShieldCheck, TrendingUp, Factory, BookOpen, Target,
   AlertTriangle, CheckCircle2, Clock, Gauge, Bot, RefreshCw,
-  Sparkles, FileText, ChevronRight, Video,
+  Sparkles, FileText, ChevronRight, Video, Loader2,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
@@ -492,154 +492,246 @@ function KpiTab() {
 }
 
 /* ══════════════════════ 6. AI АГЕНТ ══════════════════════ */
+const SECTION_COLORS: Record<string, string> = {
+  "1. Бэлтгэл ажил":         "blue",
+  "2. Хөрсний ажил":          "amber",
+  "3. Суурь давхарга":        "orange",
+  "4. Асфальтбетон хучилт":   "red",
+  "5. Бетон хучилт":          "purple",
+  "6. Ус зайлуулах":          "cyan",
+  "7. Замын тоноглол":        "green",
+  "8. Гүүр, байгууламж":      "rose",
+  "9. Тусгай ажлууд":         "indigo",
+};
+const SC = (s: string) => SECTION_COLORS[s] ?? "slate";
+
 function AiAgentTab() {
-  const [normOrder, setNormOrder] = useState("");
+  const [activeSection, setActiveSection] = useState<string>("ALL");
+  const [search, setSearch] = useState("");
+
+  const { data: catalog, isLoading: catalogLoading } = useQuery<{ norms: any[]; sections: string[] }>({
+    queryKey: ["/api/erp/norm-catalog"],
+    queryFn: () => fetch("/api/erp/norm-catalog", { headers: hdrs() }).then(r => r.json()),
+  });
+
+  const { data: kpiList = [] } = useQuery<any[]>({
+    queryKey: ["/api/erp/kpi-configs"],
+    queryFn: () => fetch("/api/erp/kpi-configs", { headers: hdrs() }).then(r => r.json()),
+  });
 
   const syncNorm = useMutation({
-    mutationFn: () =>
+    mutationFn: (section: string) =>
       fetch("/api/erp/sync-norms", {
         method: "POST",
         headers: hdrs(),
-        body: JSON.stringify({ orderNumber: normOrder }),
+        body: JSON.stringify({ section }),
       }).then(r => r.json()),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/norm-configs"] });
       queryClient.invalidateQueries({ queryKey: ["/api/erp/kpi-configs"] });
     },
   });
 
-  const { data: auditLog = [] } = useQuery<any[]>({
-    queryKey: ["/api/norm-audit-log"],
-    queryFn: () => fetch("/api/norm-audit-log", { headers: hdrs() }).then(r => r.json()),
+  const sections = catalog?.sections ?? [];
+  const allNorms  = catalog?.norms ?? [];
+
+  const importedSet = new Set(kpiList.map((k: any) => k.workType));
+
+  const filtered = allNorms.filter(n => {
+    const matchSection = activeSection === "ALL" || n.section === activeSection;
+    const matchSearch  = !search || n.workType.toLowerCase().includes(search.toLowerCase()) || n.code?.includes(search);
+    return matchSection && matchSearch;
   });
 
-  const SAMPLE_ORDERS = [
-    { code: "А-63",  desc: "Замын барилга — ерөнхий норм" },
-    { code: "А-141", desc: "Асфальтбетон хольцын норм" },
-    { code: "А-200", desc: "Бетон зуурмагийн норм" },
-    { code: "А-89",  desc: "Хөрсний ажлын норм" },
-  ];
+  const sectionCounts = sections.map(s => ({
+    section: s,
+    total: allNorms.filter(n => n.section === s).length,
+    imported: allNorms.filter(n => n.section === s && importedSet.has(n.workType)).length,
+  }));
 
   return (
-    <div className="space-y-6">
-      {/* Hero card */}
-      <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/20 rounded-2xl border border-blue-500/20 p-6">
-        <div className="flex items-start gap-4 mb-6">
-          <div className="p-4 bg-blue-600/20 rounded-2xl border border-blue-500/20">
-            <Bot className="w-8 h-8 text-blue-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="font-black text-white text-xl">AI Норм Агент</h2>
-              <span className="px-2 py-0.5 bg-blue-600/30 text-blue-300 text-xs font-bold rounded-full flex items-center gap-1">
-                <Sparkles className="w-3 h-3" /> AI
-              </span>
+    <div className="space-y-5">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-blue-900/30 to-slate-900/60 rounded-2xl border border-blue-500/20 p-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-blue-600/20 rounded-xl border border-blue-500/20">
+              <Bot className="w-7 h-7 text-blue-400" />
             </div>
-            <p className="text-slate-400 text-sm leading-relaxed max-w-xl">
-              ЗТХЯ болон legalinfo.mn-аас тушаалын нормуудыг автоматаар уншиж, 
-              KPI болон норм тохиргоог шинэчилнэ. ТУЗ-ын хурлаар батлагдсан нормыг 
-              системд тусгах боломжтой.
-            </p>
+            <div>
+              <div className="flex items-center gap-2">
+                <h2 className="font-black text-white text-lg">ЗЗБНбД 81-013-2019</h2>
+                <span className="px-2 py-0.5 bg-blue-600/30 text-blue-300 text-xs font-bold rounded-full">Норм</span>
+              </div>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Авто зам, замын байгууламжийн барилга, засварын ажлын төсөв бодох норм
+              </p>
+            </div>
           </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row gap-3">
-          <input
-            value={normOrder}
-            onChange={e => setNormOrder(e.target.value)}
-            placeholder="Тушаалын дугаар оруулна уу (жишээ: А-63, А-141)"
-            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500/50 placeholder:text-slate-600 transition-all"
-          />
-          <button
-            onClick={() => syncNorm.mutate()}
-            disabled={!normOrder.trim() || syncNorm.isPending}
-            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center gap-2 whitespace-nowrap"
-          >
-            {syncNorm.isPending
-              ? <><RefreshCw className="w-4 h-4 animate-spin" /> Татаж байна...</>
-              : <><RefreshCw className="w-4 h-4" /> Норм татах</>}
-          </button>
+          <div className="sm:ml-auto flex gap-2 flex-wrap">
+            <button
+              data-testid="btn-import-all"
+              onClick={() => syncNorm.mutate("ALL")}
+              disabled={syncNorm.isPending}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all"
+            >
+              {syncNorm.isPending
+                ? <><RefreshCw className="w-3.5 h-3.5 animate-spin" /> Орж байна...</>
+                : <><RefreshCw className="w-3.5 h-3.5" /> Бүгдийг KPI-д оруулах</>}
+            </button>
+          </div>
         </div>
 
         {syncNorm.data && (
-          <div className={`mt-4 p-4 rounded-xl text-sm flex items-start gap-3 ${
+          <div className={`mt-3 p-3 rounded-xl text-sm flex items-center gap-2 ${
             syncNorm.data.success
               ? "bg-green-500/10 border border-green-500/30 text-green-300"
               : "bg-amber-500/10 border border-amber-500/30 text-amber-300"
           }`}>
-            {syncNorm.data.success
-              ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
-              : <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />}
+            {syncNorm.data.success ? <CheckCircle2 className="w-4 h-4 shrink-0" /> : <AlertTriangle className="w-4 h-4 shrink-0" />}
             <span>{syncNorm.data.message}</span>
+            {syncNorm.data.success && <span className="ml-auto text-xs font-bold text-green-400">{syncNorm.data.updated} норм</span>}
           </div>
         )}
-      </div>
 
-      {/* Sample orders */}
-      <div>
-        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Дэмжигдсэн тушаалуудын жишээ</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {SAMPLE_ORDERS.map(o => (
-            <button
-              key={o.code}
-              onClick={() => setNormOrder(o.code)}
-              className={`p-4 rounded-xl border text-left transition-all hover:scale-[1.02] ${
-                normOrder === o.code
-                  ? "bg-blue-600/20 border-blue-500/40"
-                  : "bg-slate-900/60 border-white/10 hover:border-white/20"
-              }`}
-            >
-              <div className="flex items-center justify-between mb-1">
-                <p className="font-black text-white text-sm">{o.code}</p>
-                <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
-              </div>
-              <p className="text-xs text-slate-500 leading-snug">{o.desc}</p>
-            </button>
-          ))}
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3 mt-4">
+          <div className="bg-white/5 rounded-xl p-3 text-center">
+            <div className="text-2xl font-black text-white">{allNorms.length}</div>
+            <div className="text-xs text-slate-400 mt-0.5">Нийт норм</div>
+          </div>
+          <div className="bg-green-500/10 rounded-xl p-3 text-center">
+            <div className="text-2xl font-black text-green-400">{importedSet.size}</div>
+            <div className="text-xs text-green-500/80 mt-0.5">Системд орсон</div>
+          </div>
+          <div className="bg-amber-500/10 rounded-xl p-3 text-center">
+            <div className="text-2xl font-black text-amber-400">{sections.length}</div>
+            <div className="text-xs text-amber-500/80 mt-0.5">Хэсэг</div>
+          </div>
         </div>
       </div>
 
-      {/* Audit log */}
-      {auditLog.length > 0 && (
-        <div className="bg-slate-900/60 rounded-2xl border border-white/10 overflow-hidden">
-          <div className="p-4 border-b border-white/10 flex items-center gap-2">
-            <FileText className="w-4 h-4 text-slate-400" />
-            <h3 className="font-bold text-white text-sm">Синхронизацийн лог</h3>
-            <span className="ml-auto text-xs text-slate-500">{auditLog.length} бүртгэл</span>
+      {/* Хэсгүүд */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Хэсгүүд</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+          {/* ALL товч */}
+          <button
+            onClick={() => setActiveSection("ALL")}
+            className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+              activeSection === "ALL"
+                ? "bg-blue-600/20 border-blue-500/40"
+                : "bg-slate-900/60 border-white/10 hover:border-white/20"
+            }`}
+          >
+            <div className="w-8 h-8 rounded-lg bg-blue-600/20 flex items-center justify-center shrink-0">
+              <BookOpen className="w-4 h-4 text-blue-400" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-white text-sm">Бүгд</p>
+              <p className="text-xs text-slate-400">{allNorms.length} норм</p>
+            </div>
+            <button
+              onClick={e => { e.stopPropagation(); syncNorm.mutate("ALL"); }}
+              className="shrink-0 px-2 py-1 text-xs bg-blue-600/30 text-blue-300 hover:bg-blue-600/50 rounded-lg"
+            >Оруулах</button>
+          </button>
+
+          {sectionCounts.map(({ section, total, imported }) => {
+            const c = SC(section);
+            return (
+              <button
+                key={section}
+                onClick={() => setActiveSection(section)}
+                className={`flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${
+                  activeSection === section
+                    ? `bg-${c}-600/20 border-${c}-500/40`
+                    : "bg-slate-900/60 border-white/10 hover:border-white/20"
+                }`}
+              >
+                <div className={`w-8 h-8 rounded-lg bg-${c}-600/20 flex items-center justify-center shrink-0`}>
+                  <FileText className={`w-4 h-4 text-${c}-400`} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-white text-xs leading-snug">{section}</p>
+                  <p className="text-xs text-slate-500">{imported}/{total} орсон</p>
+                </div>
+                <button
+                  onClick={e => { e.stopPropagation(); syncNorm.mutate(section); }}
+                  className="shrink-0 px-2 py-1 text-xs bg-slate-700 text-slate-300 hover:bg-slate-600 rounded-lg"
+                >Оруулах</button>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Хайлт + норм хүснэгт */}
+      <div className="bg-slate-900/60 rounded-2xl border border-white/10 overflow-hidden">
+        <div className="p-4 border-b border-white/10 flex items-center gap-3">
+          <BookOpen className="w-4 h-4 text-amber-400" />
+          <h3 className="font-bold text-white text-sm">
+            {activeSection === "ALL" ? "Бүх норм" : activeSection}
+          </h3>
+          <span className="text-xs text-slate-500 bg-slate-800 px-2 py-0.5 rounded-full">{filtered.length}</span>
+          <div className="ml-auto">
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Хайх..."
+              className="bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-amber-500/50 placeholder:text-slate-600 w-48"
+            />
           </div>
+        </div>
+
+        {catalogLoading ? (
+          <div className="flex items-center justify-center py-12 text-slate-400 gap-2">
+            <Loader2 className="w-5 h-5 animate-spin" /> Ачааллаж байна...
+          </div>
+        ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
-              <thead className="bg-slate-800/50">
+              <thead className="bg-slate-800/60">
                 <tr>
-                  {["Тушаалын №","Статус","Мэдэгдэл","Огноо"].map(h => (
-                    <th key={h} className="text-left p-3 text-slate-400 text-xs uppercase tracking-wider">{h}</th>
+                  {["Код", "Ажлын төрөл", "Хэсэг", "Нэгж", "Өдрийн норм", "Эх сурвалж", "Төлөв"].map(h => (
+                    <th key={h} className="text-left px-4 py-2.5 text-slate-400 text-xs font-semibold uppercase tracking-wider whitespace-nowrap">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {auditLog.slice(0, 20).map((log: any, i: number) => (
-                  <tr key={i} className="border-t border-white/5 hover:bg-white/[0.02]">
-                    <td className="p-3 text-white font-mono text-sm">{log.orderNumber ?? "—"}</td>
-                    <td className="p-3">
-                      <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
-                        log.success ? "bg-green-600/20 text-green-400" : "bg-red-600/20 text-red-400"
-                      }`}>
-                        {log.success ? "Амжилттай" : "Алдаа"}
-                      </span>
-                    </td>
-                    <td className="p-3 text-slate-300 text-sm max-w-xs">
-                      <p className="truncate">{log.message ?? "—"}</p>
-                    </td>
-                    <td className="p-3 text-slate-500 text-xs">
-                      {log.createdAt ? new Date(log.createdAt).toLocaleDateString("mn-MN") : "—"}
-                    </td>
-                  </tr>
-                ))}
+                {filtered.map((n: any, i: number) => {
+                  const isImported = importedSet.has(n.workType);
+                  const c = SC(n.section);
+                  return (
+                    <tr key={i} className="border-t border-white/5 hover:bg-white/[0.02]">
+                      <td className="px-4 py-2.5 font-mono text-xs text-slate-500">{n.code ?? "—"}</td>
+                      <td className="px-4 py-2.5 text-white text-sm max-w-xs">
+                        <p className="leading-snug">{n.workType}</p>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full bg-${c}-500/10 text-${c}-400 whitespace-nowrap`}>
+                          {n.section?.replace(/^\d+\. /, "") ?? "—"}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-400 text-xs font-mono">{n.unit}</td>
+                      <td className="px-4 py-2.5 text-amber-400 font-bold text-sm">{n.dailyNorm.toLocaleString()}</td>
+                      <td className="px-4 py-2.5 text-slate-500 text-xs whitespace-nowrap">{n.source}</td>
+                      <td className="px-4 py-2.5">
+                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                          isImported
+                            ? "bg-green-500/15 text-green-400"
+                            : "bg-slate-700/50 text-slate-500"
+                        }`}>
+                          {isImported ? "✓ Орсон" : "Оруулаагүй"}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }

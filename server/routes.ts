@@ -7,7 +7,7 @@ import * as schema from "../shared/schema.js";
 import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { calculateEmployeeKpi, calculateTeamKpi, seedDefaultKpiConfigs } from "./kpiEngine.js";
-import { syncNormsFromOrder } from "./normAgent.js";
+import { syncNormsFromOrder, syncNormsBySection, ZZBND_NORMS, NORM_SECTIONS } from "./normAgent.js";
 import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { Readable } from "stream";
@@ -355,11 +355,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(results);
   });
 
-  // ============ AI НОРМ АГЕНТ ============
+  // ============ AI НОРМ АГЕНТ — ЗЗБНбД 81-013-2019 ============
+  // Бүх нормын каталог харах
+  app.get("/api/erp/norm-catalog", requireAdmin, async (_req, res) => {
+    res.json({ norms: ZZBND_NORMS, sections: NORM_SECTIONS });
+  });
+
+  // Хэсгээр буюу бүгдийг системд суулгах
   app.post("/api/erp/sync-norms", requireAdmin, async (req, res) => {
-    const { orderNumber } = req.body;
-    if (!orderNumber) return res.status(400).json({ error: "Тушаалын дугаар шаардлагатай" });
-    const result = await syncNormsFromOrder(orderNumber);
+    const { section } = req.body;
+    const result = await syncNormsBySection(section ?? "ALL");
     res.json(result);
   });
 
