@@ -42,7 +42,7 @@ const ERP_REPORTS: Card[] = [
 ];
 
 const ADMIN_CARD: Card = {
-  name: "Үйлдвэрлэлийн хяналт", desc: "ADMIN систем — бүх хяналт",
+  name: "Админ самбар", desc: "ADMIN систем — бүх хяналт",
   path: "/admin/ADMIN", icon: LayoutDashboard, color: "slate",
 };
 

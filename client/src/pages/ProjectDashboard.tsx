@@ -4,10 +4,9 @@ import { queryClient } from "@/lib/queryClient";
 import { motion } from "framer-motion";
 import {
   MessageSquare, Trash2, Users, Mail, Filter, Layers,
-  LayoutDashboard, Phone, Calendar, ChevronDown, ChevronUp
+  Phone, Calendar, ChevronDown, ChevronUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useLocation } from "wouter";
 import LogoutButton from "@/components/LogoutButton";
 
 function getHeaders() {
@@ -28,7 +27,6 @@ const FILTER_ITEMS = ["Бүгд", "Холбоо барих", "Үнийн сан�
 
 export default function ProjectDashboard() {
   const { toast } = useToast();
-  const [, setLocation] = useLocation();
   const [filter, setFilter] = useState("Бүгд");
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
@@ -98,15 +96,7 @@ export default function ProjectDashboard() {
           <h1 className="text-2xl md:text-3xl font-bold text-white">Төслийн хөгжүүлэлт</h1>
           <p className="text-slate-400 mt-1">Бүртгэлийн нэгдсэн самбар — Хөвсгөл Зам ХХК</p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setLocation("/dashboard/admin")}
-            className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-white/10 rounded-xl text-sm font-medium transition-all"
-          >
-            <LayoutDashboard className="w-4 h-4" /> Админ самбар
-          </button>
-          <LogoutButton />
-        </div>
+        <LogoutButton />
       </header>
 
       {/* Stats */}
