@@ -580,7 +580,7 @@ export default function SupervisorDashboard() {
             </div>
 
             {showFrontForm && (
-              <div className="bg-slate-900/80 border border-green-500/30 rounded-2xl p-5 space-y-4">
+              <div className="bg-slate-900 border border-green-500/30 rounded-2xl p-5 space-y-4">
                 <h3 className="font-semibold text-green-400 flex items-center gap-2"><Navigation className="w-4 h-4" /> Шинэ ажиллах хэсэг нэмэх</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
@@ -592,26 +592,27 @@ export default function SupervisorDashboard() {
                     { key: "date",         label: "Эхлэх огноо",     type: "date",   ph: ""           },
                   ].map(f => (
                     <div key={f.key} className="space-y-1">
-                      <label className="text-xs text-white/40">{f.label}</label>
+                      <label className="text-xs text-slate-400">{f.label}</label>
                       <input type={f.type} placeholder={f.ph} value={(frontForm as any)[f.key]}
+                        autoComplete="off"
                         onChange={e => setFrontForm(p => ({ ...p, [f.key]: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500 transition-colors" />
+                        className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500 transition-colors placeholder-slate-500" />
                     </div>
                   ))}
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="text-xs text-white/40">Ажлын төрөл</label>
+                    <label className="text-xs text-slate-400">Ажлын төрөл</label>
                     <select value={frontForm.activity} onChange={e => setFrontForm(p => ({ ...p, activity: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none">
-                      {Object.entries(ACTIVITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500 transition-colors">
+                      {Object.entries(ACTIVITIES).map(([k, v]) => <option key={k} value={k} className="bg-slate-800 text-white">{v}</option>)}
                     </select>
                   </div>
                   <div className="space-y-1">
-                    <label className="text-xs text-white/40">Явц (%)</label>
+                    <label className="text-xs text-slate-400">Явц (%)</label>
                     <input type="number" min="0" max="100" placeholder="0-100" value={frontForm.progress}
                       onChange={e => setFrontForm(p => ({ ...p, progress: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none" />
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-green-500 transition-colors placeholder-slate-500" />
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -625,7 +626,7 @@ export default function SupervisorDashboard() {
                     className="px-5 py-2 bg-green-600 hover:bg-green-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
                     {createFront.isPending ? "..." : "Нэмэх"}
                   </button>
-                  <button onClick={() => setShowFrontForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
+                  <button onClick={() => setShowFrontForm(false)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-sm transition-all">Болих</button>
                 </div>
               </div>
             )}
