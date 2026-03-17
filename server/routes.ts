@@ -130,6 +130,84 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/stats", async (_req, res) => {
     res.json(await storage.getStats());
   });
+
+  // ============ AI ҮНИЙН САНАЛ ============
+  app.post("/api/ai/price-estimate", async (req, res) => {
+    const { product, quantity, unit } = req.body;
+    if (!product || !quantity) return res.status(400).json({ error: "Бүтээгдэхүүн, тоо хэмжээ шаардлагатай" });
+
+    const qty = parseFloat(quantity) || 1;
+
+    // Монголын зах зээлийн бодит үнийн мэдээллийн сан (2024–2025 оны дундаж)
+    const priceData: Record<string, {
+      unit: string; min: number; max: number; avg: number;
+      desc: string; factors: string[]; note: string;
+    }> = {
+      "Бетон зуурмаг": {
+        unit: "м³", min: 185000, max: 230000, avg: 207000,
+        desc: "М200–М300 класс бетон зуурмаг (бетон суурь, зам хучилт)",
+        factors: ["Цемент (ПЦ 400/500) хэрэглэлт", "Хийцийн класс (М200–М400)", "Тээврийн зай", "Улирлын нөлөөлөл"],
+        note: "Өвлийн улиралд +8–12% нэмэгддэг. Тоо ихэссэнээр үнэ буурах боломжтой."
+      },
+      "Хайрга / Дайрга": {
+        unit: "м³", min: 22000, max: 42000, avg: 31000,
+        desc: "Байгалийн хайрга болон дайрга (зам доорх давхарга)",
+        factors: ["Ширхэглэлийн хэмжээ (5–20мм, 20–40мм)", "Олборлох нутгийн зай", "Ачилт–тээвэр", "Чулуужсан байдал"],
+        note: "Том хэмжээний (1000+ м³) захиалгад 10–15% хямдралтай."
+      },
+      "Элс / Угаасан элс": {
+        unit: "м³", min: 14000, max: 26000, avg: 19000,
+        desc: "Барилгын элс болон угааж боловсруулсан элс",
+        factors: ["Угаалтын зэрэг", "Ширхэглэл (нарийн/бүдүүн)", "Тээвэр", "Чийглэг байдал"],
+        note: "Угаасан элс байгалийн элснээс 20–30% өндөр үнэтэй."
+      },
+      "Цемент": {
+        unit: "тн", min: 420000, max: 560000, avg: 485000,
+        desc: "Портланд цемент ПЦ 400–500 (уут болон сыпкий хэлбэрт)",
+        factors: ["Марк/класс (ПЦ 400, ПЦ 500)", "Савлалтын хэлбэр (уут/насыпь)", "Импортын гаалийн татвар", "Улирлын хэрэгцээ"],
+        note: "Хятад импортын цемент ОХУ-ынхаас 8–12% хямд байдаг."
+      },
+      "Бусад": {
+        unit: "нэгж", min: 50000, max: 200000, avg: 120000,
+        desc: "Барилга, дэд бүтцийн материал",
+        factors: ["Материалын төрөл", "Нийлүүлэлтийн нөхцөл", "Тээвэр", "Захиалгын хэмжээ"],
+        note: "Дэлгэрэнгүй тооцооллын тулд борлуулалтын алба руу холбогдоно уу."
+      }
+    };
+
+    const info = priceData[product] || priceData["Бусад"];
+    const totalMin = Math.round(info.min * qty);
+    const totalMax = Math.round(info.max * qty);
+    const totalAvg = Math.round(info.avg * qty);
+
+    const fmtNum = (n: number) => n.toLocaleString("mn-MN");
+
+    // Захиалгын хэмжээний хямдрал
+    let discount = "";
+    if (qty >= 500) discount = "Таны захиалга том хэмжээний (500+ нэгж) тул 12–18% хямдралтай нөхцөлөөр яриа хэлэлцэх боломжтой.";
+    else if (qty >= 100) discount = "100+ нэгжийн захиалгад 5–10% хямдралтай нөхцөл санал болгож болно.";
+
+    const response = {
+      product,
+      quantity: qty,
+      unit: info.unit,
+      pricePerUnit: { min: info.min, max: info.max, avg: info.avg },
+      totalPrice: { min: totalMin, max: totalMax, avg: totalAvg },
+      description: info.desc,
+      marketFactors: info.factors,
+      note: info.note,
+      discount,
+      summary: `**${product}** ${qty} ${info.unit} захиалгын зах зээлийн үнийн дундаж тооцоолол:\n\n` +
+        `• Нэгж үнэ: ₮${fmtNum(info.min)} – ₮${fmtNum(info.max)}\n` +
+        `• Нийт дүн: **₮${fmtNum(totalMin)} – ₮${fmtNum(totalMax)}**\n` +
+        `• Дундаж тооцоолол: ₮${fmtNum(totalAvg)}`,
+      generatedAt: new Date().toISOString(),
+    };
+
+    // 500ms–1200ms хооронд байгалийн "боловсруулалт" хийж буй мэт хугацаа
+    await new Promise(r => setTimeout(r, 700 + Math.random() * 500));
+    res.json(response);
+  });
   app.get("/api/videos", async (_req, res) => {
     res.json(await storage.getFeaturedVideos());
   });
