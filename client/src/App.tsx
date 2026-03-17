@@ -37,6 +37,7 @@ const ProtectedRoute = ({ component: Component, role }: { component: React.Compo
       SUPERVISOR: "/dashboard/supervisor",
       MECHANIC:   "/dashboard/mechanic",
       WAREHOUSE:  "/dashboard/warehouse",
+      LAB:        "/dashboard/lab-qc",
     };
     return <Redirect to={redirects[userRole ?? ""] ?? `/admin?role=${role}`} />;
   }
@@ -72,8 +73,21 @@ function Router() {
       <Route path="/erp" component={() => <ProtectedRoute component={ERPDashboard} role="ADMIN" />} />
       <Route path="/erp/report" component={ERPReport} />
 
-      {/* Лаборатори — Инженер болон Менежер хандаж болно */}
-      <Route path="/dashboard/lab-qc" component={LabQCDashboard} />
+      {/* Лаборатори — LAB болон ENGINEER хандаж болно */}
+      <Route path="/dashboard/lab-qc" component={() => {
+        const token = localStorage.getItem("adminToken");
+        const userRole = localStorage.getItem("userRole");
+        if (!token) return <Redirect to="/admin?role=LAB" />;
+        if (!["LAB", "ENGINEER", "ADMIN"].includes(userRole ?? "")) {
+          const redirects: Record<string, string> = {
+            BOARD: "/dashboard/board", PROJECT: "/dashboard/project",
+            SUPERVISOR: "/dashboard/supervisor", MECHANIC: "/dashboard/mechanic",
+            WAREHOUSE: "/dashboard/warehouse", HR: "/dashboard/hr",
+          };
+          return <Redirect to={redirects[userRole ?? ""] ?? "/admin?role=LAB"} />;
+        }
+        return <LabQCDashboard />;
+      }} />
 
       <Route component={NotFound} />
     </Switch>
