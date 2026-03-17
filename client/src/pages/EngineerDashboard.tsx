@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import {
@@ -6,7 +6,7 @@ import {
   Plus, ChevronDown, ChevronUp, Loader2, Car, User,
   AlertTriangle, CheckCheck, Clock, RefreshCw,
   PhoneCall, MessageCircle, Siren, MapPin, FileText,
-  ClipboardCheck, Users, ChevronRight,
+  ClipboardCheck, Users, ChevronRight, Video, VideoOff, Copy, Check, Link2,
 } from "lucide-react";
 import type { Vehicle, VehicleInspection, Employee, BreakdownRequest } from "@shared/schema";
 
@@ -456,6 +456,56 @@ function BreakdownTab({ vehicles }: { vehicles: Vehicle[] }) {
   const [showForm, setShowForm] = useState(false);
   const [showResolved, setShowResolved] = useState(false);
 
+  /* ── Jitsi видео дуудлага ── */
+  const [jitsiReady, setJitsiReady] = useState(false);
+  const [activeCall, setActiveCall] = useState<{ emp: Employee; roomName: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const meetRef = useRef<HTMLDivElement>(null);
+  const apiRef  = useRef<any>(null);
+
+  useEffect(() => {
+    if ((window as any).JitsiMeetExternalAPI) { setJitsiReady(true); return; }
+    const s = document.createElement("script");
+    s.src = "https://meet.jit.si/external_api.js";
+    s.async = true;
+    s.onload = () => setJitsiReady(true);
+    document.body.appendChild(s);
+    return () => { s.remove(); };
+  }, []);
+
+  useEffect(() => {
+    if (!activeCall || !jitsiReady || !meetRef.current) return;
+    if (apiRef.current) { apiRef.current.dispose(); apiRef.current = null; }
+    apiRef.current = new (window as any).JitsiMeetExternalAPI("meet.jit.si", {
+      roomName: activeCall.roomName,
+      width: "100%", height: 460,
+      parentNode: meetRef.current,
+      userInfo: { displayName: "Инженер" },
+      configOverwrite: { startWithAudioMuted: false, startWithVideoMuted: false },
+      interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ["microphone","camera","chat","hangup","tileview","fullscreen"] },
+    });
+    apiRef.current.addEventListener("videoConferenceLeft", () => endCall());
+  }, [activeCall, jitsiReady]);
+
+  const startCall = (emp: Employee) => {
+    const safe = emp.name.replace(/\s+/g, "").replace(/[^a-zA-Z0-9А-ЯӨҮа-яөүё]/g, "");
+    const roomName = `KhuvsgulZam_Zasvar_${safe}`;
+    setActiveCall({ emp, roomName });
+  };
+
+  const endCall = () => {
+    if (apiRef.current) { apiRef.current.dispose(); apiRef.current = null; }
+    setActiveCall(null);
+  };
+
+  const meetingUrl = activeCall ? `https://meet.jit.si/${activeCall.roomName}` : "";
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(meetingUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const { data: allBreakdowns = [], isLoading, refetch } = useQuery<BreakdownRequest[]>({
     queryKey: ["/api/erp/breakdowns"],
     queryFn: () => fetch("/api/erp/breakdowns", { headers: hdrs() }).then(r => r.json()),
@@ -470,7 +520,7 @@ function BreakdownTab({ vehicles }: { vehicles: Vehicle[] }) {
   const mechanics = fieldEngineers.filter(e =>
     e.department === "field" || e.department === "plant" ||
     e.role.toLowerCase().includes("механик") || e.role.toLowerCase().includes("техник") ||
-    e.role.toLowerCase().includes("засвар") || e.role.toLowerCase().includes("engineer")
+    e.role.toLowerCase().includes("засвар") || e.role.toLowerCase().includes("инженер")
   );
 
   const active = allBreakdowns.filter(b => b.status !== "resolved");
@@ -522,40 +572,111 @@ function BreakdownTab({ vehicles }: { vehicles: Vehicle[] }) {
         )}
       </div>
 
-      {/* Механик, инженерүүдтэй холбоо барих */}
+      {/* ── Ажилтнуудтай холбогдох + Видео дуудлага ── */}
       {mechanics.length > 0 && (
         <div>
           <div className="flex items-center gap-3 mb-4">
-            <Users size={18} className="text-blue-400" />
-            <h2 className="font-bold text-sm uppercase tracking-wider">Механик / Инженертэй холбогдох</h2>
+            <Video size={18} className="text-green-400" />
+            <h2 className="font-bold text-sm uppercase tracking-wider">Ажилтнуудтай шууд холбогдох</h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {mechanics.map(emp => (
-              <div key={emp.id} data-testid={`mechanic-card-${emp.id}`}
-                className="bg-slate-900/60 border border-white/10 rounded-xl px-4 py-3 flex items-center gap-4">
-                <div className="w-10 h-10 bg-blue-500/20 rounded-xl flex items-center justify-center shrink-0">
-                  <User size={18} className="text-blue-400" />
+
+          {/* Видео дуудлагын цонх */}
+          {activeCall && (
+            <div className="mb-4 bg-slate-900/80 border border-green-500/30 rounded-2xl overflow-hidden">
+              {/* Дэлгэрэнгүй хэсэг: хэнтэй залгаж байна + хаяг хуулах */}
+              <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+                <div className="flex items-center gap-3">
+                  <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+                  <span className="font-semibold text-sm text-white">
+                    {activeCall.emp.name} — Видео дуудлага
+                  </span>
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-semibold text-white text-sm">{emp.name}</p>
-                  <p className="text-xs text-slate-400">{emp.role}</p>
+                <div className="flex items-center gap-2">
+                  {/* Линк хуулах */}
+                  <button data-testid="btn-copy-meet-link" onClick={copyLink}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs transition-all">
+                    {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                    {copied ? "Хуулагдлаа" : "Линк хуулах"}
+                  </button>
+                  {/* Viber-ээр явуулах */}
+                  {activeCall.emp.phone && (
+                    <a href={`viber://chat?number=${activeCall.emp.phone.replace(/[-\s]/g, "")}`}
+                      data-testid="btn-viber-meet-link"
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 rounded-lg text-xs transition-all">
+                      <MessageCircle size={12} /> Viber илгээх
+                    </a>
+                  )}
+                  {/* Дуудлага дуусгах */}
+                  <button data-testid="btn-end-call" onClick={endCall}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg text-xs transition-all">
+                    <VideoOff size={12} /> Дуусгах
+                  </button>
                 </div>
-                {emp.phone ? (
-                  <div className="flex gap-2 shrink-0">
-                    <a href={`tel:${emp.phone}`} data-testid={`btn-call-${emp.id}`}
-                      className="w-9 h-9 flex items-center justify-center bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl transition-all">
-                      <PhoneCall size={16} />
-                    </a>
-                    <a href={`viber://chat?number=${emp.phone.replace(/[-\s]/g, "")}`} data-testid={`btn-viber-${emp.id}`}
-                      className="w-9 h-9 flex items-center justify-center bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 rounded-xl transition-all">
-                      <MessageCircle size={16} />
-                    </a>
-                  </div>
-                ) : (
-                  <span className="text-xs text-slate-600 shrink-0">Утас байхгүй</span>
-                )}
               </div>
-            ))}
+              {/* Линк харуулах */}
+              <div className="px-5 py-2 bg-slate-800/50 border-b border-white/5">
+                <p className="text-xs text-slate-400 flex items-center gap-1.5 truncate">
+                  <Link2 size={11} />
+                  <span className="text-blue-400">{meetingUrl}</span>
+                </p>
+              </div>
+              {/* Jitsi iframe */}
+              <div ref={meetRef} className="w-full" />
+            </div>
+          )}
+
+          {/* Ажилтны карт жагсаалт */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {mechanics.map(emp => {
+              const isOnCall = activeCall?.emp.id === emp.id;
+              return (
+                <div key={emp.id} data-testid={`mechanic-card-${emp.id}`}
+                  className={`border rounded-2xl px-4 py-3 transition-all ${
+                    isOnCall ? "bg-green-500/10 border-green-500/30" : "bg-slate-900/60 border-white/10"
+                  }`}>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                      isOnCall ? "bg-green-500/20" : "bg-blue-500/20"}`}>
+                      <User size={18} className={isOnCall ? "text-green-400" : "text-blue-400"} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-semibold text-white text-sm">{emp.name}</p>
+                      <p className="text-xs text-slate-400">{emp.role}</p>
+                    </div>
+                  </div>
+                  {/* Товчнууд */}
+                  <div className="flex gap-2 mt-3">
+                    {/* Видео дуудлага — гол товч */}
+                    <button data-testid={`btn-video-${emp.id}`}
+                      onClick={() => isOnCall ? endCall() : startCall(emp)}
+                      disabled={!jitsiReady}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 ${
+                        isOnCall
+                          ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                          : "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+                      }`}>
+                      {isOnCall ? <VideoOff size={14} /> : <Video size={14} />}
+                      {isOnCall ? "Дуусгах" : jitsiReady ? "Видео залгах" : "Ачааллаж..."}
+                    </button>
+                    {/* Утасны дуудлага */}
+                    {emp.phone && (
+                      <a href={`tel:${emp.phone}`} data-testid={`btn-call-${emp.id}`}
+                        className="w-9 h-9 flex items-center justify-center bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl transition-all">
+                        <PhoneCall size={15} />
+                      </a>
+                    )}
+                    {/* Viber */}
+                    {emp.phone && (
+                      <a href={`viber://chat?number=${emp.phone.replace(/[-\s]/g, "")}`}
+                        data-testid={`btn-viber-${emp.id}`}
+                        className="w-9 h-9 flex items-center justify-center bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 rounded-xl transition-all">
+                        <MessageCircle size={15} />
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
