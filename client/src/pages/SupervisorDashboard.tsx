@@ -73,7 +73,7 @@ export default function SupervisorDashboard() {
 
   const createFront = useMutation({
     mutationFn: (data: any) => fetch("/api/work-fronts", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/work-fronts"] }); setShowFrontForm(false); setFrontForm(emptyFront); toast({ title: "Ажлын фронт нэмэгдлээ ✓" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/work-fronts"] }); setShowFrontForm(false); setFrontForm(emptyFront); toast({ title: "Ажиллах хэсэг нэмэгдлээ ✓" }); },
     onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
 
@@ -205,7 +205,7 @@ export default function SupervisorDashboard() {
               <FileText className="w-4 h-4" /> Тайлангууд
             </button>
             <button onClick={() => setTab("fronts")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === "fronts" ? "bg-green-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-              <Navigation className="w-4 h-4" /> Ажлын Фронт
+              <Navigation className="w-4 h-4" /> Ажиллах хэсэг
             </button>
             <button onClick={() => setTab("acts")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === "acts" ? "bg-purple-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
               <ScrollText className="w-4 h-4" /> Далд Ажлын Акт
@@ -333,19 +333,19 @@ export default function SupervisorDashboard() {
         {tab === "fronts" && (
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="font-bold text-lg text-white">Ажлын Фронт / Км Пикет</h2>
+              <h2 className="font-bold text-lg text-white">Ажиллах хэсэг / Км Пикет</h2>
               <button data-testid="btn-add-front" onClick={() => setShowFrontForm(f => !f)}
                 className="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-xl text-sm font-bold transition-all">
-                <Plus className="w-4 h-4" /> Шинэ фронт
+                <Plus className="w-4 h-4" /> Шинэ хэсэг
               </button>
             </div>
 
             {showFrontForm && (
               <div className="bg-slate-900/80 border border-green-500/30 rounded-2xl p-5 space-y-4">
-                <h3 className="font-semibold text-green-400 flex items-center gap-2"><Navigation className="w-4 h-4" /> Шинэ ажлын фронт нэмэх</h3>
+                <h3 className="font-semibold text-green-400 flex items-center gap-2"><Navigation className="w-4 h-4" /> Шинэ ажиллах хэсэг нэмэх</h3>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {[
-                    { key: "name",         label: "Фронтын нэр",    type: "text",   ph: "2-р фронт" },
+                    { key: "name",         label: "Хэсгийн нэр",    type: "text",   ph: "2-р хэсэг" },
                     { key: "chainageStart",label: "Эхлэх км",        type: "number", ph: "45.000"     },
                     { key: "chainageEnd",  label: "Дуусах км",       type: "number", ph: "52.000"     },
                     { key: "supervisor",   label: "Ахлах инженер",   type: "text",   ph: ""           },
@@ -394,7 +394,7 @@ export default function SupervisorDashboard() {
             {workFronts.length === 0 ? (
               <div className="p-12 text-center text-white/30">
                 <Navigation className="w-10 h-10 text-white/10 mx-auto mb-3" />
-                <p>Ажлын фронт бүртгэгдээгүй байна</p>
+                <p>Ажиллах хэсэг бүртгэгдээгүй байна</p>
               </div>
             ) : (
               <div className="space-y-3">
