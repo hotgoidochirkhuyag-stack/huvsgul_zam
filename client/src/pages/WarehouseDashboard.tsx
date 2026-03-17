@@ -1157,13 +1157,27 @@ export default function WarehouseDashboard() {
           <div className="rounded-xl border border-white/5 bg-white/2 p-4">
             <div className="text-xs text-white/25 font-semibold uppercase tracking-wider mb-3">БНбД норм лавлах</div>
             <div className="grid sm:grid-cols-3 gap-4 text-xs text-white/35">
-              <div><div className="text-amber-400/60 font-medium mb-1">Асфальт (1 м³):</div>
-                {PLANT_NORMS.asphalt.materials.map(m => <div key={m.name}>• {m.name}: {m.rate} {m.unit}</div>)}</div>
-              <div><div className="text-blue-400/60 font-medium mb-1">Бетон C25/30 (1 м³):</div>
-                {PLANT_NORMS.concrete.materials.map(m => <div key={m.name}>• {m.name}: {m.rate} {m.unit}</div>)}</div>
-              <div><div className="text-green-400/60 font-medium mb-1">Бутлах (1 тн гаралт):</div>
-                {PLANT_NORMS.crushing.materials.map(m => <div key={m.name}>• {m.name}: {m.rate} {m.unit}</div>)}
-                {PLANT_NORMS.crushing.outputFractions.map(f => <div key={f.name}>• {f.name}: {(f.pct*100).toFixed(0)}%</div>)}</div>
+              <div>
+                <div className="text-amber-400/60 font-medium mb-1">Асфальт АБ-2 (1 м³):</div>
+                {(ASPHALT_RECIPES["АБ-2 (Дунд давхарга)"]?.materials ?? []).map(m => (
+                  <div key={m.name}>• {m.name}: {m.rate} {m.unit}</div>
+                ))}
+              </div>
+              <div>
+                <div className="text-blue-400/60 font-medium mb-1">Бетон C25/30 (1 м³):</div>
+                {(CONCRETE_GRADES["C25/30 (Замын хавтан, хана)"]?.materials ?? []).map(m => (
+                  <div key={m.name}>• {m.name}: {m.rate} {m.unit}</div>
+                ))}
+              </div>
+              <div>
+                <div className="text-green-400/60 font-medium mb-1">Бутлах (1 тн гаралт):</div>
+                {PLANT_NORMS.crushing.materials.map(m => (
+                  <div key={m.name}>• {m.name}: {m.rate} {m.unit}</div>
+                ))}
+                {PLANT_NORMS.crushing.outputFractions.map(f => (
+                  <div key={f.name}>• {f.name}: {(f.pct * 100).toFixed(0)}%</div>
+                ))}
+              </div>
             </div>
           </div>
         </>}
