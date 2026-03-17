@@ -323,6 +323,24 @@ export const hiddenWorkActs = pgTable("hidden_work_acts", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ===================== АЖЛЫН ЗУРАГ =====================
+// Далд акт болон ажиллах хэсэгт хавсаргах баримт зургууд
+
+export const workPhotos = pgTable("work_photos", {
+  id: serial("id").primaryKey(),
+  entityType: text("entity_type").notNull(),  // "work_front" | "hidden_act"
+  entityId:   integer("entity_id").notNull(), // work_fronts.id | hidden_work_acts.id
+  filename:   text("filename").notNull(),     // /uploads/photos/xxx.jpg
+  caption:    text("caption"),               // Тайлбар
+  uploadedBy: text("uploaded_by"),
+  photoDate:  text("photo_date"),            // Зураг авсан огноо
+  createdAt:  timestamp("created_at").defaultNow(),
+});
+
+export const insertWorkPhotoSchema = createInsertSchema(workPhotos).omit({ id: true, createdAt: true });
+export type WorkPhoto = typeof workPhotos.$inferSelect;
+export type InsertWorkPhoto = z.infer<typeof insertWorkPhotoSchema>;
+
 // ===================== INSERT SCHEMAS =====================
 
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });

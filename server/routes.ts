@@ -8,6 +8,30 @@ import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { calculateEmployeeKpi, calculateTeamKpi, seedDefaultKpiConfigs } from "./kpiEngine.js";
 import { syncNormsFromOrder } from "./normAgent.js";
+import multer from "multer";
+import path from "path";
+import fs from "fs";
+
+// ======= MULTER — зураг хадгалах тохиргоо =======
+const uploadStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    const dir = path.join(process.cwd(), "uploads", "photos");
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    cb(null, dir);
+  },
+  filename: (_req, file, cb) => {
+    const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
+    cb(null, `${unique}${path.extname(file.originalname)}`);
+  },
+});
+const uploadMiddleware = multer({
+  storage: uploadStorage,
+  limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = /jpeg|jpg|png|webp|heic/i;
+    cb(null, allowed.test(path.extname(file.originalname)));
+  },
+});
 
 // ============ ADMIN AUTH MIDDLEWARE ============
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
@@ -923,6 +947,63 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/hidden-work-acts/:id", requireAdmin, async (req, res) => {
     try {
       await db.delete(schema.hiddenWorkActs).where(eq(schema.hiddenWorkActs.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ============ АЖЛЫН ЗУРАГ — photo upload/retrieve/delete ============
+
+  // Зураг upload хийх (work_front эсвэл hidden_act-д)
+  app.post("/api/photos/upload", requireAdmin, uploadMiddleware.array("photos", 10), async (req, res) => {
+    try {
+      const { entityType, entityId, caption, uploadedBy, photoDate } = req.body;
+      if (!entityType || !entityId) {
+        return res.status(400).json({ error: "entityType, entityId шаардлагатай" });
+      }
+      const files = req.files as Express.Multer.File[];
+      if (!files || files.length === 0) {
+        return res.status(400).json({ error: "Зураг сонгоогүй байна" });
+      }
+      const inserted = [];
+      for (const file of files) {
+        const [row] = await db.insert(schema.workPhotos).values({
+          entityType,
+          entityId: parseInt(entityId),
+          filename: `/uploads/photos/${file.filename}`,
+          caption: caption || null,
+          uploadedBy: uploadedBy || null,
+          photoDate: photoDate || null,
+        }).returning();
+        inserted.push(row);
+      }
+      res.json(inserted);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Тухайн entity-ийн зургуудыг авах
+  app.get("/api/photos/:entityType/:entityId", requireAdmin, async (req, res) => {
+    try {
+      const { entityType, entityId } = req.params;
+      const rows = await db.select().from(schema.workPhotos)
+        .where(and(
+          eq(schema.workPhotos.entityType, entityType),
+          eq(schema.workPhotos.entityId, parseInt(entityId))
+        ))
+        .orderBy(desc(schema.workPhotos.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Зураг устгах
+  app.delete("/api/photos/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [photo] = await db.select().from(schema.workPhotos).where(eq(schema.workPhotos.id, id));
+      if (photo) {
+        const filePath = path.join(process.cwd(), photo.filename);
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        await db.delete(schema.workPhotos).where(eq(schema.workPhotos.id, id));
+      }
       res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
