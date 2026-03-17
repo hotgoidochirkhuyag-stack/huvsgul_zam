@@ -134,3 +134,15 @@ CLOUDINARY_API_SECRET=
 ADMIN_PASSWORD=      # Referenced in server startup logs (optional override)
 PORT=                # Defaults to 5000
 ```
+
+---
+
+## Pending: Email Notification Setup
+
+Contact form submissions (`/api/contacts`) and subscription requests are currently **saved to the database only** — no email is sent.
+
+**Goal:** Send email to `huvsgulzamllc@gmail.com` when a new contact/pricing request arrives.
+
+**To implement when ready:**
+1. Gmail Replit integration (`connector:ccfg_google-mail_B959E7249792448ABBA58D46AF`) — user needs to authorize OAuth with the Gmail account, OR
+2. Add `GMAIL_USER=huvsgulzamllc@gmail.com` and `GMAIL_APP_PASSWORD=<app-password>` as secrets, then use `nodemailer` (already listed in missing_secrets) to send SMTP emails from `server/routes.ts` after each `db.insert(schema.contacts)` call.
