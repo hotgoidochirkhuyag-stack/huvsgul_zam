@@ -82,7 +82,7 @@ function AiEstimator({
         {!result && !loading && (
           <div className="text-center">
             <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
-              <span className="text-foreground font-semibold">Материал</span> болон <span className="text-foreground font-semibold">тоо хэмжээ</span>-г оруулаад зүүн талын <span className="text-primary font-bold">"AI-ээр тооцоолох"</span> товч дарвал зах зээл дээрх үнийн судалгаа харагдана.
+              <span className="text-foreground font-semibold">Материал</span> болон <span className="text-foreground font-semibold">тоо хэмжээ</span>-г оруулаад <span className="text-primary font-bold">"AI-ээр тооцоолох"</span> товч дарвал зах зээл дээрх үнийн судалгаа хийгдэнэ.
             </p>
             {error && (
               <div className="flex items-center gap-2 text-destructive text-xs mb-3 justify-center">
