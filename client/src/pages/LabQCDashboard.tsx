@@ -439,7 +439,7 @@ export default function LabQCDashboard() {
               <RefreshCw className="w-4 h-4" />
             </button>
             <button data-testid="btn-logout"
-              onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/admin"); }}
+              onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/admin/LAB"); }}
               className="flex items-center gap-1.5 px-3 py-2 text-sm text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-all">
               <LogOut className="w-4 h-4" />
             </button>

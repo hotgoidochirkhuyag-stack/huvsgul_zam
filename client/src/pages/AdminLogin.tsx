@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Loader2, ArrowLeft } from 'lucide-react';
-import { useLocation, useSearch } from 'wouter';
+import { useLocation, useParams } from 'wouter';
 
 const AdminLogin = () => {
   const [username, setUsername] = useState('');
@@ -9,11 +9,7 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [, setLocation] = useLocation();
-  const search = useSearch();
-
-  // URL-аас сонгогдсон ролийг уншиж авах
-  const params = new URLSearchParams(search);
-  const selectedRole = params.get('role');
+  const { role: selectedRole } = useParams<{ role: string }>();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();

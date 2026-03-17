@@ -4,7 +4,7 @@ import { Wrench, LogOut, FlaskConical, ExternalLink } from "lucide-react";
 export default function EngineerDashboard() {
   const handleLogout = () => {
     localStorage.clear();
-    window.location.href = "/admin";
+    window.location.href = "/admin/ENGINEER";
   };
 
   return (

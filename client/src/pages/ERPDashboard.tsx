@@ -120,7 +120,7 @@ export default function ERPDashboard() {
           <h1 className="text-xl font-bold">ERP Удирдлагын Систем</h1>
           <p className="text-slate-400 text-xs">Хөвсгөл Зам ХХК</p>
         </div>
-        <button onClick={() => { localStorage.clear(); setLocation("/admin"); }} className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-xl text-sm transition-all">
+        <button onClick={() => { localStorage.clear(); setLocation("/admin/ADMIN"); }} className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-xl text-sm transition-all">
           <LogOut size={14} /> Гарах
         </button>
       </div>

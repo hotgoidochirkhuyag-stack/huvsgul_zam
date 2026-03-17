@@ -25,7 +25,7 @@ const ProtectedRoute = ({ component: Component, role }: { component: React.Compo
   const userRole = localStorage.getItem("userRole");
   const token = localStorage.getItem("adminToken");
 
-  if (!token) return <Redirect to={`/admin?role=${role}`} />;
+  if (!token) return <Redirect to={`/admin/${role}`} />;
 
   if (userRole !== role) {
     const redirects: Record<string, string> = {
@@ -39,7 +39,7 @@ const ProtectedRoute = ({ component: Component, role }: { component: React.Compo
       WAREHOUSE:  "/dashboard/warehouse",
       LAB:        "/dashboard/lab-qc",
     };
-    return <Redirect to={redirects[userRole ?? ""] ?? `/admin?role=${role}`} />;
+    return <Redirect to={redirects[userRole ?? ""] ?? `/admin/${role}`} />;
   }
 
   return <Component />;
@@ -52,7 +52,7 @@ function Router() {
       <Route path="/" component={Home} />
 
       {/* Нэвтрэх */}
-      <Route path="/admin" component={AdminLogin} />
+      <Route path="/admin/:role" component={AdminLogin} />
       <Route path="/select-role" component={RoleSelection} />
 
       {/* Нийтийн хуудсууд (нэвтрэлт шаардахгүй) */}
@@ -77,14 +77,14 @@ function Router() {
       <Route path="/dashboard/lab-qc" component={() => {
         const token = localStorage.getItem("adminToken");
         const userRole = localStorage.getItem("userRole");
-        if (!token) return <Redirect to="/admin?role=LAB" />;
+        if (!token) return <Redirect to="/admin/LAB" />;
         if (!["LAB", "ENGINEER", "ADMIN", "BOARD"].includes(userRole ?? "")) {
           const redirects: Record<string, string> = {
             PROJECT: "/dashboard/project",
             SUPERVISOR: "/dashboard/supervisor", MECHANIC: "/dashboard/mechanic",
             WAREHOUSE: "/dashboard/warehouse", HR: "/dashboard/hr",
           };
-          return <Redirect to={redirects[userRole ?? ""] ?? "/admin?role=LAB"} />;
+          return <Redirect to={redirects[userRole ?? ""] ?? "/admin/LAB"} />;
         }
         return <LabQCDashboard />;
       }} />

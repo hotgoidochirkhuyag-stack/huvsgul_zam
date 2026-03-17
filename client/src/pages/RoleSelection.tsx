@@ -22,17 +22,17 @@ const COLOR_MAP: Record<string, { bg: string; border: string; text: string; icon
 type Card = { name: string; desc: string; path: string; icon: any; color: string };
 
 const ROW1: Card[] = [
-  { name: "Хүний нөөц",              desc: "Ажилтан бүртгэл, QR карт, KPI",  path: "/admin?role=HR",        icon: UserCircle,     color: "purple"  },
-  { name: "Техникийн бэлэн байдал",  desc: "Машин, техник, шатахуун бүртгэл", path: "/admin?role=MECHANIC",  icon: Truck,          color: "orange"  },
-  { name: "Агуулахын нөөц",          desc: "Нормативт тулгуурласан нөөц",     path: "/admin?role=WAREHOUSE", icon: Package,        color: "amber"   },
-  { name: "Лаборатори",              desc: "Чанарын шалгалт, БНбД норм",      path: "/admin?role=LAB",       icon: FlaskConical,   color: "emerald" },
+  { name: "Хүний нөөц",              desc: "Ажилтан бүртгэл, QR карт, KPI",  path: "/admin/HR",        icon: UserCircle,     color: "purple"  },
+  { name: "Техникийн бэлэн байдал",  desc: "Машин, техник, шатахуун бүртгэл", path: "/admin/MECHANIC",  icon: Truck,          color: "orange"  },
+  { name: "Агуулахын нөөц",          desc: "Нормативт тулгуурласан нөөц",     path: "/admin/WAREHOUSE", icon: Package,        color: "amber"   },
+  { name: "Лаборатори",              desc: "Чанарын шалгалт, БНбД норм",      path: "/admin/LAB",       icon: FlaskConical,   color: "emerald" },
 ];
 
 const ROW2: Card[] = [
-  { name: "Төлөвлөлт / Гүйцэтгэл",  desc: "Ажлын фронт, далд акт, даалгавар", path: "/admin?role=SUPERVISOR", icon: ClipboardList,   color: "blue"   },
-  { name: "Онлайн хурал",            desc: "Удирдлагын зөвлөл, тайлан",         path: "/admin?role=BOARD",      icon: Video,           color: "indigo"  },
-  { name: "Техникийн дэмжлэг",       desc: "Инженер, үйлдвэрийн хяналт",       path: "/admin?role=ENGINEER",   icon: Wrench,          color: "red"     },
-  { name: "Төслийн хяналт",          desc: "Ажлын явц, KPI, дүн",              path: "/admin?role=PROJECT",    icon: BarChart3,       color: "teal"    },
+  { name: "Төлөвлөлт / Гүйцэтгэл",  desc: "Ажлын фронт, далд акт, даалгавар", path: "/admin/SUPERVISOR", icon: ClipboardList,   color: "blue"   },
+  { name: "Онлайн хурал",            desc: "Удирдлагын зөвлөл, тайлан",         path: "/admin/BOARD",      icon: Video,           color: "indigo"  },
+  { name: "Техникийн дэмжлэг",       desc: "Инженер, үйлдвэрийн хяналт",       path: "/admin/ENGINEER",   icon: Wrench,          color: "red"     },
+  { name: "Төслийн хяналт",          desc: "Ажлын явц, KPI, дүн",              path: "/admin/PROJECT",    icon: BarChart3,       color: "teal"    },
 ];
 
 const ERP_REPORTS: Card[] = [
@@ -43,7 +43,7 @@ const ERP_REPORTS: Card[] = [
 
 const ADMIN_CARD: Card = {
   name: "Үйлдвэрлэлийн хяналт", desc: "ADMIN систем — бүх хяналт",
-  path: "/admin?role=ADMIN", icon: LayoutDashboard, color: "slate",
+  path: "/admin/ADMIN", icon: LayoutDashboard, color: "slate",
 };
 
 function CardButton({ item, onClick }: { item: Card; onClick: () => void }) {
