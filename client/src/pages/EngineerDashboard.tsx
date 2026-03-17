@@ -512,16 +512,27 @@ function BreakdownTab({ vehicles }: { vehicles: Vehicle[] }) {
     refetchInterval: 30_000,
   });
 
-  const { data: fieldEngineers = [] } = useQuery<Employee[]>({
+  const { data: allEmployees = [] } = useQuery<Employee[]>({
     queryKey: ["/api/erp/employees"],
     queryFn: () => fetch("/api/erp/employees", { headers: hdrs() }).then(r => r.json()),
   });
 
-  const mechanics = fieldEngineers.filter(e =>
-    e.department === "field" || e.department === "plant" ||
-    e.role.toLowerCase().includes("механик") || e.role.toLowerCase().includes("техник") ||
-    e.role.toLowerCase().includes("засвар") || e.role.toLowerCase().includes("инженер")
-  );
+  const { data: todayInspections = [] } = useQuery<VehicleInspection[]>({
+    queryKey: ["/api/erp/vehicle-inspections-today"],
+    queryFn: () => fetch(`/api/erp/vehicle-inspections?date=${today()}`, { headers: hdrs() }).then(r => r.json()),
+    refetchInterval: 30_000,
+  });
+
+  // Өнөөдөр үзлэг хийсэн хүмүүс (давхардлыг арилгана) + тэдний техник мэдээлэлтэй
+  const todayOperators = useMemo(() => {
+    const seen = new Set<string>();
+    return todayInspections
+      .filter(insp => { if (seen.has(insp.employeeName)) return false; seen.add(insp.employeeName); return true; })
+      .map(insp => {
+        const emp = allEmployees.find(e => e.name === insp.employeeName);
+        return { insp, emp };
+      });
+  }, [todayInspections, allEmployees]);
 
   const active = allBreakdowns.filter(b => b.status !== "resolved");
   const resolved = allBreakdowns.filter(b => b.status === "resolved");
@@ -572,83 +583,97 @@ function BreakdownTab({ vehicles }: { vehicles: Vehicle[] }) {
         )}
       </div>
 
-      {/* ── Ажилтнуудтай холбогдох + Видео дуудлага ── */}
-      {mechanics.length > 0 && (
-        <div>
-          <div className="flex items-center gap-3 mb-4">
-            <Video size={18} className="text-green-400" />
-            <h2 className="font-bold text-sm uppercase tracking-wider">Ажилтнуудтай шууд холбогдох</h2>
-          </div>
+      {/* ── Өнөөдөр техник ашиглаж буй хүмүүстэй холбогдох ── */}
+      <div>
+        <div className="flex items-center gap-3 mb-4">
+          <Video size={18} className="text-green-400" />
+          <h2 className="font-bold text-sm uppercase tracking-wider">Өнөөдөр техник ашиглаж буй ажилтнууд</h2>
+          <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full">{todayOperators.length}</span>
+        </div>
 
-          {/* Видео дуудлагын цонх */}
-          {activeCall && (
-            <div className="mb-4 bg-slate-900/80 border border-green-500/30 rounded-2xl overflow-hidden">
-              {/* Дэлгэрэнгүй хэсэг: хэнтэй залгаж байна + хаяг хуулах */}
-              <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
-                <div className="flex items-center gap-3">
-                  <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
-                  <span className="font-semibold text-sm text-white">
-                    {activeCall.emp.name} — Видео дуудлага
-                  </span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {/* Линк хуулах */}
-                  <button data-testid="btn-copy-meet-link" onClick={copyLink}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs transition-all">
-                    {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
-                    {copied ? "Хуулагдлаа" : "Линк хуулах"}
-                  </button>
-                  {/* Viber-ээр явуулах */}
-                  {activeCall.emp.phone && (
-                    <a href={`viber://chat?number=${activeCall.emp.phone.replace(/[-\s]/g, "")}`}
-                      data-testid="btn-viber-meet-link"
-                      className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 rounded-lg text-xs transition-all">
-                      <MessageCircle size={12} /> Viber илгээх
-                    </a>
-                  )}
-                  {/* Дуудлага дуусгах */}
-                  <button data-testid="btn-end-call" onClick={endCall}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg text-xs transition-all">
-                    <VideoOff size={12} /> Дуусгах
-                  </button>
-                </div>
+        {/* Видео дуудлагын цонх */}
+        {activeCall && (
+          <div className="mb-4 bg-slate-900/80 border border-green-500/30 rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <span className="w-2.5 h-2.5 rounded-full bg-green-400 animate-pulse" />
+                <span className="font-semibold text-sm text-white">
+                  {activeCall.emp.name} — Видео дуудлага
+                </span>
               </div>
-              {/* Линк харуулах */}
-              <div className="px-5 py-2 bg-slate-800/50 border-b border-white/5">
-                <p className="text-xs text-slate-400 flex items-center gap-1.5 truncate">
-                  <Link2 size={11} />
-                  <span className="text-blue-400">{meetingUrl}</span>
-                </p>
+              <div className="flex items-center gap-2">
+                <button data-testid="btn-copy-meet-link" onClick={copyLink}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs transition-all">
+                  {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                  {copied ? "Хуулагдлаа" : "Линк хуулах"}
+                </button>
+                {activeCall.emp.phone && (
+                  <a href={`viber://chat?number=${activeCall.emp.phone.replace(/[-\s]/g, "")}`}
+                    data-testid="btn-viber-meet-link"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 rounded-lg text-xs transition-all">
+                    <MessageCircle size={12} /> Viber
+                  </a>
+                )}
+                <button data-testid="btn-end-call" onClick={endCall}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg text-xs transition-all">
+                  <VideoOff size={12} /> Дуусгах
+                </button>
               </div>
-              {/* Jitsi iframe */}
-              <div ref={meetRef} className="w-full" />
             </div>
-          )}
+            <div className="px-5 py-2 bg-slate-800/50 border-b border-white/5">
+              <p className="text-xs text-slate-400 flex items-center gap-1.5 truncate">
+                <Link2 size={11} /><span className="text-blue-400">{meetingUrl}</span>
+              </p>
+            </div>
+            <div ref={meetRef} className="w-full" />
+          </div>
+        )}
 
-          {/* Ажилтны карт жагсаалт */}
+        {todayOperators.length === 0 ? (
+          <div className="text-center py-10 bg-slate-900/40 rounded-2xl border border-white/5">
+            <Car size={32} className="mx-auto text-slate-600 mb-2" />
+            <p className="text-slate-400 text-sm">Өнөөдөр техник ашиглалтын үзлэг хийсэн хүн байхгүй байна</p>
+            <p className="text-slate-600 text-xs mt-1">Техникийн үзлэг таб дээр бүртгэсний дараа энд харагдана</p>
+          </div>
+        ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {mechanics.map(emp => {
-              const isOnCall = activeCall?.emp.id === emp.id;
+            {todayOperators.map(({ insp, emp }) => {
+              const callName = emp?.name ?? insp.employeeName;
+              const isOnCall = activeCall?.emp.name === callName;
+              const fakeEmp: Employee = emp ?? {
+                id: 0, name: insp.employeeName, department: "field", role: "Жолооч / Оператор",
+                salaryBase: 0, phone: null, registerNumber: null, createdAt: new Date(),
+              } as any;
+
               return (
-                <div key={emp.id} data-testid={`mechanic-card-${emp.id}`}
+                <div key={insp.id} data-testid={`operator-card-${insp.id}`}
                   className={`border rounded-2xl px-4 py-3 transition-all ${
                     isOnCall ? "bg-green-500/10 border-green-500/30" : "bg-slate-900/60 border-white/10"
                   }`}>
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-start gap-3 mb-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
-                      isOnCall ? "bg-green-500/20" : "bg-blue-500/20"}`}>
-                      <User size={18} className={isOnCall ? "text-green-400" : "text-blue-400"} />
+                      isOnCall ? "bg-green-500/20" : insp.passed ? "bg-blue-500/20" : "bg-red-500/20"}`}>
+                      <User size={18} className={isOnCall ? "text-green-400" : insp.passed ? "text-blue-400" : "text-red-400"} />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-white text-sm">{emp.name}</p>
-                      <p className="text-xs text-slate-400">{emp.role}</p>
+                      <p className="font-semibold text-white text-sm">{insp.employeeName}</p>
+                      <p className="text-xs text-slate-400">{emp?.role ?? "Жолооч / Оператор"}</p>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        <span className="text-xs text-slate-500 flex items-center gap-1">
+                          <Car size={10} /> Техник #{insp.vehicleId}
+                        </span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+                          insp.passed ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
+                          {insp.passed ? "✓ Тэнцсэн" : "✗ Тэнцэлгүй"}
+                        </span>
+                      </div>
                     </div>
                   </div>
+
                   {/* Товчнууд */}
-                  <div className="flex gap-2 mt-3">
-                    {/* Видео дуудлага — гол товч */}
-                    <button data-testid={`btn-video-${emp.id}`}
-                      onClick={() => isOnCall ? endCall() : startCall(emp)}
+                  <div className="flex gap-2">
+                    <button data-testid={`btn-video-${insp.id}`}
+                      onClick={() => isOnCall ? endCall() : startCall(fakeEmp)}
                       disabled={!jitsiReady}
                       className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-xl text-xs font-semibold transition-all disabled:opacity-40 ${
                         isOnCall
@@ -656,19 +681,17 @@ function BreakdownTab({ vehicles }: { vehicles: Vehicle[] }) {
                           : "bg-green-500/20 text-green-400 hover:bg-green-500/30"
                       }`}>
                       {isOnCall ? <VideoOff size={14} /> : <Video size={14} />}
-                      {isOnCall ? "Дуусгах" : jitsiReady ? "Видео залгах" : "Ачааллаж..."}
+                      {isOnCall ? "Дуусгах" : jitsiReady ? "Видео залгах" : "..."}
                     </button>
-                    {/* Утасны дуудлага */}
-                    {emp.phone && (
-                      <a href={`tel:${emp.phone}`} data-testid={`btn-call-${emp.id}`}
+                    {emp?.phone && (
+                      <a href={`tel:${emp.phone}`} data-testid={`btn-call-${insp.id}`}
                         className="w-9 h-9 flex items-center justify-center bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 rounded-xl transition-all">
                         <PhoneCall size={15} />
                       </a>
                     )}
-                    {/* Viber */}
-                    {emp.phone && (
+                    {emp?.phone && (
                       <a href={`viber://chat?number=${emp.phone.replace(/[-\s]/g, "")}`}
-                        data-testid={`btn-viber-${emp.id}`}
+                        data-testid={`btn-viber-${insp.id}`}
                         className="w-9 h-9 flex items-center justify-center bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 rounded-xl transition-all">
                         <MessageCircle size={15} />
                       </a>
@@ -678,8 +701,8 @@ function BreakdownTab({ vehicles }: { vehicles: Vehicle[] }) {
               );
             })}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Идэвхтэй эвдрэлүүд */}
       <div>
