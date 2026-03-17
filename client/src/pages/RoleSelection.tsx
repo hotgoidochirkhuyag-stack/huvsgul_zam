@@ -32,7 +32,7 @@ const ROW2: Card[] = [
   { name: "Төлөвлөлт / Гүйцэтгэл",  desc: "Ажлын фронт, далд акт, даалгавар", path: "/admin/SUPERVISOR", icon: ClipboardList,   color: "blue"   },
   { name: "Онлайн хурал",            desc: "Удирдлагын зөвлөл, тайлан",         path: "/admin/BOARD",      icon: Video,           color: "indigo"  },
   { name: "Техникийн дэмжлэг",       desc: "Инженер, үйлдвэрийн хяналт",       path: "/admin/ENGINEER",   icon: Wrench,          color: "red"     },
-  { name: "Төслийн хяналт",          desc: "Ажлын явц, KPI, дүн",              path: "/admin/PROJECT",    icon: BarChart3,       color: "teal"    },
+  { name: "Төслийн хөгжүүлэлт",      desc: "Бүртгэл, хүсэлт, KPI дүн",        path: "/admin/PROJECT",    icon: BarChart3,       color: "teal"    },
 ];
 
 const ERP_REPORTS: Card[] = [
