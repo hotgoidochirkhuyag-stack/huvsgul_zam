@@ -225,8 +225,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/erp/employees/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const data = schema.insertEmployeeSchema.partial().parse(req.body);
-      const [emp] = await db.update(schema.employees).set(data).where(eq(schema.employees.id, id)).returning();
+      const allowed = ["name", "department", "role", "salaryBase", "phone", "registerNumber"] as const;
+      const update: Record<string, any> = {};
+      for (const key of allowed) {
+        if (key in req.body) {
+          // null утгыг хүлээн зөвшөөрнө (утасны дугаар цэвэрлэхэд)
+          update[key] = req.body[key] ?? null;
+        }
+      }
+      if (Object.keys(update).length === 0)
+        return res.status(400).json({ error: "Шинэчлэх мэдээлэл байхгүй" });
+      const [emp] = await db.update(schema.employees).set(update).where(eq(schema.employees.id, id)).returning();
       if (!emp) return res.status(404).json({ error: "Ажилтан олдсонгүй" });
       res.json(emp);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
