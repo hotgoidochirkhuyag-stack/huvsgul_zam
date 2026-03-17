@@ -495,9 +495,75 @@ const PLANT_BADGE: Record<string, string> = {
   crushing: "bg-green-500/15 text-green-400",
 };
 
+// ─── Inline quick-adjust row ───────────────────────────────────────────────────
+function InlineAdjust({ item, type, token, onDone }: {
+  item: WarehouseItem; type: "in" | "out"; token: string; onDone: () => void;
+}) {
+  const [qty, setQty] = useState("");
+  const { toast } = useToast();
+  const hdrs = { "x-admin-token": token };
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      const q = parseFloat(qty);
+      if (!q || q <= 0) throw new Error("Хэмжээ оруулна уу");
+      const res = await fetch("/api/warehouse/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...hdrs },
+        body: JSON.stringify({ itemId: item.id, quantity: q, type, date: new Date().toISOString().slice(0, 10) }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/items"] });
+      toast({ title: `${item.name}: ${type === "in" ? "+" : "−"}${qty} ${item.unit} ✓` });
+      onDone();
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const handleKey = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") mut.mutate();
+    if (e.key === "Escape") onDone();
+  };
+
+  return (
+    <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl border ${
+      type === "in" ? "border-green-500/40 bg-green-500/8" : "border-red-500/40 bg-red-500/8"
+    }`}>
+      <span className={`text-xs font-bold ${type === "in" ? "text-green-400" : "text-red-400"}`}>
+        {type === "in" ? "+" : "−"}
+      </span>
+      <input
+        data-testid={`input-inline-${type}-${item.id}`}
+        type="number" min="0" value={qty} onChange={e => setQty(e.target.value)}
+        onKeyDown={handleKey} autoFocus
+        placeholder={`0 ${item.unit}`}
+        className={`w-20 bg-transparent text-sm font-semibold focus:outline-none ${
+          type === "in" ? "text-green-300 placeholder:text-green-800" : "text-red-300 placeholder:text-red-900"
+        }`}
+      />
+      <button data-testid={`btn-inline-confirm-${item.id}`}
+        onClick={() => mut.mutate()} disabled={mut.isPending || !qty}
+        className={`w-6 h-6 flex items-center justify-center rounded-md text-white font-bold transition-all disabled:opacity-30 ${
+          type === "in" ? "bg-green-600 hover:bg-green-500" : "bg-red-600 hover:bg-red-500"
+        }`}>
+        {mut.isPending ? "…" : "✓"}
+      </button>
+      <button data-testid={`btn-inline-cancel-${item.id}`}
+        onClick={onDone}
+        className="w-6 h-6 flex items-center justify-center rounded-md text-white/30 hover:text-white/60 transition-colors text-sm">
+        ✕
+      </button>
+    </div>
+  );
+}
+
 // ─── Stock Overview tab ───────────────────────────────────────────────────────
 function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: string }) {
   const [editing, setEditing] = useState<WarehouseItem | null>(null);
+  // Track which row is open for inline +/-: { id, type }
+  const [inline, setInline] = useState<{ id: number; type: "in" | "out" } | null>(null);
 
   // Материалын нэрээр эрэмбэлнэ (үйлдвэрээр ялгахгүй нэг жагсаалт)
   const sorted = [...allItems].sort((a, b) => a.name.localeCompare(b.name, "mn"));
@@ -512,7 +578,7 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
           <span>Материал</span>
           <span className="text-right">Одоогийн нөөц</span>
           <span className="text-right">Доод / Аюулт</span>
-          <span className="w-16 text-center">Засах</span>
+          <span className="text-center">Оруулах / Гаргах</span>
         </div>
 
         <div className="divide-y divide-white/5">
@@ -523,6 +589,7 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
             const pct   = min > 0 ? Math.min(100, (stock / (min * 1.5)) * 100) : 50;
             const statusColor = stock === 0 ? "text-white/25" : stock <= crit ? "text-red-400" : stock <= min ? "text-amber-400" : "text-green-400";
             const barColor    = stock <= crit ? "bg-red-500" : stock <= min ? "bg-amber-500" : "bg-green-500";
+            const activeInline = inline?.id === item.id ? inline.type : null;
 
             return (
               <div key={item.id} data-testid={`stock-row-${item.id}`}
@@ -536,7 +603,6 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
                       {PLANT_LABEL[item.plant] ?? item.plant}
                     </span>
                   </div>
-                  {/* Stock bar */}
                   <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden w-28">
                     <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
                   </div>
@@ -554,13 +620,34 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
                   <div className="text-red-400/50">{fmt(crit)} {item.unit}</div>
                 </div>
 
-                {/* Edit button — always visible */}
-                <div className="w-16 flex justify-center">
-                  <button data-testid={`btn-edit-stock-${item.id}`}
-                    onClick={() => setEditing(item)}
-                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all text-xs font-medium">
-                    <Edit3 className="w-3 h-3" /> Засах
-                  </button>
+                {/* + / − quick buttons or inline input */}
+                <div className="flex items-center justify-end gap-1.5">
+                  {activeInline ? (
+                    <InlineAdjust
+                      item={item}
+                      type={activeInline}
+                      token={token}
+                      onDone={() => setInline(null)}
+                    />
+                  ) : (
+                    <>
+                      <button data-testid={`btn-plus-${item.id}`}
+                        onClick={() => setInline({ id: item.id, type: "in" })}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all text-xs font-bold">
+                        <Plus className="w-3.5 h-3.5" /> Нэмэх
+                      </button>
+                      <button data-testid={`btn-minus-${item.id}`}
+                        onClick={() => setInline({ id: item.id, type: "out" })}
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all text-xs font-bold">
+                        <Minus className="w-3.5 h-3.5" /> Хасах
+                      </button>
+                      <button data-testid={`btn-edit-stock-${item.id}`}
+                        onClick={() => setEditing(item)}
+                        className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 text-white/25 hover:text-amber-400 hover:border-amber-500/30 transition-all">
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </div>
             );
