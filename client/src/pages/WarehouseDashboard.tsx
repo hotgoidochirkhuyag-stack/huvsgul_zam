@@ -6,7 +6,8 @@ import { useLocation } from "wouter";
 import {
   CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp,
   Save, LogOut, Calendar, Factory, Layers, Hammer, Package,
-  ArrowDown, Info, TrendingDown, Warehouse, Plus, Minus, Edit3
+  ArrowDown, Info, TrendingDown, Warehouse, Plus, Minus, Edit3,
+  Trash2, PackagePlus, TruckIcon
 } from "lucide-react";
 import type { ProductionPlan, MaterialCheck, WarehouseItem } from "@shared/schema";
 
@@ -495,13 +496,15 @@ const PLANT_BADGE: Record<string, string> = {
   crushing: "bg-green-500/15 text-green-400",
 };
 
-// ─── Inline quick-adjust row ───────────────────────────────────────────────────
+// ─── Inline татан авалт / зарлага ────────────────────────────────────────────
 function InlineAdjust({ item, type, token, onDone }: {
   item: WarehouseItem; type: "in" | "out"; token: string; onDone: () => void;
 }) {
   const [qty, setQty] = useState("");
+  const [notes, setNotes] = useState("");
   const { toast } = useToast();
   const hdrs = { "x-admin-token": token };
+  const isIn = type === "in";
 
   const mut = useMutation({
     mutationFn: async () => {
@@ -510,13 +513,17 @@ function InlineAdjust({ item, type, token, onDone }: {
       const res = await fetch("/api/warehouse/logs", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...hdrs },
-        body: JSON.stringify({ itemId: item.id, quantity: q, type, date: new Date().toISOString().slice(0, 10) }),
+        body: JSON.stringify({
+          itemId: item.id, quantity: q, type,
+          date: new Date().toISOString().slice(0, 10),
+          notes: notes || (isIn ? "Татан авалт" : "Зарлага"),
+        }),
       });
       if (!res.ok) throw new Error(await res.text());
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/warehouse/items"] });
-      toast({ title: `${item.name}: ${type === "in" ? "+" : "−"}${qty} ${item.unit} ✓` });
+      toast({ title: `${item.name}: ${isIn ? "Татан авалт" : "Зарлага"} ${qty} ${item.unit} ✓` });
       onDone();
     },
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
@@ -528,130 +535,333 @@ function InlineAdjust({ item, type, token, onDone }: {
   };
 
   return (
-    <div className={`flex items-center gap-1.5 px-2 py-1.5 rounded-xl border ${
-      type === "in" ? "border-green-500/40 bg-green-500/8" : "border-red-500/40 bg-red-500/8"
+    <div className={`flex flex-col gap-2 p-3 rounded-xl border ${
+      isIn ? "border-green-500/30 bg-green-500/8" : "border-orange-500/30 bg-orange-500/8"
     }`}>
-      <span className={`text-xs font-bold ${type === "in" ? "text-green-400" : "text-red-400"}`}>
-        {type === "in" ? "+" : "−"}
-      </span>
-      <input
-        data-testid={`input-inline-${type}-${item.id}`}
-        type="number" min="0" value={qty} onChange={e => setQty(e.target.value)}
-        onKeyDown={handleKey} autoFocus
-        placeholder={`0 ${item.unit}`}
-        className={`w-20 bg-transparent text-sm font-semibold focus:outline-none ${
-          type === "in" ? "text-green-300 placeholder:text-green-800" : "text-red-300 placeholder:text-red-900"
-        }`}
-      />
-      <button data-testid={`btn-inline-confirm-${item.id}`}
-        onClick={() => mut.mutate()} disabled={mut.isPending || !qty}
-        className={`w-6 h-6 flex items-center justify-center rounded-md text-white font-bold transition-all disabled:opacity-30 ${
-          type === "in" ? "bg-green-600 hover:bg-green-500" : "bg-red-600 hover:bg-red-500"
-        }`}>
-        {mut.isPending ? "…" : "✓"}
-      </button>
-      <button data-testid={`btn-inline-cancel-${item.id}`}
-        onClick={onDone}
-        className="w-6 h-6 flex items-center justify-center rounded-md text-white/30 hover:text-white/60 transition-colors text-sm">
-        ✕
-      </button>
+      <div className={`text-xs font-semibold ${isIn ? "text-green-400" : "text-orange-400"}`}>
+        {isIn ? "📦 Татан авалт — нөөцөд орох" : "📤 Зарлага — нөөцөөс гарах"}
+      </div>
+      <div className="flex items-center gap-2">
+        <input
+          data-testid={`input-inline-${type}-${item.id}`}
+          type="number" min="0" value={qty} onChange={e => setQty(e.target.value)}
+          onKeyDown={handleKey} autoFocus
+          placeholder={`Хэмжээ (${item.unit})`}
+          className={`w-28 bg-white/5 border rounded-lg px-3 py-1.5 text-sm font-bold focus:outline-none transition-colors ${
+            isIn ? "border-green-500/30 text-green-200 focus:border-green-400" : "border-orange-500/30 text-orange-200 focus:border-orange-400"
+          }`}
+        />
+        <input
+          type="text" value={notes} onChange={e => setNotes(e.target.value)}
+          placeholder="Тэмдэглэл..."
+          className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white/60 focus:outline-none focus:border-white/20"
+        />
+        <button data-testid={`btn-inline-confirm-${item.id}`}
+          onClick={() => mut.mutate()} disabled={mut.isPending || !qty}
+          className={`px-3 py-1.5 rounded-lg text-white text-xs font-bold transition-all disabled:opacity-30 ${
+            isIn ? "bg-green-600 hover:bg-green-500" : "bg-orange-600 hover:bg-orange-500"
+          }`}>
+          {mut.isPending ? "…" : "Баталгаажуулах"}
+        </button>
+        <button data-testid={`btn-inline-cancel-${item.id}`}
+          onClick={onDone}
+          className="px-2 py-1.5 rounded-lg text-white/30 hover:text-white/60 border border-white/10 text-xs transition-colors">
+          Болих
+        </button>
+      </div>
+      {qty && parseFloat(qty) > 0 && (
+        <div className="text-xs text-white/30">
+          Хадгалсны дараа: <span className={`font-bold ${isIn ? "text-green-400" : "text-orange-400"}`}>
+            {fmt(isIn
+              ? (item.currentStock ?? 0) + parseFloat(qty)
+              : Math.max(0, (item.currentStock ?? 0) - parseFloat(qty))
+            )} {item.unit}
+          </span>
+          {!isIn && parseFloat(qty) > (item.currentStock ?? 0) && (
+            <span className="text-red-400 ml-2">⚠ Нөөцөөс хэтэрсэн</span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Шинэ материал нэмэх modal ────────────────────────────────────────────────
+function NewItemModal({ token, onClose }: { token: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const hdrs = { "x-admin-token": token };
+  const [form, setForm] = useState({
+    name: "", unit: "тн", plant: "asphalt", category: "other",
+    currentStock: "", minStock: "", criticalStock: "",
+  });
+
+  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (!form.name.trim()) throw new Error("Нэр оруулна уу");
+      const res = await fetch("/api/warehouse/items", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...hdrs },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          unit: form.unit,
+          plant: form.plant,
+          category: form.category,
+          currentStock: parseFloat(form.currentStock) || 0,
+          minStock: parseFloat(form.minStock) || 0,
+          criticalStock: parseFloat(form.criticalStock) || 0,
+          normBasis: "",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/items"] });
+      toast({ title: `${form.name} агуулахд нэмэгдлээ ✓` });
+      onClose();
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-md mx-4 p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <PackagePlus className="w-5 h-5 text-amber-400" />
+          <div className="font-bold text-lg">Шинэ материал нэмэх</div>
+        </div>
+
+        {/* Нэр */}
+        <div>
+          <label className="text-xs text-white/40 mb-1.5 block">Материалын нэр *</label>
+          <input data-testid="input-new-name" type="text" value={form.name}
+            onChange={e => set("name", e.target.value)} autoFocus
+            placeholder="жишээ: Цемент ПЦ500 Монрос"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-amber-500 transition-colors" />
+        </div>
+
+        {/* Нэгж + Ангилал */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-white/40 mb-1.5 block">Хэмжих нэгж</label>
+            <select data-testid="select-new-unit" value={form.unit} onChange={e => set("unit", e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 transition-colors">
+              {["тн","м³","кг","л","ширхэг","м","м²"].map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-white/40 mb-1.5 block">Ангилал</label>
+            <select value={form.category} onChange={e => set("category", e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 transition-colors">
+              {[
+                ["cement","Цемент"],["stone","Чулуу/Хайрга"],["sand","Элс"],
+                ["bitumen","Битум"],["mineral","Минерал"],["other","Бусад"],
+              ].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+
+        {/* Үйлдвэр */}
+        <div>
+          <label className="text-xs text-white/40 mb-1.5 block">Аль үйлдвэрт хамааралтай</label>
+          <div className="grid grid-cols-3 gap-2">
+            {[["asphalt","Асфальт","amber"],["concrete","Бетон","blue"],["crushing","Бутлах","green"]] .map(([v,l,c]) => (
+              <button key={v} onClick={() => set("plant", v)}
+                className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                  form.plant === v
+                    ? c === "amber" ? "bg-amber-600 border-amber-500 text-white"
+                    : c === "blue"  ? "bg-blue-700 border-blue-500 text-white"
+                    : "bg-green-700 border-green-500 text-white"
+                    : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
+                }`}>{l}</button>
+            ))}
+          </div>
+        </div>
+
+        {/* Нөөцийн тоо */}
+        <div className="grid grid-cols-3 gap-3">
+          {[
+            ["currentStock","Одоогийн нөөц"],
+            ["minStock","Доод хязгаар"],
+            ["criticalStock","Аюулт хязгаар"],
+          ].map(([k,l]) => (
+            <div key={k}>
+              <label className="text-xs text-white/40 mb-1.5 block">{l}</label>
+              <input type="number" value={form[k as keyof typeof form]}
+                onChange={e => set(k, e.target.value)} placeholder="0"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500 transition-colors" />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm border border-white/10 text-white/40 hover:text-white/60 transition-colors">
+            Болих
+          </button>
+          <button data-testid="btn-new-item-save" onClick={() => mut.mutate()} disabled={mut.isPending || !form.name}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-amber-600 hover:bg-amber-500 text-white transition-all disabled:opacity-40">
+            {mut.isPending ? "…" : "Нэмэх"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
 
 // ─── Stock Overview tab ───────────────────────────────────────────────────────
 function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: string }) {
-  const [editing, setEditing] = useState<WarehouseItem | null>(null);
-  // Track which row is open for inline +/-: { id, type }
+  const [showNew, setShowNew] = useState(false);
+  const [confirmDel, setConfirmDel] = useState<WarehouseItem | null>(null);
   const [inline, setInline] = useState<{ id: number; type: "in" | "out" } | null>(null);
+  const { toast } = useToast();
+  const hdrs = { "x-admin-token": token };
 
-  // Материалын нэрээр эрэмбэлнэ (үйлдвэрээр ялгахгүй нэг жагсаалт)
   const sorted = [...allItems].sort((a, b) => a.name.localeCompare(b.name, "mn"));
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/warehouse/items/${id}`, { method: "DELETE", headers: hdrs });
+      if (!res.ok) throw new Error(await res.text());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/items"] });
+      toast({ title: "Материал устгагдлаа ✓" });
+      setConfirmDel(null);
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
 
   return (
     <>
-      {editing && <StockAdjust item={editing} token={token} onClose={() => setEditing(null)} />}
+      {showNew && <NewItemModal token={token} onClose={() => setShowNew(false)} />}
 
-      <div className="rounded-2xl border border-white/10 overflow-hidden">
-        {/* Table header */}
-        <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-3 px-4 py-2.5 bg-white/3 border-b border-white/8 text-xs text-white/30 font-medium">
-          <span>Материал</span>
-          <span className="text-right">Одоогийн нөөц</span>
-          <span className="text-right">Доод / Аюулт</span>
-          <span className="text-center">Оруулах / Гаргах</span>
+      {/* Устгах баталгаажуулалт */}
+      {confirmDel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+          <div className="bg-[#0f172a] border border-red-500/30 rounded-2xl w-full max-w-sm mx-4 p-6 space-y-4">
+            <div className="flex items-center gap-2 text-red-400">
+              <Trash2 className="w-5 h-5" />
+              <div className="font-bold">Устгах уу?</div>
+            </div>
+            <div className="text-sm text-white/60">
+              <span className="text-white font-medium">{confirmDel.name}</span> — агуулахын бүртгэлийг бүрмөсөн устгана.
+              Нөөцийн түүх хамт устгагдана.
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => setConfirmDel(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm border border-white/10 text-white/40 hover:text-white/60 transition-colors">
+                Болих
+              </button>
+              <button data-testid="btn-confirm-delete"
+                onClick={() => deleteMut.mutate(confirmDel.id)}
+                disabled={deleteMut.isPending}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-red-600 hover:bg-red-500 text-white transition-all disabled:opacity-40">
+                {deleteMut.isPending ? "…" : "Устгах"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-3">
+        {/* Toolbar */}
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-white/30">{sorted.length} материал бүртгэлтэй</div>
+          <button data-testid="btn-new-item"
+            onClick={() => setShowNew(true)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-semibold transition-all">
+            <PackagePlus className="w-4 h-4" /> Шинэ материал нэмэх
+          </button>
         </div>
 
-        <div className="divide-y divide-white/5">
-          {sorted.map(item => {
-            const stock = item.currentStock ?? 0;
-            const min   = item.minStock ?? 0;
-            const crit  = item.criticalStock ?? 0;
-            const pct   = min > 0 ? Math.min(100, (stock / (min * 1.5)) * 100) : 50;
-            const statusColor = stock === 0 ? "text-white/25" : stock <= crit ? "text-red-400" : stock <= min ? "text-amber-400" : "text-green-400";
-            const barColor    = stock <= crit ? "bg-red-500" : stock <= min ? "bg-amber-500" : "bg-green-500";
-            const activeInline = inline?.id === item.id ? inline.type : null;
+        {/* Table */}
+        <div className="rounded-2xl border border-white/10 overflow-hidden">
+          <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 px-4 py-2.5 bg-white/3 border-b border-white/8 text-xs text-white/30 font-medium">
+            <span>Материал</span>
+            <span className="text-right">Одоогийн нөөц</span>
+            <span className="text-right">Доод / Аюулт</span>
+            <span className="text-center pr-2">Үйлдэл</span>
+          </div>
 
-            return (
-              <div key={item.id} data-testid={`stock-row-${item.id}`}
-                className="grid grid-cols-[2fr_1fr_1fr_auto] gap-3 items-center px-4 py-3 hover:bg-white/2 transition-colors">
+          <div className="divide-y divide-white/5">
+            {sorted.map(item => {
+              const stock = item.currentStock ?? 0;
+              const min   = item.minStock ?? 0;
+              const crit  = item.criticalStock ?? 0;
+              const pct   = min > 0 ? Math.min(100, (stock / (min * 1.5)) * 100) : 50;
+              const statusColor = stock === 0 ? "text-white/25" : stock <= crit ? "text-red-400" : stock <= min ? "text-amber-400" : "text-green-400";
+              const barColor    = stock <= crit ? "bg-red-500" : stock <= min ? "bg-amber-500" : "bg-green-500";
+              const activeInline = inline?.id === item.id ? inline.type : null;
 
-                {/* Name + plant badge */}
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium">{item.name}</span>
-                    <span className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${PLANT_BADGE[item.plant] ?? "bg-white/10 text-white/40"}`}>
-                      {PLANT_LABEL[item.plant] ?? item.plant}
-                    </span>
+              return (
+                <div key={item.id} data-testid={`stock-row-${item.id}`} className="bg-[#0c1528]">
+                  {/* Main row */}
+                  <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 items-center px-4 py-3 hover:bg-white/2 transition-colors">
+                    {/* Name + badge */}
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">{item.name}</span>
+                        <span className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${PLANT_BADGE[item.plant] ?? "bg-white/10 text-white/40"}`}>
+                          {PLANT_LABEL[item.plant] ?? item.plant}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden w-28">
+                        <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                      </div>
+                    </div>
+
+                    {/* Stock */}
+                    <div className="text-right">
+                      <span className={`text-base font-bold ${statusColor}`}>{fmt(stock)}</span>
+                      <span className="text-xs text-white/25 ml-1">{item.unit}</span>
+                    </div>
+
+                    {/* Min/Crit */}
+                    <div className="text-right text-xs text-white/25">
+                      <div>{fmt(min)} {item.unit}</div>
+                      <div className="text-red-400/50">{fmt(crit)} {item.unit}</div>
+                    </div>
+
+                    {/* Action buttons */}
+                    <div className="flex items-center gap-1.5 justify-end">
+                      {!activeInline && (
+                        <>
+                          <button data-testid={`btn-tatah-${item.id}`}
+                            onClick={() => setInline({ id: item.id, type: "in" })}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-semibold transition-all whitespace-nowrap">
+                            <TruckIcon className="w-3 h-3" /> Татан авалт
+                          </button>
+                          <button data-testid={`btn-zarlaga-${item.id}`}
+                            onClick={() => setInline({ id: item.id, type: "out" })}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 text-xs font-semibold transition-all whitespace-nowrap">
+                            <Minus className="w-3 h-3" /> Зарлага
+                          </button>
+                          <button data-testid={`btn-delete-${item.id}`}
+                            onClick={() => setConfirmDel(item)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/8 text-white/20 hover:text-red-400 hover:border-red-500/30 transition-all">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
+                      {activeInline && (
+                        <button onClick={() => setInline(null)}
+                          className="text-xs text-white/30 hover:text-white/50 px-2 py-1 transition-colors">✕ Хаах</button>
+                      )}
+                    </div>
                   </div>
-                  <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden w-28">
-                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
-                  </div>
-                </div>
 
-                {/* Current stock */}
-                <div className="text-right">
-                  <span className={`text-base font-bold ${statusColor}`}>{fmt(stock)}</span>
-                  <span className="text-xs text-white/25 ml-1">{item.unit}</span>
-                </div>
-
-                {/* Min / Critical */}
-                <div className="text-right text-xs text-white/25">
-                  <div>{fmt(min)} {item.unit}</div>
-                  <div className="text-red-400/50">{fmt(crit)} {item.unit}</div>
-                </div>
-
-                {/* + / − quick buttons or inline input */}
-                <div className="flex items-center justify-end gap-1.5">
-                  {activeInline ? (
-                    <InlineAdjust
-                      item={item}
-                      type={activeInline}
-                      token={token}
-                      onDone={() => setInline(null)}
-                    />
-                  ) : (
-                    <>
-                      <button data-testid={`btn-plus-${item.id}`}
-                        onClick={() => setInline({ id: item.id, type: "in" })}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 transition-all text-xs font-bold">
-                        <Plus className="w-3.5 h-3.5" /> Нэмэх
-                      </button>
-                      <button data-testid={`btn-minus-${item.id}`}
-                        onClick={() => setInline({ id: item.id, type: "out" })}
-                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-all text-xs font-bold">
-                        <Minus className="w-3.5 h-3.5" /> Хасах
-                      </button>
-                      <button data-testid={`btn-edit-stock-${item.id}`}
-                        onClick={() => setEditing(item)}
-                        className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/10 text-white/25 hover:text-amber-400 hover:border-amber-500/30 transition-all">
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                    </>
+                  {/* Inline adjust panel (full width under row) */}
+                  {activeInline && (
+                    <div className="px-4 pb-3">
+                      <InlineAdjust item={item} type={activeInline} token={token} onDone={() => setInline(null)} />
+                    </div>
                   )}
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </>
