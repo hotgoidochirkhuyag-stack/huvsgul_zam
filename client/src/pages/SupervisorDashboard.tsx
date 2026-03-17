@@ -61,15 +61,15 @@ function PhotoSection({ entityType, entityId }: { entityType: string; entityId: 
   }
 
   return (
-    <div className="mt-3 border-t border-white/5">
+    <div className="mt-3 pt-3 border-t border-white/10">
       <button
         data-testid={`btn-photo-toggle-${entityType}-${entityId}`}
         onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 pt-2.5 pb-1 w-full text-left text-xs text-white/40 hover:text-white/70 transition-colors"
+        className={`flex items-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-semibold transition-all ${open ? "bg-amber-600/20 text-amber-400 border border-amber-500/30" : "bg-white/5 text-white/60 border border-white/10 hover:bg-amber-600/10 hover:text-amber-400 hover:border-amber-500/20"}`}
       >
-        <Camera className="w-3.5 h-3.5" />
-        <span>Баримт зураг {photos.length > 0 ? `(${photos.length})` : ""}</span>
-        {open ? <ChevronUp className="w-3 h-3 ml-auto" /> : <ChevronDown className="w-3 h-3 ml-auto" />}
+        <Camera className="w-4 h-4" />
+        <span>📷 Баримт зураг {photos.length > 0 ? `(${photos.length} зураг)` : "оруулах"}</span>
+        {open ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
       </button>
 
       {open && (
