@@ -75,11 +75,11 @@ function PhotoSection({
         <button
           data-testid={`btn-photo-toggle-${entityType}-${entityId}`}
           onClick={toggle}
-          className={`flex items-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-semibold transition-all ${open ? "bg-amber-600/20 text-amber-400 border border-amber-500/30" : "bg-white/5 text-white/60 border border-white/10 hover:bg-amber-600/10 hover:text-amber-400 hover:border-amber-500/20"}`}
+          className={`flex items-center gap-2 w-full px-3 py-2.5 rounded-xl text-xs font-bold transition-all border ${open ? "bg-amber-500/20 text-amber-300 border-amber-500/40" : "bg-amber-600/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20 hover:border-amber-400/50"}`}
         >
-          <Camera className="w-4 h-4" />
-          <span>📷 Баримт зураг {photos.length > 0 ? `(${photos.length} зураг)` : "оруулах"}</span>
-          {open ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
+          <Camera className="w-4 h-4 shrink-0" />
+          <span>📷 Баримт зураг {photos.length > 0 ? `(${photos.length} зураг)` : "нэмэх / харах"}</span>
+          {open ? <ChevronUp className="w-3.5 h-3.5 ml-auto shrink-0" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto shrink-0" />}
         </button>
       )}
 
