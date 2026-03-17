@@ -484,67 +484,88 @@ function StockAdjust({ item, token, onClose }: { item: WarehouseItem; token: str
   );
 }
 
+const PLANT_LABEL: Record<string, string> = {
+  asphalt:  "Асфальт",
+  concrete: "Бетон",
+  crushing: "Бутлах",
+};
+const PLANT_BADGE: Record<string, string> = {
+  asphalt:  "bg-amber-500/15 text-amber-400",
+  concrete: "bg-blue-500/15 text-blue-400",
+  crushing: "bg-green-500/15 text-green-400",
+};
+
 // ─── Stock Overview tab ───────────────────────────────────────────────────────
 function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: string }) {
   const [editing, setEditing] = useState<WarehouseItem | null>(null);
-  const groupedItems = {
-    asphalt:  allItems.filter(i => i.plant === "asphalt"),
-    concrete: allItems.filter(i => i.plant === "concrete"),
-    crushing: allItems.filter(i => i.plant === "crushing"),
-  };
-  const plantLabels: Record<string, { label: string; color: string; text: string }> = {
-    asphalt:  { label: "Асфальтын үйлдвэр", color: "border-amber-500/30 bg-amber-500/5",  text: "text-amber-400" },
-    concrete: { label: "Бетоны үйлдвэр",    color: "border-blue-500/30 bg-blue-500/5",    text: "text-blue-400"  },
-    crushing: { label: "Бутлах үйлдвэр",    color: "border-green-500/30 bg-green-500/5",  text: "text-green-400" },
-  };
+
+  // Материалын нэрээр эрэмбэлнэ (үйлдвэрээр ялгахгүй нэг жагсаалт)
+  const sorted = [...allItems].sort((a, b) => a.name.localeCompare(b.name, "mn"));
 
   return (
     <>
       {editing && <StockAdjust item={editing} token={token} onClose={() => setEditing(null)} />}
-      <div className="space-y-4">
-        {(["asphalt","concrete","crushing"] as const).map(plant => {
-          const items = groupedItems[plant];
-          const { label, color, text } = plantLabels[plant];
-          return (
-            <div key={plant} className={`rounded-2xl border ${color} overflow-hidden`}>
-              <div className={`px-4 py-3 border-b ${color} font-semibold text-sm ${text}`}>{label}</div>
-              <div className="divide-y divide-white/5">
-                {items.map(item => {
-                  const stock = item.currentStock ?? 0;
-                  const min   = item.minStock ?? 0;
-                  const crit  = item.criticalStock ?? 0;
-                  const pct   = min > 0 ? Math.min(100, (stock / (min * 1.5)) * 100) : 100;
-                  const statusColor = stock <= crit ? "text-red-400" : stock <= min ? "text-amber-400" : "text-green-400";
-                  return (
-                    <div key={item.id} data-testid={`stock-row-${item.id}`}
-                      className="flex items-center gap-3 px-4 py-3 hover:bg-white/2 transition-colors group">
-                      <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium">{item.name}</div>
-                        <div className="text-xs text-white/25 mt-0.5">
-                          Доод: {fmt(min)} · Аюулт: {fmt(crit)} {item.unit}
-                        </div>
-                        <div className="mt-1.5 h-1.5 rounded-full bg-white/5 overflow-hidden w-32">
-                          <div className={`h-full rounded-full transition-all ${
-                            stock <= crit ? "bg-red-500" : stock <= min ? "bg-amber-500" : "bg-green-500"
-                          }`} style={{ width: `${pct}%` }} />
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`text-lg font-bold ${statusColor}`}>{fmt(stock)}</div>
-                        <div className="text-xs text-white/25">{item.unit}</div>
-                      </div>
-                      <button data-testid={`btn-edit-stock-${item.id}`}
-                        onClick={() => setEditing(item)}
-                        className="w-8 h-8 flex items-center justify-center rounded-lg border border-white/10 text-white/30 hover:text-amber-400 hover:border-amber-500/30 transition-all opacity-0 group-hover:opacity-100">
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  );
-                })}
+
+      <div className="rounded-2xl border border-white/10 overflow-hidden">
+        {/* Table header */}
+        <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-3 px-4 py-2.5 bg-white/3 border-b border-white/8 text-xs text-white/30 font-medium">
+          <span>Материал</span>
+          <span className="text-right">Одоогийн нөөц</span>
+          <span className="text-right">Доод / Аюулт</span>
+          <span className="w-16 text-center">Засах</span>
+        </div>
+
+        <div className="divide-y divide-white/5">
+          {sorted.map(item => {
+            const stock = item.currentStock ?? 0;
+            const min   = item.minStock ?? 0;
+            const crit  = item.criticalStock ?? 0;
+            const pct   = min > 0 ? Math.min(100, (stock / (min * 1.5)) * 100) : 50;
+            const statusColor = stock === 0 ? "text-white/25" : stock <= crit ? "text-red-400" : stock <= min ? "text-amber-400" : "text-green-400";
+            const barColor    = stock <= crit ? "bg-red-500" : stock <= min ? "bg-amber-500" : "bg-green-500";
+
+            return (
+              <div key={item.id} data-testid={`stock-row-${item.id}`}
+                className="grid grid-cols-[2fr_1fr_1fr_auto] gap-3 items-center px-4 py-3 hover:bg-white/2 transition-colors">
+
+                {/* Name + plant badge */}
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-medium">{item.name}</span>
+                    <span className={`text-xs px-1.5 py-0.5 rounded-md font-medium ${PLANT_BADGE[item.plant] ?? "bg-white/10 text-white/40"}`}>
+                      {PLANT_LABEL[item.plant] ?? item.plant}
+                    </span>
+                  </div>
+                  {/* Stock bar */}
+                  <div className="mt-1.5 h-1 rounded-full bg-white/5 overflow-hidden w-28">
+                    <div className={`h-full rounded-full transition-all ${barColor}`} style={{ width: `${pct}%` }} />
+                  </div>
+                </div>
+
+                {/* Current stock */}
+                <div className="text-right">
+                  <span className={`text-base font-bold ${statusColor}`}>{fmt(stock)}</span>
+                  <span className="text-xs text-white/25 ml-1">{item.unit}</span>
+                </div>
+
+                {/* Min / Critical */}
+                <div className="text-right text-xs text-white/25">
+                  <div>{fmt(min)} {item.unit}</div>
+                  <div className="text-red-400/50">{fmt(crit)} {item.unit}</div>
+                </div>
+
+                {/* Edit button — always visible */}
+                <div className="w-16 flex justify-center">
+                  <button data-testid={`btn-edit-stock-${item.id}`}
+                    onClick={() => setEditing(item)}
+                    className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 transition-all text-xs font-medium">
+                    <Edit3 className="w-3 h-3" /> Засах
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
+        </div>
       </div>
     </>
   );
