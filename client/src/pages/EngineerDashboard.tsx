@@ -1,10 +1,13 @@
 import { FactoryControl } from "@/components/FactoryControl";
 import { Wrench, LogOut } from "lucide-react";
+import { useLocation } from "wouter";
 
 export default function EngineerDashboard() {
+  const [, setLocation] = useLocation();
   const handleLogout = () => {
-    localStorage.clear();
-    window.location.href = "/admin/ENGINEER";
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("userRole");
+    setLocation("/select-role");
   };
 
   return (

@@ -380,7 +380,7 @@ export default function SupervisorDashboard() {
             </div>
           </div>
           <button
-            onClick={() => { localStorage.clear(); setLocation("/admin/SUPERVISOR"); }}
+            onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
             className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-xl text-sm transition-all"
           >
             <LogOut className="w-4 h-4" /> Гарах
