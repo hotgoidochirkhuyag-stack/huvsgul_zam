@@ -815,7 +815,7 @@ function MeetingTab() {
 
 /* ══════════════════════ 8. ВЭБСАЙТ — Онцлох төслүүд ══════════════════════ */
 function WebsiteTab() {
-  const [editId, setEditId] = useState<number | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
   const { data: projects = [], isLoading } = useQuery<any[]>({
@@ -824,11 +824,11 @@ function WebsiteTab() {
   });
 
   const updateProject = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: any }) =>
-      fetch(`/api/projects/${id}`, {
+    mutationFn: ({ id, data }: { id: string; data: any }) =>
+      fetch(`/api/projects/metadata`, {
         method: "PATCH",
         headers: hdrs(),
-        body: JSON.stringify(data),
+        body: JSON.stringify({ publicId: id, ...data }),
       }).then(r => r.json()),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/projects"] });

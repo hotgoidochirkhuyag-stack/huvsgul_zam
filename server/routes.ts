@@ -113,15 +113,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/projects", async (_req, res) => {
     res.json(await storage.getProjects());
   });
-  app.patch("/api/projects/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/projects/metadata", requireAdmin, async (req, res) => {
     try {
-      const id = parseInt(req.params.id);
-      const { title, description, location, length, year, clientName, contractValue, progress } = req.body;
-      const [updated] = await db.update(schema.projects)
-        .set({ title, description, location, length, year, clientName, contractValue, progress })
-        .where(eq(schema.projects.id, id))
+      const { publicId, title, description, location, length, year, clientName, contractValue, progress } = req.body;
+      if (!publicId) return res.status(400).json({ error: "publicId шаардлагатай" });
+      const [upserted] = await db.insert(schema.projectMetadata)
+        .values({ publicId, title, description, location, length, year, clientName, contractValue, progress })
+        .onConflictDoUpdate({
+          target: schema.projectMetadata.publicId,
+          set: { title, description, location, length, year, clientName, contractValue, progress },
+        })
         .returning();
-      res.json(updated);
+      res.json(upserted);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
   app.get("/api/stats", async (_req, res) => {

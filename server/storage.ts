@@ -1,4 +1,6 @@
 import { v2 as cloudinary } from "cloudinary";
+import { db } from "./db.js";
+import * as schema from "../shared/schema.js";
 
 // Cloudinary-г тохируулах
 if (process.env.CLOUDINARY_CLOUD_NAME) {
@@ -15,28 +17,39 @@ export const storage = {
     try {
       if (!process.env.CLOUDINARY_CLOUD_NAME) return [];
 
-      // Гурван хавтасны зургуудыг OR нөхцөлөөр бүгдийг нь татна
+      const categoryMap: Record<string, string> = {
+        road: "Авто зам",
+        bridge: "Гүүр",
+        construction: "Дэд бүтэц",
+      };
+
+      // Cloudinary-с зургуудыг татах
       const res = await cloudinary.search
         .expression("folder:road/* OR folder:bridge/* OR folder:construction/*")
         .sort_by("created_at", "desc")
         .max_results(50)
         .execute();
 
-      return res.resources.map((r: any) => {
-        // public_id-аас хавтсыг нь таньж category оноох
-        const folder = r.public_id.split("/")[0];
-        const categoryMap: Record<string, string> = {
-          road: "Авто зам",
-          bridge: "Гүүр",
-          construction: "Дэд бүтэц",
-        };
+      // DB-с metadata татах (publicId-аар индексэд оруулах)
+      const metaRows = await db.select().from(schema.projectMetadata);
+      const metaMap: Record<string, typeof metaRows[0]> = {};
+      for (const m of metaRows) metaMap[m.publicId] = m;
 
+      return res.resources.map((r: any) => {
+        const folder = r.public_id.split("/")[0];
+        const meta = metaMap[r.public_id];
         return {
           id: r.public_id,
           imageUrl: r.secure_url,
-          title: r.public_id.split("/").pop() || "Төсөл",
-          description: "Бүтээн байгуулалт",
-          category: categoryMap[folder] || "Бусад",
+          title:         meta?.title         ?? r.public_id.split("/").pop() ?? "Төсөл",
+          description:   meta?.description   ?? "Бүтээн байгуулалт",
+          category:      categoryMap[folder] ?? "Бусад",
+          location:      meta?.location      ?? null,
+          length:        meta?.length        ?? null,
+          year:          meta?.year          ?? null,
+          clientName:    meta?.clientName    ?? null,
+          contractValue: meta?.contractValue ?? null,
+          progress:      meta?.progress      ?? null,
         };
       });
     } catch (e) {

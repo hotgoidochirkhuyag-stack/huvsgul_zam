@@ -19,6 +19,18 @@ export const projects = pgTable("projects", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const projectMetadata = pgTable("project_metadata", {
+  publicId: text("public_id").primaryKey(),
+  title: text("title"),
+  description: text("description"),
+  location: text("location"),
+  length: text("length"),
+  year: text("year"),
+  clientName: text("client_name"),
+  contractValue: text("contract_value"),
+  progress: integer("progress"),
+});
+
 export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
