@@ -78,9 +78,9 @@ function Router() {
         const token = localStorage.getItem("adminToken");
         const userRole = localStorage.getItem("userRole");
         if (!token) return <Redirect to="/admin?role=LAB" />;
-        if (!["LAB", "ENGINEER", "ADMIN"].includes(userRole ?? "")) {
+        if (!["LAB", "ENGINEER", "ADMIN", "BOARD"].includes(userRole ?? "")) {
           const redirects: Record<string, string> = {
-            BOARD: "/dashboard/board", PROJECT: "/dashboard/project",
+            PROJECT: "/dashboard/project",
             SUPERVISOR: "/dashboard/supervisor", MECHANIC: "/dashboard/mechanic",
             WAREHOUSE: "/dashboard/warehouse", HR: "/dashboard/hr",
           };

@@ -80,8 +80,8 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
-// ─── Норм засах таб ───────────────────────────────────────────────────────────
-function NormEditorTab({ token, role }: { token: string; role: string }) {
+// ─── Норм таб (харах + засах) ─────────────────────────────────────────────────
+function NormEditorTab({ token, role, canEdit }: { token: string; role: string; canEdit: boolean }) {
   const { toast } = useToast();
   const [editValues, setEditValues] = useState<Record<number, string>>({});
   const [notes, setNotes]           = useState<Record<number, string>>({});
@@ -140,6 +140,17 @@ function NormEditorTab({ token, role }: { token: string; role: string }) {
 
   return (
     <div className="space-y-5">
+      {/* Гарчиг + харах/засах горим мэдэгдэл */}
+      <div className="flex items-start justify-between">
+        <div>
+          <h3 className="font-bold text-white text-base">БНбД Нормчлолын тохиргоо</h3>
+          {!canEdit && (
+            <p className="text-xs text-amber-400/70 mt-0.5 flex items-center gap-1">
+              <ShieldCheck size={12} /> Зөвхөн харах горим — засах эрх технологич инженерт байна
+            </p>
+          )}
+        </div>
+      </div>
       {/* Toolbar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex gap-1 bg-white/5 rounded-xl p-1">
@@ -154,14 +165,16 @@ function NormEditorTab({ token, role }: { token: string; role: string }) {
             </button>
           ))}
         </div>
-        <button onClick={() => setShowLog(s => !s)}
-          className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl font-semibold transition-all ${
-            showLog
-              ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/30"
-              : "bg-white/5 text-white/40 hover:bg-white/10 border border-white/10"
-          }`}>
-          <History size={13} /> Засварын түүх
-        </button>
+        {canEdit && (
+          <button onClick={() => setShowLog(s => !s)}
+            className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-xl font-semibold transition-all ${
+              showLog
+                ? "bg-indigo-600/30 text-indigo-300 border border-indigo-500/30"
+                : "bg-white/5 text-white/40 hover:bg-white/10 border border-white/10"
+            }`}>
+            <History size={13} /> Засварын түүх
+          </button>
+        )}
       </div>
 
       {/* БНбД norm editor */}
@@ -204,17 +217,23 @@ function NormEditorTab({ token, role }: { token: string; role: string }) {
                           )}
                         </span>
 
-                        {/* Засах утга */}
-                        <input
-                          type="number" step="0.001" min="0"
-                          value={editValues[norm.id] ?? norm.rate}
-                          onChange={e => setEditValues(v => ({ ...v, [norm.id]: e.target.value }))}
-                          className="w-24 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-amber-500/60 transition-colors"
-                          data-testid={`input-norm-${norm.id}`}
-                        />
+                        {/* Утга харах / засах */}
+                        {canEdit ? (
+                          <input
+                            type="number" step="0.001" min="0"
+                            value={editValues[norm.id] ?? norm.rate}
+                            onChange={e => setEditValues(v => ({ ...v, [norm.id]: e.target.value }))}
+                            className="w-24 bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm text-white text-center focus:outline-none focus:border-amber-500/60 transition-colors"
+                            data-testid={`input-norm-${norm.id}`}
+                          />
+                        ) : (
+                          <span className="w-24 text-center font-bold text-white text-sm px-2 py-1.5 bg-white/5 rounded-lg">
+                            {norm.rate}
+                          </span>
+                        )}
                         <span className="text-xs text-white/30 w-6">{norm.unit}</span>
 
-                        {isEditing && (
+                        {canEdit && isEditing && (
                           <button onClick={() => handleSave(norm)} disabled={saving[norm.id]}
                             data-testid={`btn-save-norm-${norm.id}`}
                             className="text-xs px-3 py-1.5 bg-amber-600/30 hover:bg-amber-600/50 text-amber-300 rounded-lg font-semibold transition-all disabled:opacity-40">
@@ -232,8 +251,8 @@ function NormEditorTab({ token, role }: { token: string; role: string }) {
                         </div>
                       )}
 
-                      {/* Тайлбар талбар */}
-                      {isEditing && (
+                      {/* Тайлбар талбар — зөвхөн засах үед */}
+                      {canEdit && isEditing && (
                         <input type="text"
                           placeholder="Засварын шалтгаан / тайлбар (заавал биш)…"
                           value={notes[norm.id] ?? ""}
@@ -314,7 +333,10 @@ export default function LabQCDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const token = localStorage.getItem("adminToken") ?? "";
-  const role  = localStorage.getItem("userRole") ?? "ENGINEER";
+  const role  = localStorage.getItem("userRole") ?? "LAB";
+  // Норм харах — LAB, ENGINEER, BOARD, ADMIN
+  const canViewNorms = ["LAB", "ENGINEER", "BOARD", "ADMIN"].includes(role);
+  // Норм засах — зөвхөн ENGINEER (технологич инженер)
   const canEditNorms = role === "ENGINEER";
 
   const [tab, setTab] = useState<"overview" | "list" | "add" | "norms">("overview");
@@ -387,10 +409,10 @@ export default function LabQCDashboard() {
   const recent5      = results.slice(0, 5);
 
   const TABS: { key: "overview"|"list"|"add"|"norms"; label: string; icon: any; show: boolean }[] = [
-    { key: "overview", label: "Хяналтын самбар",    icon: BarChart3,    show: true         },
-    { key: "list",     label: "Туршилтын дүн",      icon: FileText,     show: true         },
-    { key: "add",      label: "Шинэ туршилт",       icon: FlaskConical, show: true         },
-    { key: "norms",    label: "Норм тохиргоо",       icon: ShieldCheck,  show: canEditNorms },
+    { key: "overview", label: "Хяналтын самбар",    icon: BarChart3,    show: true          },
+    { key: "list",     label: "Туршилтын дүн",      icon: FileText,     show: true          },
+    { key: "add",      label: "Шинэ туршилт",       icon: FlaskConical, show: true          },
+    { key: "norms",    label: "БНбД Норм",           icon: ShieldCheck,  show: canViewNorms  },
   ];
 
   return (
@@ -549,10 +571,10 @@ export default function LabQCDashboard() {
                 className="flex items-center justify-center gap-2 py-4 bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600/30 rounded-2xl text-emerald-300 font-bold text-sm transition-all">
                 <FlaskConical className="w-5 h-5" /> Шинэ туршилт нэмэх
               </button>
-              {canEditNorms && (
+              {canViewNorms && (
                 <button onClick={() => setTab("norms")}
                   className="flex items-center justify-center gap-2 py-4 bg-amber-600/10 border border-amber-500/20 hover:bg-amber-600/20 rounded-2xl text-amber-300 font-bold text-sm transition-all">
-                  <ShieldCheck className="w-5 h-5" /> Норм тохиргоо (БНбД)
+                  <ShieldCheck className="w-5 h-5" /> {canEditNorms ? "Норм тохиргоо (БНбД)" : "БНбД Норм харах"}
                 </button>
               )}
             </div>
@@ -759,8 +781,8 @@ export default function LabQCDashboard() {
         )}
 
         {/* ─── NORMS TAB ────────────────────────────────────────────────────── */}
-        {tab === "norms" && canEditNorms && (
-          <NormEditorTab token={token} role={role} />
+        {tab === "norms" && canViewNorms && (
+          <NormEditorTab token={token} role={role} canEdit={canEditNorms} />
         )}
       </div>
     </div>
