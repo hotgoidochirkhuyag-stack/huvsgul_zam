@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Video, VideoOff, Loader2, Search, Users, CheckSquare, Square, X } from "lucide-react";
+import { Video, VideoOff, Loader2, Search, Users, CheckSquare, Square, X, Copy, Check, MessageCircle, Smartphone, Link2 } from "lucide-react";
 import type { Employee } from "@shared/schema";
 
 export type MeetingMode = "CONFERENCE_HALL" | "BOARD_DIRECTOR";
@@ -42,6 +42,7 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
   const [checked,    setChecked]    = useState<Set<number>>(new Set());
   const [search,     setSearch]     = useState("");
   const [jitsiReady, setJitsiReady] = useState(false);
+  const [copied,     setCopied]     = useState(false);
 
   const cfg     = MODE_CONFIG[mode];
   const isAmber = cfg.color === "amber";
@@ -245,6 +246,86 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
               </div>
             </div>
           )}
+
+          {/* Link sharing panel */}
+          {selectedEmps.length > 0 && (() => {
+            const meetingUrl = `https://meet.jit.si/${cfg.roomName}`;
+            const msg = encodeURIComponent(`🎥 Онлайн хурлын урилга\n\nТа дараах линкээр нэвтэрнэ үү:\n${meetingUrl}\n\n— Хөвсгөл Зам ХХК`);
+
+            const cleanPhone = (raw: string) => {
+              const d = raw.replace(/\D/g, "");
+              if (d.startsWith("976")) return d;
+              if (d.startsWith("0")) return "976" + d.slice(1);
+              return "976" + d;
+            };
+
+            return (
+              <div className="bg-slate-900/80 border border-white/10 rounded-2xl overflow-hidden">
+                {/* Header */}
+                <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
+                  <Link2 className={`w-4 h-4 ${isAmber ? "text-amber-400" : "text-blue-400"}`} />
+                  <span className="text-sm font-bold text-white">Хурлын линк илгээх</span>
+                </div>
+
+                {/* Copy link row */}
+                <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
+                  <code className="flex-1 text-xs text-slate-400 font-mono bg-slate-800/60 px-3 py-1.5 rounded-lg truncate">
+                    {meetingUrl}
+                  </code>
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(meetingUrl);
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 2000);
+                    }}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      copied
+                        ? "bg-green-600/20 text-green-400"
+                        : "bg-slate-700 hover:bg-slate-600 text-slate-300"
+                    }`}
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied ? "Хуулсан!" : "Хуулах"}
+                  </button>
+                </div>
+
+                {/* Per-participant share */}
+                <div className="divide-y divide-white/5">
+                  {selectedEmps.map(emp => (
+                    <div key={emp.id} className="px-4 py-2.5 flex items-center gap-3">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${isAmber ? "bg-amber-600/20 text-amber-400" : "bg-blue-600/20 text-blue-400"}`}>
+                        {emp.name.charAt(0)}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-white text-sm font-semibold truncate">{emp.name}</p>
+                        <p className="text-slate-500 text-xs">{emp.phone ?? "Утас бүртгэгдээгүй"}</p>
+                      </div>
+                      {emp.phone ? (
+                        <div className="flex gap-1.5 shrink-0">
+                          <a
+                            href={`https://wa.me/${cleanPhone(emp.phone)}?text=${msg}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg text-xs font-bold transition-all"
+                          >
+                            <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                          </a>
+                          <a
+                            href={`sms:${emp.phone}?body=${msg}`}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-bold transition-all"
+                          >
+                            <Smartphone className="w-3.5 h-3.5" /> SMS
+                          </a>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-600 italic">Илгээх боломжгүй</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })()}
 
           {/* Start button */}
           <button
