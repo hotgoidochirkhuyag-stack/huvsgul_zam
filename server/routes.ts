@@ -34,6 +34,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       SUPERVISOR: { u: "admin", p: "admin" },
       MECHANIC:   { u: "admin", p: "admin" },
       WAREHOUSE:  { u: "admin", p: "admin" },
+      LAB:        { u: "admin", p: "admin" },
     };
 
     const targetUser = users[cleanRole];

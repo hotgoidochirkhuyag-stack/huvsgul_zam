@@ -38,11 +38,15 @@ const AdminLogin = () => {
 
       // Рольдоо таарсан самбар луу шилжих
       const routes: Record<string, string> = {
-        BOARD:    '/dashboard/board',
-        PROJECT:  '/dashboard/project',
-        ADMIN:    '/dashboard/admin',
-        ENGINEER: '/dashboard/engineer',
-        HR:       '/dashboard/hr',
+        BOARD:      '/dashboard/board',
+        PROJECT:    '/dashboard/project',
+        ADMIN:      '/dashboard/admin',
+        ENGINEER:   '/dashboard/engineer',
+        HR:         '/dashboard/hr',
+        SUPERVISOR: '/dashboard/supervisor',
+        MECHANIC:   '/dashboard/mechanic',
+        WAREHOUSE:  '/dashboard/warehouse',
+        LAB:        '/dashboard/lab-qc',
       };
       setLocation(routes[data.role] ?? '/dashboard/admin');
     } catch (e) {

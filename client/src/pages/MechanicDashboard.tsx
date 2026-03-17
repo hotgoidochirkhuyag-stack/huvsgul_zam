@@ -178,7 +178,7 @@ export default function MechanicDashboard() {
               <Truck className="w-5 h-5 text-orange-400" />
             </div>
             <div>
-              <h1 className="text-lg font-black uppercase tracking-widest text-white">Механик Инженер</h1>
+              <h1 className="text-lg font-black uppercase tracking-widest text-white">Техникийн бэлэн байдал</h1>
               <p className="text-xs text-slate-500">Техник, Машин Механизмын Бүртгэл</p>
             </div>
           </div>

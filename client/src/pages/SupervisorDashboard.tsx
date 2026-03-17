@@ -166,7 +166,7 @@ export default function SupervisorDashboard() {
               <ClipboardList className="w-5 h-5 text-blue-400" />
             </div>
             <div>
-              <h1 className="text-lg font-black uppercase tracking-widest text-white">Ахлах — Даалгавар</h1>
+              <h1 className="text-lg font-black uppercase tracking-widest text-white">Төлөвлөлт / Гүйцэтгэл</h1>
               <p className="text-xs text-slate-500">Хөвсгөл Зам ХХК</p>
             </div>
           </div>
