@@ -1,7 +1,7 @@
 import { useLocation } from "wouter";
 import {
-  ArrowLeft, Building2, HardHat, Factory, Users, LayoutDashboard,
-  ClipboardList, UserCircle, Package, FlaskConical, Video,
+  ArrowLeft, Building2, HardHat, Factory, LayoutDashboard,
+  ClipboardList, UserCircle, Package, FlaskConical,
   Wrench, BarChart3, Truck
 } from "lucide-react";
 
@@ -30,7 +30,7 @@ const ROW1: Card[] = [
 
 const ROW2: Card[] = [
   { name: "Төлөвлөлт / Гүйцэтгэл",  desc: "Ажлын фронт, далд акт, даалгавар", path: "/admin/SUPERVISOR", icon: ClipboardList,   color: "blue"   },
-  { name: "Онлайн хурал",            desc: "Удирдлагын зөвлөл, тайлан",         path: "/admin/BOARD",      icon: Video,           color: "indigo"  },
+  { name: "Админ самбар",            desc: "ADMIN систем — бүх хяналт",         path: "/admin/ADMIN",      icon: LayoutDashboard, color: "slate"   },
   { name: "Техникийн дэмжлэг",       desc: "Инженер, үйлдвэрийн хяналт",       path: "/admin/ENGINEER",   icon: Wrench,          color: "red"     },
   { name: "Төслийн хөгжүүлэлт",      desc: "Бүртгэл, хүсэлт, KPI дүн",        path: "/admin/PROJECT",    icon: BarChart3,       color: "teal"    },
 ];
@@ -41,10 +41,6 @@ const ERP_REPORTS: Card[] = [
   { name: "Үйлдвэрийн ажилтан", desc: "Бүтээгдэхүүний тайлан",   path: "/erp/report?dept=plant",  icon: Factory,    color: "green"  },
 ];
 
-const ADMIN_CARD: Card = {
-  name: "Админ самбар", desc: "ADMIN систем — бүх хяналт",
-  path: "/admin/ADMIN", icon: LayoutDashboard, color: "slate",
-};
 
 function CardButton({ item, onClick }: { item: Card; onClick: () => void }) {
   const Icon = item.icon;
@@ -126,15 +122,6 @@ export default function RoleSelection() {
           </div>
         </div>
 
-        {/* ── Администратор (нуугдмал) ──────────────────────────────────────── */}
-        <div className="border-t border-white/5 pt-5">
-          <CardButton item={ADMIN_CARD} onClick={() => {
-            localStorage.removeItem("adminToken");
-            localStorage.removeItem("userRole");
-            localStorage.setItem("pendingRole", "ADMIN");
-            setLocation(ADMIN_CARD.path);
-          }} />
-        </div>
       </div>
     </div>
   );
