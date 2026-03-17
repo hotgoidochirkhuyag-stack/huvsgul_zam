@@ -46,8 +46,14 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
   const cfg     = MODE_CONFIG[mode];
   const isAmber = cfg.color === "amber";
 
+  const token = localStorage.getItem("adminToken") ?? "";
+
   const { data: allEmployees = [], isLoading } = useQuery<Employee[]>({
-    queryKey: ["/api/employees"],
+    queryKey: ["/api/erp/employees"],
+    queryFn: () =>
+      fetch("/api/erp/employees", {
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+      }).then(r => r.json()),
   });
 
   const employees = useMemo(
