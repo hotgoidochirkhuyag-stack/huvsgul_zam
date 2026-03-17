@@ -15,12 +15,16 @@ function getHeaders() {
 }
 
 // ── Зургийн хэсэг компонент ─────────────────────────────────────────────────
+const PHOTO_TARGET = 10;
+
 function PhotoSection({
   entityType, entityId,
   externalOpen, onExternalToggle,
+  onFirstUpload,
 }: {
   entityType: string; entityId: number;
   externalOpen?: boolean; onExternalToggle?: () => void;
+  onFirstUpload?: () => void;
 }) {
   const [internalOpen, setInternalOpen] = useState(false);
   const open = externalOpen !== undefined ? externalOpen : internalOpen;
@@ -43,6 +47,7 @@ function PhotoSection({
   async function handleUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
     setUploading(true);
+    const wasEmpty = photos.length === 0;
     const fd = new FormData();
     fd.append("entityType", entityType);
     fd.append("entityId", String(entityId));
@@ -52,9 +57,10 @@ function PhotoSection({
     try {
       const res = await fetch("/api/photos/upload", { method: "POST", headers: getHeaders(), body: fd });
       if (!res.ok) throw new Error("Upload failed");
-      qc.invalidateQueries({ queryKey: qKey });
+      await qc.invalidateQueries({ queryKey: qKey });
       setCaption("");
       toast({ title: `${files.length} зураг нэмэгдлээ ✓` });
+      if (wasEmpty && onFirstUpload) onFirstUpload();
     } catch {
       toast({ title: "Зураг хадгалахад алдаа гарлаа", variant: "destructive" });
     } finally {
@@ -85,6 +91,32 @@ function PhotoSection({
 
       {open && (
         <div className="pb-1 space-y-3">
+          {/* Тоолуур + сануулга */}
+          {!isLoading && (
+            <div className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border ${photos.length === 0 ? "bg-red-500/10 border-red-500/30" : photos.length < PHOTO_TARGET ? "bg-amber-500/10 border-amber-500/25" : "bg-green-500/10 border-green-500/25"}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between mb-1.5">
+                  <span className={`text-xs font-bold ${photos.length === 0 ? "text-red-400" : photos.length < PHOTO_TARGET ? "text-amber-400" : "text-green-400"}`}>
+                    {photos.length === 0
+                      ? "⚠ Зураг оруулаагүй байна — заавал оруулна уу"
+                      : photos.length < PHOTO_TARGET
+                      ? `📷 ${photos.length} / ${PHOTO_TARGET} зураг — ${PHOTO_TARGET - photos.length} зураг үлдсэн`
+                      : `✓ ${photos.length} зураг бүртгэгдсэн`}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${photos.length === 0 ? "bg-red-500" : photos.length < PHOTO_TARGET ? "bg-amber-500" : "bg-green-500"}`}
+                    style={{ width: `${Math.min((photos.length / PHOTO_TARGET) * 100, 100)}%` }}
+                  />
+                </div>
+              </div>
+              <span className={`text-lg font-black tabular-nums ${photos.length === 0 ? "text-red-400" : photos.length < PHOTO_TARGET ? "text-amber-400" : "text-green-400"}`}>
+                {photos.length}/{PHOTO_TARGET}
+              </span>
+            </div>
+          )}
+
           {/* Upload row */}
           <div className="flex flex-wrap gap-2 items-end">
             <div className="flex-1 min-w-[120px]">
@@ -105,10 +137,10 @@ function PhotoSection({
                 data-testid={`btn-photo-upload-${entityType}-${entityId}`}
                 onClick={() => fileRef.current?.click()}
                 disabled={uploading}
-                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600/80 hover:bg-amber-500 rounded-lg text-xs font-semibold text-white transition-all disabled:opacity-40"
+                className="flex items-center gap-1.5 px-3 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-xs font-bold text-white transition-all disabled:opacity-40"
               >
                 <Upload className="w-3.5 h-3.5" />
-                {uploading ? "Уншиж байна..." : "Зураг оруулах"}
+                {uploading ? "Хадгалж байна..." : "Зураг оруулах"}
               </button>
             </div>
           </div>
@@ -117,9 +149,9 @@ function PhotoSection({
           {isLoading ? (
             <p className="text-xs text-white/30 py-2">Уншиж байна...</p>
           ) : photos.length === 0 ? (
-            <div className="flex items-center gap-2 py-3 text-xs text-white/20">
-              <ImageIcon className="w-4 h-4" />
-              <span>Зураг байхгүй байна</span>
+            <div className="flex items-center gap-2 py-3 text-xs text-red-400/60 bg-red-500/5 rounded-lg px-3">
+              <ImageIcon className="w-4 h-4 shrink-0" />
+              <span>Зураг байхгүй — дээрх "Зураг оруулах" товч дарна уу</span>
             </div>
           ) : (
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
@@ -189,9 +221,12 @@ export default function SupervisorDashboard() {
     assignedBy: "",
   });
 
-  // Ажиллах хэсгийн зургийн самбар (гадаас удирддаг)
+  // Зургийн самбар удирдах state
   const [openPhotoFrontId, setOpenPhotoFrontId] = useState<number | null>(null);
   const [openPhotoActId, setOpenPhotoActId] = useState<number | null>(null);
+  // Зураг оруулаагүй учраас шинэ item үүсгэхийг хориглох
+  const [pendingPhotoFrontId, setPendingPhotoFrontId] = useState<number | null>(null);
+  const [pendingPhotoActId, setPendingPhotoActId] = useState<number | null>(null);
 
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["/api/erp/employees"],
@@ -227,7 +262,15 @@ export default function SupervisorDashboard() {
 
   const createFront = useMutation({
     mutationFn: (data: any) => fetch("/api/work-fronts", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/work-fronts"] }); setShowFrontForm(false); setFrontForm(emptyFront); toast({ title: "Ажиллах хэсэг нэмэгдлээ ✓" }); },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["/api/work-fronts"] });
+      setShowFrontForm(false);
+      setFrontForm(emptyFront);
+      // Зургийн самбарыг автоматаар нээж, шинэ хэсэг үүсгэхийг хориглох
+      setOpenPhotoFrontId(data.id);
+      setPendingPhotoFrontId(data.id);
+      toast({ title: "✓ Ажиллах хэсэг нэмэгдлээ — зурагнуудаа оруулна уу" });
+    },
     onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
 
@@ -268,9 +311,10 @@ export default function SupervisorDashboard() {
       qc.invalidateQueries({ queryKey: ["/api/hidden-work-acts"] });
       setActForm(emptyAct);
       setShowActForm(false);
-      // Шинэ актын зургийн самбарыг автоматаар нэмэх
+      // Зургийн самбарыг автоматаар нээж, шинэ акт үүсгэхийг хориглох
       setOpenPhotoActId(data.id);
-      toast({ title: "✓ Акт бүртгэгдлээ — зурагнуудаа доор нэмнэ үү" });
+      setPendingPhotoActId(data.id);
+      toast({ title: "✓ Акт бүртгэгдлээ — зурагнуудаа оруулна уу" });
     },
     onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
@@ -520,10 +564,19 @@ export default function SupervisorDashboard() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-lg text-white">Ажиллах хэсэг / Км Пикет</h2>
-              <button data-testid="btn-add-front" onClick={() => setShowFrontForm(f => !f)}
-                className="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-xl text-sm font-bold transition-all">
-                <Plus className="w-4 h-4" /> Шинэ хэсэг
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button data-testid="btn-add-front"
+                  onClick={() => !pendingPhotoFrontId && setShowFrontForm(f => !f)}
+                  disabled={!!pendingPhotoFrontId}
+                  title={pendingPhotoFrontId ? "Өмнөх хэсгийн зургийг оруулна уу" : ""}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${pendingPhotoFrontId ? "bg-slate-700 text-slate-500 cursor-not-allowed" : "bg-green-700 hover:bg-green-600 text-white"}`}>
+                  {pendingPhotoFrontId ? <Camera className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  {pendingPhotoFrontId ? "Зураг оруулна уу" : "Шинэ хэсэг"}
+                </button>
+                {pendingPhotoFrontId && (
+                  <p className="text-xs text-amber-400 text-right">⚠ Өмнөх хэсгийн зург оруулаагүй</p>
+                )}
+              </div>
             </div>
 
             {showFrontForm && (
@@ -675,6 +728,7 @@ export default function SupervisorDashboard() {
                                 entityId={f.id}
                                 externalOpen={true}
                                 onExternalToggle={() => setOpenPhotoFrontId(null)}
+                                onFirstUpload={() => { if (pendingPhotoFrontId === f.id) setPendingPhotoFrontId(null); }}
                               />
                             </div>
                           )}
@@ -693,10 +747,19 @@ export default function SupervisorDashboard() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="font-bold text-lg text-white">Далд Ажлын Акт</h2>
-              <button data-testid="btn-add-act" onClick={() => setShowActForm(f => !f)}
-                className="flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-sm font-bold transition-all">
-                <Plus className="w-4 h-4" /> Шинэ акт
-              </button>
+              <div className="flex flex-col items-end gap-1">
+                <button data-testid="btn-add-act"
+                  onClick={() => !pendingPhotoActId && setShowActForm(f => !f)}
+                  disabled={!!pendingPhotoActId}
+                  title={pendingPhotoActId ? "Өмнөх актын зургийг оруулна уу" : ""}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${pendingPhotoActId ? "bg-slate-700 text-slate-500 cursor-not-allowed" : "bg-purple-700 hover:bg-purple-600 text-white"}`}>
+                  {pendingPhotoActId ? <Camera className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                  {pendingPhotoActId ? "Зураг оруулна уу" : "Шинэ акт"}
+                </button>
+                {pendingPhotoActId && (
+                  <p className="text-xs text-amber-400 text-right">⚠ Өмнөх актын зург оруулаагүй</p>
+                )}
+              </div>
             </div>
 
             {showActForm && (
@@ -808,6 +871,7 @@ export default function SupervisorDashboard() {
                             entityId={a.id}
                             externalOpen={true}
                             onExternalToggle={() => setOpenPhotoActId(null)}
+                            onFirstUpload={() => { if (pendingPhotoActId === a.id) setPendingPhotoActId(null); }}
                           />
                         </div>
                       )}
