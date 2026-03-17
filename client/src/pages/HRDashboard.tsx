@@ -35,7 +35,15 @@ export default function HRDashboard() {
   const [filterDept, setFilterDept] = useState("all");
   const [selectedQrEmployee, setSelectedQrEmployee] = useState<any>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newEmp, setNewEmp] = useState({ name: "", department: "field", role: "", salaryBase: "" });
+  const [newEmp, setNewEmp] = useState({ name: "", department: "field", role: "", salaryBase: "", phone: "", registerNumber: "" });
+  const [regError, setRegError] = useState("");
+
+  // Монгол улсын регистрийн дугаарын стандарт: 2 кирилл үсэг + 8 цифр (жишээ: АА12345678)
+  const MN_REG = /^[А-ЯӨҮЁ]{2}\d{8}$/;
+  const validateReg = (val: string) => {
+    if (!val) return "";
+    return MN_REG.test(val.toUpperCase()) ? "" : "Буруу формат. Жишээ: АА12345678 (2 үсэг + 8 цифр)";
+  };
 
   const { data: employees = [], isLoading } = useQuery<any[]>({
     queryKey: ["/api/erp/employees"],
@@ -52,12 +60,17 @@ export default function HRDashboard() {
     mutationFn: () => fetch("/api/erp/employees", {
       method: "POST",
       headers: getAdminHeaders(),
-      body: JSON.stringify({ ...newEmp, salaryBase: parseFloat(newEmp.salaryBase) || 0 }),
+      body: JSON.stringify({
+        ...newEmp,
+        salaryBase: parseFloat(newEmp.salaryBase) || 0,
+        registerNumber: newEmp.registerNumber ? newEmp.registerNumber.toUpperCase() : undefined,
+      }),
     }).then(r => r.json()),
     onSuccess: (emp) => {
       qc.invalidateQueries({ queryKey: ["/api/erp/employees"] });
       setShowAddForm(false);
-      setNewEmp({ name: "", department: "field", role: "", salaryBase: "" });
+      setNewEmp({ name: "", department: "field", role: "", salaryBase: "", phone: "", registerNumber: "" });
+      setRegError("");
       toast({ title: `${emp.name} бүртгэгдлээ — QR: ${emp.qrCode}` });
       // Шинэ ажилтны QR картыг автоматаар нээнэ
       setSelectedQrEmployee(emp);
@@ -171,13 +184,15 @@ export default function HRDashboard() {
             {showAddForm && (
               <div className="p-5 border-b border-white/10 bg-purple-600/5">
                 <p className="text-sm font-bold text-purple-300 mb-3">Шинэ ажилтан бүртгэх</p>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                  {/* Бүтэн нэр */}
                   <input
                     value={newEmp.name}
                     onChange={e => setNewEmp(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Бүтэн нэр"
+                    placeholder="Бүтэн нэр *"
                     className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none text-sm focus:border-purple-500/50"
                   />
+                  {/* Хэлтэс */}
                   <select
                     value={newEmp.department}
                     onChange={e => setNewEmp(f => ({ ...f, department: e.target.value }))}
@@ -185,12 +200,49 @@ export default function HRDashboard() {
                   >
                     {DEPT_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
                   </select>
+                  {/* Албан тушаал */}
                   <input
                     value={newEmp.role}
                     onChange={e => setNewEmp(f => ({ ...f, role: e.target.value }))}
-                    placeholder="Албан тушаал"
+                    placeholder="Албан тушаал *"
                     className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none text-sm focus:border-purple-500/50"
                   />
+                  {/* Регистрийн дугаар */}
+                  <div className="flex flex-col gap-1">
+                    <div className="relative">
+                      <input
+                        value={newEmp.registerNumber}
+                        onChange={e => {
+                          const raw = e.target.value.toUpperCase().replace(/[^А-ЯӨҮЁ\d]/g, "").slice(0, 10);
+                          setNewEmp(f => ({ ...f, registerNumber: raw }));
+                          setRegError(validateReg(raw));
+                        }}
+                        placeholder="Регистрийн дугаар (АА12345678)"
+                        maxLength={10}
+                        className={`w-full bg-white/5 border rounded-xl px-4 py-2.5 text-white outline-none text-sm font-mono tracking-widest ${
+                          regError ? "border-red-500/50 focus:border-red-500" : "border-white/10 focus:border-purple-500/50"
+                        }`}
+                      />
+                      {newEmp.registerNumber.length === 10 && !regError && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-400 text-xs">✓</span>
+                      )}
+                    </div>
+                    {regError && <p className="text-red-400 text-xs px-1">{regError}</p>}
+                    <p className="text-slate-600 text-[10px] px-1">Жишээ: АА12345678 — 2 кирилл үсэг + 8 цифр</p>
+                  </div>
+                  {/* Утасны дугаар */}
+                  <input
+                    value={newEmp.phone}
+                    onChange={e => {
+                      const raw = e.target.value.replace(/[^\d+\-\s]/g, "").slice(0, 15);
+                      setNewEmp(f => ({ ...f, phone: raw }));
+                    }}
+                    placeholder="Утасны дугаар (жишээ: 99112233)"
+                    type="tel"
+                    maxLength={15}
+                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white outline-none text-sm focus:border-purple-500/50"
+                  />
+                  {/* Үндсэн цалин */}
                   <input
                     value={newEmp.salaryBase}
                     onChange={e => setNewEmp(f => ({ ...f, salaryBase: e.target.value }))}
@@ -202,13 +254,16 @@ export default function HRDashboard() {
                 <div className="flex gap-3 mt-3">
                   <button
                     onClick={() => addEmployee.mutate()}
-                    disabled={!newEmp.name || !newEmp.role || addEmployee.isPending}
+                    disabled={!newEmp.name || !newEmp.role || !!regError || addEmployee.isPending}
                     className="flex items-center gap-2 px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-40 text-white font-bold rounded-xl text-sm transition-all"
                   >
                     {addEmployee.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                     Бүртгэж QR үүсгэх
                   </button>
-                  <button onClick={() => setShowAddForm(false)} className="px-4 py-2.5 text-slate-400 hover:text-white text-sm transition-all">
+                  <button
+                    onClick={() => { setShowAddForm(false); setRegError(""); }}
+                    className="px-4 py-2.5 text-slate-400 hover:text-white text-sm transition-all"
+                  >
                     Болих
                   </button>
                 </div>
@@ -228,7 +283,7 @@ export default function HRDashboard() {
                 <table className="w-full">
                   <thead className="bg-slate-800/40">
                     <tr>
-                      {["#", "Нэр", "Хэлтэс", "Албан тушаал", "Цалин", "QR код", "Ажиллагаа"].map(h => (
+                      {["#", "Нэр", "Хэлтэс", "Албан тушаал", "Регистр", "Утас", "Цалин", "QR / Ажиллагаа"].map(h => (
                         <th key={h} className="text-left p-3.5 text-slate-400 text-xs uppercase tracking-wider font-semibold">{h}</th>
                       ))}
                     </tr>
@@ -246,8 +301,15 @@ export default function HRDashboard() {
                             <span className={`px-2.5 py-1 rounded-lg text-xs font-medium ${dept.cls}`}>{dept.label}</span>
                           </td>
                           <td className="p-3.5 text-slate-300 text-sm">{e.role}</td>
+                          <td className="p-3.5">
+                            {e.registerNumber
+                              ? <span className="font-mono text-xs bg-slate-800 px-2 py-1 rounded-lg text-slate-300 tracking-widest">{e.registerNumber}</span>
+                              : <span className="text-slate-600 text-xs">—</span>}
+                          </td>
+                          <td className="p-3.5 text-slate-400 text-sm">
+                            {e.phone ?? <span className="text-slate-600 text-xs">—</span>}
+                          </td>
                           <td className="p-3.5 text-slate-400 text-sm">{e.salaryBase ? `${e.salaryBase.toLocaleString()}₮` : "—"}</td>
-                          <td className="p-3.5 text-slate-500 text-xs font-mono">{e.qrCode}</td>
                           <td className="p-3.5">
                             <div className="flex items-center gap-1.5">
                               <button

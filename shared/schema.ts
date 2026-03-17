@@ -55,6 +55,8 @@ export const employees = pgTable("employees", {
   name: text("name").notNull(),
   department: text("department").notNull(), // office | field | plant
   role: text("role").notNull(),
+  phone: text("phone"),
+  registerNumber: text("register_number"),  // МУ-ын регистрийн дугаар: 2 кирилл үсэг + 8 цифр
   salaryBase: real("salary_base").notNull().default(0),
   qrCode: text("qr_code").unique(),
   createdAt: timestamp("created_at").defaultNow(),
