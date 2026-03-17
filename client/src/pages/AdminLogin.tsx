@@ -8,13 +8,15 @@ const AdminLogin = () => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [location, setLocation] = useLocation();
+  const [, setLocation] = useLocation();
 
-  // Роль авах: pathname-аас (/admin/LAB → "LAB") эсвэл localStorage-аас
-  const pathRole = location.split('/').filter(Boolean).pop()?.toUpperCase() ?? '';
-  const selectedRole = (['ADMIN','BOARD','PROJECT','ENGINEER','HR','SUPERVISOR','MECHANIC','WAREHOUSE','LAB'].includes(pathRole))
-    ? pathRole
-    : localStorage.getItem("pendingRole") ?? '';
+  // Роль авах: localStorage (найдвартай) → window.location fallback (шууд URL орсон тохиолдолд)
+  const VALID_ROLES = ['ADMIN','BOARD','PROJECT','ENGINEER','HR','SUPERVISOR','MECHANIC','WAREHOUSE','LAB'];
+  const fromStorage = localStorage.getItem("pendingRole") ?? '';
+  const fromPath = window.location.pathname.split('/').filter(Boolean).pop()?.toUpperCase() ?? '';
+  const selectedRole = VALID_ROLES.includes(fromStorage) ? fromStorage
+    : VALID_ROLES.includes(fromPath) ? fromPath
+    : '';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
