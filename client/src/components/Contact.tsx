@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertContactSchema, type InsertContact } from "@shared/schema";
-import { Phone, Facebook, MapPin, Loader2 } from "lucide-react";
+import { Phone, Facebook, MapPin, Loader2, Mail } from "lucide-react";
 import emailjs from '@emailjs/browser';
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -99,6 +99,16 @@ export default function Contact() {
                   <p className="text-muted-foreground">+976 9911-2701, +976 8904-1506 </p>
                 </div>
               </div>
+
+              <a href="mailto:huvsgulzamllc@gmail.com" className="flex items-start gap-6 group">
+                <div className="w-14 h-14 bg-background border border-primary/20 rounded-sm flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:border-primary transition-all duration-300">
+                  <Mail className="w-6 h-6 text-primary group-hover:text-primary-foreground transition-colors" />
+                </div>
+                <div>
+                  <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide mb-1">И-мэйл</h4>
+                  <p className="text-muted-foreground">huvsgulzamllc@gmail.com</p>
+                </div>
+              </a>
 
               <a 
                 href="https://www.facebook.com/h.vsg.l.zam.hhk" 

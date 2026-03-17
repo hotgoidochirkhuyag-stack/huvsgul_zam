@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Facebook, MessageCircle, MessageSquare, PhoneCall } from "lucide-react";
+import { Facebook, MessageCircle, MessageSquare, PhoneCall, Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Footer() {
@@ -114,6 +114,14 @@ export default function Footer() {
                     <PhoneCall className="w-4 h-4" /> Viber
                   </span>
                   <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">Viber чат</span>
+                </a>
+              </li>
+              <li>
+                <a href="mailto:huvsgulzamllc@gmail.com" className="group flex flex-col">
+                  <span className="flex items-center gap-2 text-xs font-bold text-amber-500 uppercase tracking-widest">
+                    <Mail className="w-4 h-4" /> И-мэйл
+                  </span>
+                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">huvsgulzamllc@gmail.com</span>
                 </a>
               </li>
             </ul>
