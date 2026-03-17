@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FlaskConical, Plus, Trash2, LogOut, RefreshCw, CheckCircle2,
-  XCircle, Clock, FileText, AlertTriangle, ShieldCheck, History, Pencil
+  XCircle, Clock, FileText, AlertTriangle, ShieldCheck, History, Pencil,
+  BarChart3, TrendingUp, TrendingDown
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -314,9 +315,9 @@ export default function LabQCDashboard() {
   const qc = useQueryClient();
   const token = localStorage.getItem("adminToken") ?? "";
   const role  = localStorage.getItem("userRole") ?? "ENGINEER";
-  const canEditNorms = ["ENGINEER", "ADMIN", "PROJECT"].includes(role);
+  const canEditNorms = role === "ENGINEER";
 
-  const [tab, setTab] = useState<"list" | "add" | "norms">("list");
+  const [tab, setTab] = useState<"overview" | "list" | "add" | "norms">("overview");
   const [filterType,   setFilterType]   = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -378,10 +379,18 @@ export default function LabQCDashboard() {
 
   const activeTestDef = TEST_TYPES[form.testType];
 
-  const TABS: { key: "list"|"add"|"norms"; label: string; icon: any; show: boolean }[] = [
-    { key: "list",  label: "Туршилтын дүн",     icon: FileText,    show: true          },
-    { key: "add",   label: "+ Шинэ туршилт",     icon: FlaskConical, show: true         },
-    { key: "norms", label: "Норм засах (БНбД)",  icon: ShieldCheck, show: canEditNorms  },
+  const recentFailed = results.filter(r => r.status === "fail").slice(0, 5);
+  const thisMonth    = new Date().toISOString().slice(0, 7);
+  const monthResults = results.filter(r => r.date?.startsWith(thisMonth));
+  const monthPass    = monthResults.filter(r => r.status === "pass").length;
+  const monthFail    = monthResults.filter(r => r.status === "fail").length;
+  const recent5      = results.slice(0, 5);
+
+  const TABS: { key: "overview"|"list"|"add"|"norms"; label: string; icon: any; show: boolean }[] = [
+    { key: "overview", label: "Хяналтын самбар",    icon: BarChart3,    show: true         },
+    { key: "list",     label: "Туршилтын дүн",      icon: FileText,     show: true         },
+    { key: "add",      label: "Шинэ туршилт",       icon: FlaskConical, show: true         },
+    { key: "norms",    label: "Норм тохиргоо",       icon: ShieldCheck,  show: canEditNorms },
   ];
 
   return (
@@ -418,23 +427,6 @@ export default function LabQCDashboard() {
 
       <div className="max-w-6xl mx-auto px-4 py-6 space-y-5">
 
-        {/* Summary cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-          {[
-            { label: "Нийт туршилт",    value: results.length, color: "text-white",    bg: "bg-white/5"        },
-            { label: "Тэнцсэн",          value: passCount,      color: "text-green-400", bg: "bg-green-500/10"  },
-            { label: "Тэнцээгүй",        value: failCount,      color: "text-red-400",   bg: "bg-red-500/10"    },
-            { label: "Тэнцэлтийн хувь", value: `${passRate}%`,
-              color: passRate >= 90 ? "text-green-400" : passRate >= 70 ? "text-amber-400" : "text-red-400",
-              bg: "bg-white/5" },
-          ].map(c => (
-            <div key={c.label} className={`rounded-2xl border border-white/10 p-4 ${c.bg}`}>
-              <div className={`text-2xl font-bold ${c.color}`}>{c.value}</div>
-              <div className="text-xs text-white/40 mt-0.5">{c.label}</div>
-            </div>
-          ))}
-        </div>
-
         {/* Tabs */}
         <div className="flex gap-1 bg-white/5 rounded-xl p-1 w-fit flex-wrap">
           {TABS.filter(t => t.show).map(({ key, label, icon: Icon }) => (
@@ -451,6 +443,121 @@ export default function LabQCDashboard() {
             </button>
           ))}
         </div>
+
+        {/* ─── OVERVIEW TAB ─────────────────────────────────────────────── */}
+        {tab === "overview" && (
+          <div className="space-y-5">
+            {/* Энэ сарын дүн */}
+            <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-5">
+              <h2 className="font-bold text-emerald-300 mb-4 flex items-center gap-2">
+                <BarChart3 className="w-4 h-4" />
+                {new Date().toLocaleDateString("mn-MN", { year: "numeric", month: "long" })} — Хяналтын дүн
+              </h2>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { label: "Нийт туршилт",    value: results.length,  color: "text-white",     bg: "bg-white/5"       },
+                  { label: "Тэнцсэн",          value: passCount,       color: "text-green-400",  bg: "bg-green-500/10"  },
+                  { label: "Тэнцээгүй",        value: failCount,       color: "text-red-400",    bg: "bg-red-500/10"    },
+                  { label: "Тэнцэлтийн хувь", value: `${passRate}%`,
+                    color: passRate >= 90 ? "text-green-400" : passRate >= 70 ? "text-amber-400" : "text-red-400",
+                    bg: "bg-white/5" },
+                ].map(c => (
+                  <div key={c.label} className={`rounded-2xl border border-white/10 p-4 ${c.bg}`}>
+                    <div className={`text-2xl font-bold ${c.color}`}>{c.value}</div>
+                    <div className="text-xs text-white/40 mt-0.5">{c.label}</div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Сарын харьцуулалт */}
+              {monthResults.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-white/5 grid grid-cols-2 gap-3">
+                  <div className="flex items-center gap-2 text-sm">
+                    <TrendingUp className="w-4 h-4 text-green-400" />
+                    <span className="text-slate-400">Энэ сарын тэнцсэн:</span>
+                    <span className="font-bold text-green-400">{monthPass}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <TrendingDown className="w-4 h-4 text-red-400" />
+                    <span className="text-slate-400">Энэ сарын тэнцээгүй:</span>
+                    <span className="font-bold text-red-400">{monthFail}</span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Сүүлийн тэнцээгүй туршилтууд */}
+            {recentFailed.length > 0 && (
+              <div className="bg-red-900/10 border border-red-500/20 rounded-2xl p-5">
+                <h3 className="font-bold text-red-400 mb-3 flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4" /> Тэнцээгүй туршилтууд (сүүлийн {recentFailed.length})
+                </h3>
+                <div className="space-y-2">
+                  {recentFailed.map((r: any) => {
+                    const def = TEST_TYPES[r.testType];
+                    return (
+                      <div key={r.id} className="bg-red-900/20 border border-red-500/15 rounded-xl px-4 py-3 flex flex-wrap items-center gap-3">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-white">{def?.label ?? r.testType}</p>
+                          <p className="text-xs text-white/40 mt-0.5">
+                            {r.date} {r.location && `· ${r.location}`} {r.material && `· ${r.material}`}
+                          </p>
+                        </div>
+                        {r.value != null && (
+                          <span className="text-red-300 font-bold text-sm">{r.value} {r.unit}</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Сүүлийн 5 туршилт */}
+            <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
+                <h3 className="font-bold text-sm text-white/70">Сүүлийн туршилтууд</h3>
+                <button onClick={() => setTab("list")} className="text-xs text-emerald-400 hover:underline">Бүгдийг харах →</button>
+              </div>
+              {recent5.length === 0 ? (
+                <div className="p-8 text-center text-white/30 text-sm">
+                  <FlaskConical className="w-8 h-8 mx-auto mb-2 text-white/10" />
+                  Туршилтын бүртгэл байхгүй байна
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5">
+                  {recent5.map((r: any) => {
+                    const def = TEST_TYPES[r.testType];
+                    return (
+                      <div key={r.id} className="px-5 py-3 flex flex-wrap items-center gap-3 hover:bg-white/2 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white/80">{def?.label ?? r.testType}</p>
+                          <p className="text-xs text-white/30">{r.date} {r.location && `· ${r.location}`}</p>
+                        </div>
+                        {r.value != null && <span className="text-xs font-mono text-white/60">{r.value} {r.unit}</span>}
+                        <StatusBadge status={r.status} />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Шуурхай товчнууд */}
+            <div className="grid grid-cols-2 gap-3">
+              <button onClick={() => setTab("add")}
+                className="flex items-center justify-center gap-2 py-4 bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600/30 rounded-2xl text-emerald-300 font-bold text-sm transition-all">
+                <FlaskConical className="w-5 h-5" /> Шинэ туршилт нэмэх
+              </button>
+              {canEditNorms && (
+                <button onClick={() => setTab("norms")}
+                  className="flex items-center justify-center gap-2 py-4 bg-amber-600/10 border border-amber-500/20 hover:bg-amber-600/20 rounded-2xl text-amber-300 font-bold text-sm transition-all">
+                  <ShieldCheck className="w-5 h-5" /> Норм тохиргоо (БНбД)
+                </button>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* ─── LIST TAB ─────────────────────────────────────────────────────── */}
         {tab === "list" && (

@@ -1153,40 +1153,13 @@ export default function WarehouseDashboard() {
             <PlantBlock key={`${pk}-${date}`} plantKey={pk} date={date} token={token} allItems={allItems} />
           ))}
 
-          {/* Norm reference */}
-          <div className="rounded-xl border border-white/5 bg-white/2 p-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-white/25 font-semibold uppercase tracking-wider">БНбД норм лавлах</div>
-              <a href="/dashboard/lab-qc"
-                data-testid="link-norm-editor"
-                className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 rounded-lg transition-all font-semibold">
-                <Pencil size={12} /> Норм засах / Лаборатори →
-              </a>
-            </div>
-            <div className="grid sm:grid-cols-3 gap-4 text-xs text-white/35">
-              <div>
-                <div className="text-amber-400/60 font-medium mb-1">Асфальт АБ-2 (1 м³):</div>
-                {(ASPHALT_RECIPES["АБ-2 (Дунд давхарга)"]?.materials ?? []).map(m => (
-                  <div key={m.name}>• {m.name}: {m.rate} {m.unit}</div>
-                ))}
-              </div>
-              <div>
-                <div className="text-blue-400/60 font-medium mb-1">Бетон C25/30 (1 м³):</div>
-                {(CONCRETE_GRADES["C25/30 (Замын хавтан, хана)"]?.materials ?? []).map(m => (
-                  <div key={m.name}>• {m.name}: {m.rate} {m.unit}</div>
-                ))}
-              </div>
-              <div>
-                <div className="text-green-400/60 font-medium mb-1">Бутлах (1 тн гаралт):</div>
-                {PLANT_NORMS.crushing.materials.map(m => (
-                  <div key={m.name}>• {m.name}: {m.rate} {m.unit}</div>
-                ))}
-                {PLANT_NORMS.crushing.outputFractions.map(f => (
-                  <div key={f.name}>• {f.name}: {(f.pct * 100).toFixed(0)}%</div>
-                ))}
-              </div>
-            </div>
-          </div>
+          {/* Norm link — detail is managed in Lab QC dashboard */}
+          <a href="/dashboard/lab-qc"
+            data-testid="link-norm-editor"
+            className="flex items-center gap-2 px-4 py-3 rounded-xl border border-emerald-500/20 bg-emerald-600/5 hover:bg-emerald-600/10 text-emerald-400 text-sm font-semibold transition-all">
+            <Pencil size={14} />
+            БНбД норм харах / Лаборатори →
+          </a>
         </>}
 
         {activeTab === "stock" && <StockTab allItems={allItems} token={token} />}
