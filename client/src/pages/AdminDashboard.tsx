@@ -8,11 +8,12 @@ import {
 import {
   UserCheck, ShieldCheck, TrendingUp, Factory, BookOpen, Target,
   AlertTriangle, CheckCircle2, Clock, Gauge, Bot, RefreshCw,
-  Sparkles, FileText, ChevronRight,
+  Sparkles, FileText, ChevronRight, Video,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
+import { FactoryControl } from "@/components/FactoryControl";
 
-type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai";
+type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting";
 
 function hdrs() {
   return {
@@ -643,6 +644,52 @@ function AiAgentTab() {
   );
 }
 
+/* ══════════════════════ 7. ОНЛАЙН ХУРАЛ ══════════════════════ */
+function MeetingTab() {
+  const [mode, setMode] = useState<"DIRECTOR_ENGINEER" | "ENGINEER_WORKER" | "VENDOR_SUPPORT">("DIRECTOR_ENGINEER");
+
+  const MODES = [
+    { key: "DIRECTOR_ENGINEER" as const, label: "Захирал — Инженер",  desc: "Удирдлага ↔ Талбайн инженер" },
+    { key: "ENGINEER_WORKER"  as const, label: "Инженер — Ажилчид",  desc: "Инженер ↔ Талбайн ажилчид" },
+    { key: "VENDOR_SUPPORT"   as const, label: "Гадаад дэмжлэг",     desc: "Нийлүүлэгч ↔ Техникийн зөвлөх" },
+  ];
+
+  return (
+    <div className="space-y-5">
+      <div className="bg-slate-900/60 rounded-2xl border border-white/10 p-5">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-2.5 bg-indigo-600/20 rounded-xl">
+            <Video className="w-5 h-5 text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="font-bold text-white">Онлайн хурал / Видео холболт</h2>
+            <p className="text-slate-500 text-xs">Талбай, үйлдвэр, удирдлагын хооронд шууд холболт</p>
+          </div>
+        </div>
+
+        <div className="flex flex-wrap gap-2 mb-5">
+          {MODES.map(m => (
+            <button
+              key={m.key}
+              onClick={() => setMode(m.key)}
+              className={`px-4 py-2.5 rounded-xl border text-sm transition-all ${
+                mode === m.key
+                  ? "bg-indigo-600 border-indigo-500 text-white font-bold"
+                  : "bg-slate-800 border-white/10 text-slate-400 hover:border-white/30 hover:text-white"
+              }`}
+            >
+              <span className="font-semibold">{m.label}</span>
+              <span className="text-xs opacity-60 ml-2 hidden sm:inline">{m.desc}</span>
+            </button>
+          ))}
+        </div>
+
+        <FactoryControl mode={mode} />
+      </div>
+    </div>
+  );
+}
+
 /* ══════════════════════ MAIN ══════════════════════ */
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "attendance",  label: "Ирц / ХАБЭА",         icon: UserCheck   },
@@ -651,6 +698,7 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "norm",       label: "Норм",                  icon: BookOpen    },
   { key: "kpi",        label: "KPI / OEE",             icon: Gauge       },
   { key: "ai",         label: "AI Агент",              icon: Bot         },
+  { key: "meeting",    label: "Онлайн хурал",          icon: Video       },
 ];
 
 export default function AdminDashboard() {
@@ -695,6 +743,7 @@ export default function AdminDashboard() {
         {tab === "norm"        && <NormTab />}
         {tab === "kpi"         && <KpiTab />}
         {tab === "ai"          && <AiAgentTab />}
+        {tab === "meeting"     && <MeetingTab />}
       </main>
     </div>
   );
