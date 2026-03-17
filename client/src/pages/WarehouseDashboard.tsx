@@ -11,45 +11,121 @@ import {
 } from "lucide-react";
 import type { ProductionPlan, MaterialCheck, WarehouseItem } from "@shared/schema";
 
-// ===================== БНбД НОРМУУД — warehouseKey агуулахын нэртэй таарна =====================
+// ===================== БНбД НОРМУУД (ЗАССАН) — асфальтын рецептур, бетоны ангилал =====================
+
+// Асфальтын рецептурууд — нягтрал × хольцын хувь = 1 м³ хэрэглээ
+const ASPHALT_RECIPES: Record<string, { desc: string; density: number; bitumenPct: number; materials: { name: string; unit: string; rate: number; wKey: string | null }[] }> = {
+  "АБ-1 (Дотор давхарга)": {
+    desc: "Дотор (wearing) давхарга — нягт 2.35 т/м³, битум 5.5%",
+    density: 2.35, bitumenPct: 5.5,
+    materials: [
+      { name: "Битум БНД 60/90",  unit: "тн", rate: 0.129, wKey: "Битум БНД 60/90"          },
+      { name: "Хайрга 10-20мм",   unit: "тн", rate: 0.517, wKey: "Хайрга 10-20мм"           },
+      { name: "Хайрга 5-10мм",    unit: "тн", rate: 0.423, wKey: "Хайрга 5-10мм"            },
+      { name: "Хайрга 2-5мм",     unit: "тн", rate: 0.329, wKey: "Хайрга 2-5мм"             },
+      { name: "Хайрга 0-2мм",     unit: "тн", rate: 0.353, wKey: "Хайрга 0-2мм"             },
+      { name: "Минерал нунтаг",   unit: "тн", rate: 0.212, wKey: "Минерал нунтаг"           },
+      { name: "Элс (асфальт)",    unit: "тн", rate: 0.387, wKey: "Элс (асфальт)"            },
+    ],
+  },
+  "АБ-2 (Дунд давхарга)": {
+    desc: "Дунд (binder) давхарга — нягт 2.40 т/м³, битум 5.0%",
+    density: 2.40, bitumenPct: 5.0,
+    materials: [
+      { name: "Битум БНД 60/90",  unit: "тн", rate: 0.120, wKey: "Битум БНД 60/90"          },
+      { name: "Хайрга 10-20мм",   unit: "тн", rate: 0.672, wKey: "Хайрга 10-20мм"           },
+      { name: "Хайрга 5-10мм",    unit: "тн", rate: 0.480, wKey: "Хайрга 5-10мм"            },
+      { name: "Хайрга 2-5мм",     unit: "тн", rate: 0.312, wKey: "Хайрга 2-5мм"             },
+      { name: "Хайрга 0-2мм",     unit: "тн", rate: 0.288, wKey: "Хайрга 0-2мм"             },
+      { name: "Минерал нунтаг",   unit: "тн", rate: 0.192, wKey: "Минерал нунтаг"           },
+      { name: "Элс (асфальт)",    unit: "тн", rate: 0.336, wKey: "Элс (асфальт)"            },
+    ],
+  },
+  "ДАБ (Доод давхарга)": {
+    desc: "Доод (base) давхарга — нягт 2.42 т/м³, битум 4.5%",
+    density: 2.42, bitumenPct: 4.5,
+    materials: [
+      { name: "Битум БНД 60/90",  unit: "тн", rate: 0.109, wKey: "Битум БНД 60/90"          },
+      { name: "Хайрга 10-20мм",   unit: "тн", rate: 0.847, wKey: "Хайрга 10-20мм"           },
+      { name: "Хайрга 5-10мм",    unit: "тн", rate: 0.532, wKey: "Хайрга 5-10мм"            },
+      { name: "Хайрга 2-5мм",     unit: "тн", rate: 0.290, wKey: "Хайрга 2-5мм"             },
+      { name: "Хайрга 0-2мм",     unit: "тн", rate: 0.242, wKey: "Хайрга 0-2мм"             },
+      { name: "Минерал нунтаг",   unit: "тн", rate: 0.169, wKey: "Минерал нунтаг"           },
+      { name: "Элс (асфальт)",    unit: "тн", rate: 0.230, wKey: "Элс (асфальт)"            },
+    ],
+  },
+};
+
+// Бетоны ангилал — 1 м³ бетонд хэрэглэгдэх материал (БНбД 3.01.102)
+const CONCRETE_GRADES: Record<string, { desc: string; materials: { name: string; unit: string; rate: number; wKey: string | null }[] }> = {
+  "C15/20 (Суурь, хонгил)": {
+    desc: "Ердийн суурь, хонгилын бетон — цемент 280 кг/м³",
+    materials: [
+      { name: "Цемент ПЦ400",     unit: "тн", rate: 0.280, wKey: "Цемент ПЦ400"             },
+      { name: "Элс (бетон)",      unit: "м³", rate: 0.750, wKey: "Элс (бетон)"              },
+      { name: "Хайрга 5-10мм",    unit: "м³", rate: 0.400, wKey: "Хайрга 5-10мм"            },
+      { name: "Хайрга 10-20мм",   unit: "м³", rate: 0.560, wKey: "Хайрга 10-20мм"           },
+      { name: "Ус",               unit: "м³", rate: 0.190, wKey: null                        },
+    ],
+  },
+  "C20/25 (Ерөнхий бүтэц)": {
+    desc: "Ерөнхий бүтцийн бетон — цемент 320 кг/м³",
+    materials: [
+      { name: "Цемент ПЦ400",     unit: "тн", rate: 0.320, wKey: "Цемент ПЦ400"             },
+      { name: "Элс (бетон)",      unit: "м³", rate: 0.700, wKey: "Элс (бетон)"              },
+      { name: "Хайрга 5-10мм",    unit: "м³", rate: 0.380, wKey: "Хайрга 5-10мм"            },
+      { name: "Хайрга 10-20мм",   unit: "м³", rate: 0.550, wKey: "Хайрга 10-20мм"           },
+      { name: "Химийн нэмэлт",    unit: "кг", rate: 0.500, wKey: "Химийн нэмэлт"            },
+      { name: "Ус",               unit: "м³", rate: 0.185, wKey: null                        },
+    ],
+  },
+  "C25/30 (Замын хавтан, хана)": {
+    desc: "Стандарт замын бетон — цемент 350 кг/м³",
+    materials: [
+      { name: "Цемент ПЦ400",     unit: "тн", rate: 0.350, wKey: "Цемент ПЦ400"             },
+      { name: "Элс (бетон)",      unit: "м³", rate: 0.680, wKey: "Элс (бетон)"              },
+      { name: "Хайрга 5-10мм",    unit: "м³", rate: 0.400, wKey: "Хайрга 5-10мм"            },
+      { name: "Хайрга 10-20мм",   unit: "м³", rate: 0.550, wKey: "Хайрга 10-20мм"           },
+      { name: "Химийн нэмэлт",    unit: "кг", rate: 0.900, wKey: "Химийн нэмэлт"            },
+      { name: "Ус",               unit: "м³", rate: 0.180, wKey: null                        },
+    ],
+  },
+  "C30/37 (Гүүрийн элемент)": {
+    desc: "Гүүрийн бетон — цемент 400 кг/м³, W/C ≤ 0.40",
+    materials: [
+      { name: "Цемент ПЦ500",     unit: "тн", rate: 0.400, wKey: "Цемент ПЦ400"             },
+      { name: "Элс (бетон)",      unit: "м³", rate: 0.650, wKey: "Элс (бетон)"              },
+      { name: "Хайрга 5-10мм",    unit: "м³", rate: 0.380, wKey: "Хайрга 5-10мм"            },
+      { name: "Хайрга 10-20мм",   unit: "м³", rate: 0.520, wKey: "Хайрга 10-20мм"           },
+      { name: "Химийн нэмэлт",    unit: "кг", rate: 1.200, wKey: "Химийн нэмэлт"            },
+      { name: "Ус",               unit: "м³", rate: 0.160, wKey: null                        },
+    ],
+  },
+};
+
 const PLANT_NORMS = {
   asphalt: {
     label: "Асфальтбетон хольцын үйлдвэр",
-    icon: Layers, color: "amber",
+    icon: Layers, color: "amber" as const,
     unit: "м³", maxCapacity: 200, capacityDesc: "150–200 м³/хоног",
     outputLabel: "Асфальтбетон хольц",
-    materials: [
-      { name: "Битум БНД 60/90",  unit: "тн", rate: 0.052, wKey: "Битум БНД 60/90" },
-      { name: "Хайрга 0-2мм",     unit: "тн", rate: 0.210, wKey: "Хайрга 0-2мм"    },
-      { name: "Хайрга 2-5мм",     unit: "тн", rate: 0.280, wKey: "Хайрга 2-5мм"    },
-      { name: "Хайрга 5-10мм",    unit: "тн", rate: 0.300, wKey: "Хайрга 5-10мм"   },
-      { name: "Хайрга 10-20мм",   unit: "тн", rate: 0.350, wKey: "Хайрга 10-20мм"  },
-      { name: "Минерал нунтаг",   unit: "тн", rate: 0.045, wKey: "Минерал нунтаг"  },
-      { name: "Элс (асфальт)",    unit: "тн", rate: 0.150, wKey: "Элс (асфальт)"   },
-    ],
+    defaultRecipe: "АБ-1 (Дотор давхарга)",
   },
   concrete: {
     label: "Бетон зуурмагийн үйлдвэр",
-    icon: Factory, color: "blue",
+    icon: Factory, color: "blue" as const,
     unit: "м³", maxCapacity: 1800, capacityDesc: "1300–1800 м³/хоног",
     outputLabel: "Бетон зуурмаг",
-    materials: [
-      { name: "Цемент ПЦ400",     unit: "тн", rate: 0.350, wKey: "Цемент ПЦ400"    },
-      { name: "Элс (бетон)",      unit: "м³", rate: 0.700, wKey: "Элс (бетон)"     },
-      { name: "Хайрга 5-10мм",   unit: "м³", rate: 0.420, wKey: "Хайрга 5-10мм"   },
-      { name: "Хайрга 10-20мм",  unit: "м³", rate: 0.580, wKey: "Хайрга 10-20мм"  },
-      { name: "Химийн нэмэлт",   unit: "кг", rate: 1.000, wKey: "Химийн нэмэлт"   },
-      { name: "Ус",               unit: "м³", rate: 0.185, wKey: null               }, // агуулахад хяналтгүй
-    ],
+    defaultGrade: "C25/30 (Замын хавтан, хана)",
   },
   crushing: {
     label: "Бутлах ангилах үйлдвэр",
-    icon: Hammer, color: "green",
+    icon: Hammer, color: "green" as const,
     unit: "тн", maxCapacity: 800, capacityDesc: "цагт 100 тн · 8 цаг",
     outputLabel: "Ангилсан хайрга (нийт гаралт)",
     materials: [
-      { name: "Байгалийн чулуу (оролт)", unit: "тн", rate: 1.15, wKey: "Байгалийн чулуу (оролт)" },
-      { name: "Шатах тос",               unit: "л",  rate: 0.625, wKey: "Шатах тос (бутлуур)"   },
+      { name: "Байгалийн чулуу (оролт)", unit: "тн", rate: 1.15,  wKey: "Байгалийн чулуу (оролт)" },
+      { name: "Шатах тос",               unit: "л",  rate: 0.625, wKey: "Шатах тос (бутлуур)"     },
     ],
     outputFractions: [
       { name: "0–2мм фракц",   pct: 0.25 },
@@ -58,9 +134,39 @@ const PLANT_NORMS = {
       { name: "10–20мм фракц", pct: 0.30 },
     ],
   },
-} as const;
+};
 
 type PlantKey = keyof typeof PLANT_NORMS;
+
+// ─── Цаг агаарын анхааруулга ─────────────────────────────────────────────────
+function WeatherWarning({ plantKey }: { plantKey: PlantKey }) {
+  const month = new Date().getMonth() + 1; // 1-12
+  if (plantKey === "crushing") return null;
+
+  const isAsphalt = plantKey === "asphalt";
+  const isConcrete = plantKey === "concrete";
+
+  // Монголын цаг агаарын улирал + БНбД хязгаарлалт
+  const danger  = (isAsphalt && (month <= 4 || month >= 10)) || (isConcrete && (month <= 3 || month >= 11));
+  const caution = (isAsphalt && (month === 5 || month === 9)) || (isConcrete && (month === 4 || month === 10));
+
+  if (!danger && !caution) return null;
+
+  return (
+    <div className={`flex items-start gap-2 rounded-xl px-3 py-2.5 text-xs border ${
+      danger  ? "bg-red-500/10 border-red-500/30 text-red-300"
+              : "bg-amber-500/10 border-amber-500/30 text-amber-300"
+    }`}>
+      <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+      <span>
+        {isAsphalt && danger  && "БНбД анхааруулга: Одоогийн улирал асфальт тавихад тохиромжгүй. Суурийн температур ≥5°C, агаарын температур ≥10°C байх шаардлагатай."}
+        {isAsphalt && caution && "Болгоомжтой: Температур хязгаарлалтад ойртож байна. Тавих үеийн температур, даралт хяналтыг нягтлан шалгана уу."}
+        {isConcrete && danger  && "БНбД анхааруулга: Хүйтний улирал — бетон цутгахад халаах арга хэмжээ (хасах 5°C-с доош болохгүй) хэрэглэнэ. Хурдасгагч химийн нэмэлт нэмэх."}
+        {isConcrete && caution && "Болгоомжтой: Өрлийн температур ойртож байна. Бетоныг дулаалах, усалж хамгаалах арга хэмжээ авна уу."}
+      </span>
+    </div>
+  );
+}
 
 const COLOR = {
   amber: { bg: "bg-amber-500/10", border: "border-amber-500/30", text: "text-amber-400", btn: "bg-amber-600 hover:bg-amber-500", badge: "bg-amber-500/20 text-amber-300" },
@@ -82,8 +188,25 @@ function PlantBlock({ plantKey, date, token, allItems }: {
 
   const [open,       setOpen]       = useState(true);
   const [targetQty,  setTargetQty]  = useState("");
-  // fieldQty per material: how much is ALREADY at production site
   const [fieldQty,   setFieldQty]   = useState<Record<string, string>>({});
+
+  // ── Recipe / grade selector ──────────────────────────────────────────────
+  const asphaltRecipeKeys = Object.keys(ASPHALT_RECIPES);
+  const concreteGradeKeys = Object.keys(CONCRETE_GRADES);
+
+  const [selectedRecipe, setSelectedRecipe] = useState(
+    plantKey === "asphalt" ? asphaltRecipeKeys[0] : ""
+  );
+  const [selectedGrade, setSelectedGrade] = useState(
+    plantKey === "concrete" ? concreteGradeKeys[2] : "" // C25/30 default
+  );
+
+  // Compute active materials depending on plant type
+  const activeMaterials = plantKey === "asphalt"
+    ? (ASPHALT_RECIPES[selectedRecipe]?.materials ?? [])
+    : plantKey === "concrete"
+    ? (CONCRETE_GRADES[selectedGrade]?.materials ?? [])
+    : (norm as any).materials as { name: string; unit: string; rate: number; wKey: string | null }[];
 
   const qty = parseFloat(targetQty) || 0;
 
@@ -122,7 +245,7 @@ function PlantBlock({ plantKey, date, token, allItems }: {
   }, [savedChecks.length]);
 
   // ── Per-material computed values ─────────────────────────────────────────────
-  const rows = norm.materials.map(m => {
+  const rows = activeMaterials.map(m => {
     const required  = +(qty * m.rate).toFixed(2);
     const field     = parseFloat(fieldQty[m.name] ?? "0") || 0;
     const fromWh    = Math.max(0, +(required - field).toFixed(2)); // need to draw from warehouse
@@ -153,7 +276,7 @@ function PlantBlock({ plantKey, date, token, allItems }: {
       if (!planRes.ok) throw new Error(await planRes.text());
       const plan = await planRes.json();
 
-      const checks = norm.materials.map(m => ({
+      const checks = activeMaterials.map(m => ({
         materialName: m.name,
         requiredQty:  +(qty * m.rate).toFixed(2),
         warehouseQty: Math.max(0, +(qty * m.rate - (parseFloat(fieldQty[m.name] ?? "0") || 0)).toFixed(2)),
@@ -223,6 +346,59 @@ function PlantBlock({ plantKey, date, token, allItems }: {
 
       {open && (
         <div className="p-4 space-y-4 bg-[#0c1528]">
+
+          {/* Weather warning */}
+          <WeatherWarning plantKey={plantKey} />
+
+          {/* Recipe / Grade selector */}
+          {plantKey === "asphalt" && (
+            <div className="space-y-1.5">
+              <label className="text-xs text-white/40 font-medium">Асфальтын рецептур</label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(ASPHALT_RECIPES).map(([key, rec]) => (
+                  <button key={key} data-testid={`recipe-${key}`}
+                    onClick={() => { setSelectedRecipe(key); setFieldQty({}); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                      selectedRecipe === key
+                        ? "bg-amber-600 border-amber-500 text-white"
+                        : "bg-white/5 border-white/10 text-white/50 hover:border-amber-500/50"
+                    }`}>
+                    {key}
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs text-white/30">{ASPHALT_RECIPES[selectedRecipe]?.desc}</div>
+              {selectedRecipe && (
+                <div className="flex gap-3 text-xs text-amber-400/70">
+                  <span>Нягт: {ASPHALT_RECIPES[selectedRecipe].density} т/м³</span>
+                  <span>·</span>
+                  <span>Битум: {ASPHALT_RECIPES[selectedRecipe].bitumenPct}%</span>
+                  <span>·</span>
+                  <span>Битум/м³: {ASPHALT_RECIPES[selectedRecipe].materials.find(m => m.name === "Битум БНД 60/90")?.rate} тн</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {plantKey === "concrete" && (
+            <div className="space-y-1.5">
+              <label className="text-xs text-white/40 font-medium">Бетоны ангилал (БНбД 3.01.102)</label>
+              <div className="flex flex-wrap gap-2">
+                {Object.entries(CONCRETE_GRADES).map(([key, gr]) => (
+                  <button key={key} data-testid={`grade-${key}`}
+                    onClick={() => { setSelectedGrade(key); setFieldQty({}); }}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${
+                      selectedGrade === key
+                        ? "bg-blue-700 border-blue-500 text-white"
+                        : "bg-white/5 border-white/10 text-white/50 hover:border-blue-500/50"
+                    }`}>
+                    {key}
+                  </button>
+                ))}
+              </div>
+              <div className="text-xs text-white/30">{CONCRETE_GRADES[selectedGrade]?.desc}</div>
+            </div>
+          )}
 
           {/* Target input */}
           <div className="flex flex-wrap gap-3 items-end">

@@ -240,6 +240,74 @@ export const materialChecks = pgTable("material_checks", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// ===================== ЛАБ ТУРШИЛТ / ЧАНАРЫН ХЯНАЛТ =====================
+
+export const labResults = pgTable("lab_results", {
+  id: serial("id").primaryKey(),
+  testType: text("test_type").notNull(), // marshall | compressive | density | sieve | atterberg
+  location: text("location"),           // "км 45+200" etc.
+  sampleId: text("sample_id"),          // Дэвтрийн дугаар
+  date: text("date").notNull(),
+  material: text("material"),           // Тестэлсэн материал
+  value: real("value"),                 // Гол үзүүлэлт
+  value2: real("value2"),               // Нэмэлт (Marshall stability, etc.)
+  unit: text("unit"),                   // МПа, %, т/м³
+  standard: real("standard"),           // БНбД шаардах min/max утга
+  status: text("status").notNull().default("pending"), // pass | fail | pending
+  notes: text("notes"),
+  recordedBy: text("recorded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ===================== АЖЛЫН ФРОНТ / КМ ПИКЕТ =====================
+
+export const workFronts = pgTable("work_fronts", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),                      // "2-р фронт"
+  chainageStart: real("chainage_start"),             // км эхлэл
+  chainageEnd: real("chainage_end"),                 // км төгсгөл
+  activity: text("activity").notNull(),              // earthwork | subbase | base | asphalt | concrete | structure | drainage
+  status: text("status").notNull().default("active"), // active | paused | completed
+  supervisor: text("supervisor"),
+  crewSize: integer("crew_size").default(0),
+  date: text("date").notNull(),
+  progress: real("progress").default(0),            // % дуусгалт
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ===================== ТОНОГ ТӨХӨӨРӨМЖИЙН ЦАГ / ШАТАХУУН =====================
+
+export const equipmentLogs = pgTable("equipment_logs", {
+  id: serial("id").primaryKey(),
+  vehicleId: integer("vehicle_id").notNull(),
+  vehicleName: text("vehicle_name"),                // Cache-д хадгалах
+  date: text("date").notNull(),
+  hoursWorked: real("hours_worked").default(0),     // Ажилсан цаг
+  fuelUsed: real("fuel_used").default(0),           // Шатахуун литр
+  workFront: text("work_front"),                    // Хаана ажилсан
+  engineHours: real("engine_hours"),                // Нийт хөдөлгүүрийн цаг
+  notes: text("notes"),
+  recordedBy: text("recorded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ===================== ДАЛД АЖЛЫН АКТ =====================
+
+export const hiddenWorkActs = pgTable("hidden_work_acts", {
+  id: serial("id").primaryKey(),
+  actNumber: text("act_number").notNull(),           // Актын дугаар
+  date: text("date").notNull(),
+  location: text("location").notNull(),              // км пикет
+  workType: text("work_type").notNull(),             // Ажлын төрөл
+  description: text("description"),                  // Тайлбар
+  inspector: text("inspector"),                      // Хяналт тавигч
+  contractor: text("contractor"),                    // Гүйцэтгэгч
+  status: text("status").notNull().default("pending"), // pending | approved | rejected
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // ===================== INSERT SCHEMAS =====================
 
 export const insertProjectSchema = createInsertSchema(projects).omit({ id: true, createdAt: true });
@@ -263,6 +331,10 @@ export const insertWarehouseItemSchema = createInsertSchema(warehouseItems).omit
 export const insertWarehouseLogSchema = createInsertSchema(warehouseLogs).omit({ id: true, createdAt: true });
 export const insertProductionPlanSchema = createInsertSchema(productionPlans).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMaterialCheckSchema = createInsertSchema(materialChecks).omit({ id: true, createdAt: true });
+export const insertLabResultSchema = createInsertSchema(labResults).omit({ id: true, createdAt: true });
+export const insertWorkFrontSchema = createInsertSchema(workFronts).omit({ id: true, createdAt: true });
+export const insertEquipmentLogSchema = createInsertSchema(equipmentLogs).omit({ id: true, createdAt: true });
+export const insertHiddenWorkActSchema = createInsertSchema(hiddenWorkActs).omit({ id: true, createdAt: true });
 
 // ===================== TYPES =====================
 
@@ -307,6 +379,14 @@ export type ProductionPlan = typeof productionPlans.$inferSelect;
 export type InsertProductionPlan = z.infer<typeof insertProductionPlanSchema>;
 export type MaterialCheck = typeof materialChecks.$inferSelect;
 export type InsertMaterialCheck = z.infer<typeof insertMaterialCheckSchema>;
+export type LabResult = typeof labResults.$inferSelect;
+export type InsertLabResult = z.infer<typeof insertLabResultSchema>;
+export type WorkFront = typeof workFronts.$inferSelect;
+export type InsertWorkFront = z.infer<typeof insertWorkFrontSchema>;
+export type EquipmentLog = typeof equipmentLogs.$inferSelect;
+export type InsertEquipmentLog = z.infer<typeof insertEquipmentLogSchema>;
+export type HiddenWorkAct = typeof hiddenWorkActs.$inferSelect;
+export type InsertHiddenWorkAct = z.infer<typeof insertHiddenWorkActSchema>;
 
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;

@@ -34,7 +34,11 @@ Preferred communication style: Simple, everyday language.
 - `/` — Public Home page (Navbar, Hero, Stats, Projects, Videos, Services, Pricelist, Contact, Footer)
 - `/admin` — Login page (role-based: ADMIN, BOARD, PROJECT, ENGINEER)
 - `/select-role` — Role selection page (also entry for ERP worker reports)
-- `/dashboard/board`, `/dashboard/project`, `/dashboard/admin`, `/dashboard/engineer` — Protected dashboards (ProtectedRoute checks localStorage token + role)
+- `/dashboard/board`, `/dashboard/project`, `/dashboard/admin`, `/dashboard/engineer` — Protected dashboards
+- `/dashboard/supervisor` — Supervisor dashboard: Tasks, Work Fronts (km/chainage), Hidden Work Acts (далд ажлын акт)
+- `/dashboard/mechanic` — Mechanic dashboard: Vehicles, Inspections, Equipment Hours/Fuel log
+- `/dashboard/warehouse` — Warehouse dashboard: Production planning with recipe/grade selectors, Stock management
+- `/dashboard/lab-qc` — Lab Quality Control: Marshall test, compressive strength, density, sieve, Atterberg tests
 - `/erp` — ERP dashboard (management view)
 - `/erp/report` — Worker daily report form (query param `?dept=office|field|plant`)
 

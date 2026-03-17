@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   ClipboardList, Plus, Trash2, LogOut, RefreshCw,
   MapPin, Wrench, Users, FileText, ChevronDown,
-  CheckCircle2, Clock, AlertCircle, Calendar
+  CheckCircle2, Clock, AlertCircle, Calendar,
+  Navigation, ScrollText, Edit2, Save, X
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -25,7 +26,7 @@ export default function SupervisorDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
 
-  const [tab, setTab] = useState<"tasks" | "reports">("tasks");
+  const [tab, setTab] = useState<"tasks" | "reports" | "fronts" | "acts">("tasks");
   const [filterDate, setFilterDate] = useState(TODAY);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
@@ -56,6 +57,78 @@ export default function SupervisorDashboard() {
   });
 
   const empMap = new Map(employees.map((e: any) => [e.id, e]));
+
+  // ── Ажлын фронтууд ───────────────────────────────────────────────────────
+  const emptyFront = { name: "", chainageStart: "", chainageEnd: "", activity: "earthwork", status: "active", supervisor: "", crewSize: "", date: TODAY, progress: "", notes: "" };
+  const [showFrontForm, setShowFrontForm] = useState(false);
+  const [frontForm, setFrontForm] = useState(emptyFront);
+  const [editingFront, setEditingFront] = useState<number | null>(null);
+  const [editFrontData, setEditFrontData] = useState<any>({});
+
+  const { data: workFronts = [], refetch: refetchFronts } = useQuery<any[]>({
+    queryKey: ["/api/work-fronts"],
+    queryFn: () => fetch("/api/work-fronts", { headers: getHeaders() }).then(r => r.json()),
+    enabled: tab === "fronts",
+  });
+
+  const createFront = useMutation({
+    mutationFn: (data: any) => fetch("/api/work-fronts", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/work-fronts"] }); setShowFrontForm(false); setFrontForm(emptyFront); toast({ title: "Ажлын фронт нэмэгдлээ ✓" }); },
+    onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
+  });
+
+  const updateFront = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => fetch(`/api/work-fronts/${id}`, { method: "PUT", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/work-fronts"] }); setEditingFront(null); },
+  });
+
+  const deleteFront = useMutation({
+    mutationFn: (id: number) => fetch(`/api/work-fronts/${id}`, { method: "DELETE", headers: getHeaders() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/work-fronts"] }),
+  });
+
+  const ACTIVITIES: Record<string, string> = {
+    earthwork: "Шороон ажил", subbase: "Дэр давхарга", base: "Үндсэн давхарга",
+    asphalt: "Асфальт тавих", concrete: "Бетон цутгах", structure: "Барилга бүтэц", drainage: "Ус зайлуулах",
+  };
+  const FRONT_STATUS: Record<string, { label: string; color: string }> = {
+    active:    { label: "Идэвхтэй", color: "bg-green-500/15 text-green-400 border-green-500/30" },
+    paused:    { label: "Зогссон",  color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+    completed: { label: "Дууссан", color: "bg-blue-500/15 text-blue-400 border-blue-500/30"     },
+  };
+
+  // ── Далд ажлын актууд ──────────────────────────────────────────────────
+  const emptyAct = { actNumber: "", date: TODAY, location: "", workType: "", description: "", inspector: "", contractor: "", status: "pending", notes: "" };
+  const [showActForm, setShowActForm] = useState(false);
+  const [actForm, setActForm] = useState(emptyAct);
+
+  const { data: hiddenActs = [], refetch: refetchActs } = useQuery<any[]>({
+    queryKey: ["/api/hidden-work-acts"],
+    queryFn: () => fetch("/api/hidden-work-acts", { headers: getHeaders() }).then(r => r.json()),
+    enabled: tab === "acts",
+  });
+
+  const createAct = useMutation({
+    mutationFn: (data: any) => fetch("/api/hidden-work-acts", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/hidden-work-acts"] }); setShowActForm(false); setActForm(emptyAct); toast({ title: "Далд ажлын акт бүртгэгдлээ ✓" }); },
+    onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
+  });
+
+  const updateActStatus = useMutation({
+    mutationFn: ({ id, status }: { id: number; status: string }) => fetch(`/api/hidden-work-acts/${id}`, { method: "PUT", headers: getHeaders(), body: JSON.stringify({ status }) }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/hidden-work-acts"] }),
+  });
+
+  const deleteAct = useMutation({
+    mutationFn: (id: number) => fetch(`/api/hidden-work-acts/${id}`, { method: "DELETE", headers: getHeaders() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/hidden-work-acts"] }),
+  });
+
+  const ACT_STATUS: Record<string, { label: string; color: string }> = {
+    pending:  { label: "Хүлээгдэж байна", color: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
+    approved: { label: "Зөвшөөрсөн",      color: "bg-green-500/15 text-green-400 border-green-500/30" },
+    rejected: { label: "Буцаасан",         color: "bg-red-500/15 text-red-400 border-red-500/30"       },
+  };
 
   const createTask = useMutation({
     mutationFn: () => fetch("/api/erp/tasks", {
@@ -124,12 +197,18 @@ export default function SupervisorDashboard() {
 
         {/* Tabs + Date filter */}
         <div className="flex flex-wrap items-center gap-3 mb-5">
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <button onClick={() => setTab("tasks")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === "tasks" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
               <ClipboardList className="w-4 h-4" /> Даалгавар
             </button>
             <button onClick={() => setTab("reports")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === "reports" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
               <FileText className="w-4 h-4" /> Тайлангууд
+            </button>
+            <button onClick={() => setTab("fronts")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === "fronts" ? "bg-green-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+              <Navigation className="w-4 h-4" /> Ажлын Фронт
+            </button>
+            <button onClick={() => setTab("acts")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === "acts" ? "bg-purple-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+              <ScrollText className="w-4 h-4" /> Далд Ажлын Акт
             </button>
           </div>
           <div className="flex items-center gap-2 ml-auto">
@@ -241,6 +320,261 @@ export default function SupervisorDashboard() {
                           className="p-1.5 text-red-400/50 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
                           <Trash2 className="w-4 h-4" />
                         </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── АЖЛЫН ФРОНТ ── */}
+        {tab === "fronts" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg text-white">Ажлын Фронт / Км Пикет</h2>
+              <button data-testid="btn-add-front" onClick={() => setShowFrontForm(f => !f)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-700 hover:bg-green-600 text-white rounded-xl text-sm font-bold transition-all">
+                <Plus className="w-4 h-4" /> Шинэ фронт
+              </button>
+            </div>
+
+            {showFrontForm && (
+              <div className="bg-slate-900/80 border border-green-500/30 rounded-2xl p-5 space-y-4">
+                <h3 className="font-semibold text-green-400 flex items-center gap-2"><Navigation className="w-4 h-4" /> Шинэ ажлын фронт нэмэх</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { key: "name",         label: "Фронтын нэр",    type: "text",   ph: "2-р фронт" },
+                    { key: "chainageStart",label: "Эхлэх км",        type: "number", ph: "45.000"     },
+                    { key: "chainageEnd",  label: "Дуусах км",       type: "number", ph: "52.000"     },
+                    { key: "supervisor",   label: "Ахлах инженер",   type: "text",   ph: ""           },
+                    { key: "crewSize",     label: "Ажилчдын тоо",   type: "number", ph: "0"          },
+                    { key: "date",         label: "Эхлэх огноо",     type: "date",   ph: ""           },
+                  ].map(f => (
+                    <div key={f.key} className="space-y-1">
+                      <label className="text-xs text-white/40">{f.label}</label>
+                      <input type={f.type} placeholder={f.ph} value={(frontForm as any)[f.key]}
+                        onChange={e => setFrontForm(p => ({ ...p, [f.key]: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-green-500 transition-colors" />
+                    </div>
+                  ))}
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-xs text-white/40">Ажлын төрөл</label>
+                    <select value={frontForm.activity} onChange={e => setFrontForm(p => ({ ...p, activity: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none">
+                      {Object.entries(ACTIVITIES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-white/40">Явц (%)</label>
+                    <input type="number" min="0" max="100" placeholder="0-100" value={frontForm.progress}
+                      onChange={e => setFrontForm(p => ({ ...p, progress: e.target.value }))}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none" />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button data-testid="btn-save-front" onClick={() => createFront.mutate({
+                    ...frontForm,
+                    chainageStart: frontForm.chainageStart ? parseFloat(frontForm.chainageStart) : null,
+                    chainageEnd:   frontForm.chainageEnd   ? parseFloat(frontForm.chainageEnd)   : null,
+                    crewSize:      frontForm.crewSize       ? parseInt(frontForm.crewSize)        : 0,
+                    progress:      frontForm.progress       ? parseFloat(frontForm.progress)      : 0,
+                  })} disabled={createFront.isPending || !frontForm.name}
+                    className="px-5 py-2 bg-green-600 hover:bg-green-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
+                    {createFront.isPending ? "..." : "Нэмэх"}
+                  </button>
+                  <button onClick={() => setShowFrontForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
+                </div>
+              </div>
+            )}
+
+            {workFronts.length === 0 ? (
+              <div className="p-12 text-center text-white/30">
+                <Navigation className="w-10 h-10 text-white/10 mx-auto mb-3" />
+                <p>Ажлын фронт бүртгэгдээгүй байна</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {workFronts.map((f: any) => {
+                  const st = FRONT_STATUS[f.status] ?? FRONT_STATUS.active;
+                  const prog = Math.min(100, Math.max(0, f.progress ?? 0));
+                  return (
+                    <div key={f.id} data-testid={`front-${f.id}`}
+                      className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 hover:border-green-500/30 transition-all">
+                      {editingFront === f.id ? (
+                        <div className="space-y-3">
+                          <div className="grid grid-cols-3 gap-2">
+                            {[["progress","Явц %"],["supervisor","Ахлах инженер"],["crewSize","Ажилчид"]].map(([k,l]) => (
+                              <div key={k}>
+                                <label className="text-xs text-white/40">{l}</label>
+                                <input type="number" value={editFrontData[k] ?? ""} onChange={e => setEditFrontData((p: any) => ({ ...p, [k]: e.target.value }))}
+                                  className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm focus:outline-none" />
+                              </div>
+                            ))}
+                          </div>
+                          <div>
+                            <label className="text-xs text-white/40">Статус</label>
+                            <select value={editFrontData.status ?? f.status} onChange={e => setEditFrontData((p: any) => ({ ...p, status: e.target.value }))}
+                              className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-sm focus:outline-none">
+                              {Object.entries(FRONT_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+                            </select>
+                          </div>
+                          <div className="flex gap-2">
+                            <button onClick={() => updateFront.mutate({ id: f.id, data: { ...editFrontData, progress: parseFloat(editFrontData.progress ?? 0), crewSize: parseInt(editFrontData.crewSize ?? 0) } })}
+                              className="px-3 py-1.5 bg-green-600 hover:bg-green-500 rounded-lg text-xs font-bold transition-all">
+                              <Save className="w-3 h-3 inline mr-1" />Хадгалах
+                            </button>
+                            <button onClick={() => setEditingFront(null)} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-xs transition-all">
+                              <X className="w-3 h-3 inline mr-1" />Болих
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex flex-wrap items-start gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex flex-wrap items-center gap-2 mb-1">
+                                <span className="font-bold text-white">{f.name}</span>
+                                <span className={`text-xs px-2 py-0.5 rounded-lg border font-medium ${st.color}`}>{st.label}</span>
+                                {f.chainageStart !== null && f.chainageEnd !== null && (
+                                  <span className="text-xs text-white/40 font-mono">км {f.chainageStart?.toFixed(3)} – {f.chainageEnd?.toFixed(3)}</span>
+                                )}
+                              </div>
+                              <div className="flex flex-wrap gap-3 text-xs text-white/40">
+                                <span>🏗 {ACTIVITIES[f.activity] ?? f.activity}</span>
+                                {f.supervisor && <span>👷 {f.supervisor}</span>}
+                                {f.crewSize > 0 && <span>👥 {f.crewSize} хүн</span>}
+                                <span>📅 {f.date}</span>
+                              </div>
+                              {f.notes && <p className="text-xs text-white/30 mt-1 italic">{f.notes}</p>}
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <button onClick={() => { setEditingFront(f.id); setEditFrontData({ progress: f.progress, supervisor: f.supervisor, crewSize: f.crewSize, status: f.status }); }}
+                                className="p-1.5 text-white/30 hover:text-white hover:bg-white/10 rounded-lg transition-all">
+                                <Edit2 className="w-4 h-4" />
+                              </button>
+                              <button onClick={() => deleteFront.mutate(f.id)}
+                                className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                          {/* Progress bar */}
+                          <div className="mt-3">
+                            <div className="flex justify-between text-xs text-white/30 mb-1">
+                              <span>Явц</span><span>{prog}%</span>
+                            </div>
+                            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full transition-all ${prog >= 100 ? "bg-blue-500" : prog >= 70 ? "bg-green-500" : prog >= 30 ? "bg-amber-500" : "bg-red-500"}`}
+                                style={{ width: `${prog}%` }} />
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── ДАЛД АЖЛЫН АКТ ── */}
+        {tab === "acts" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg text-white">Далд Ажлын Акт</h2>
+              <button data-testid="btn-add-act" onClick={() => setShowActForm(f => !f)}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-700 hover:bg-purple-600 text-white rounded-xl text-sm font-bold transition-all">
+                <Plus className="w-4 h-4" /> Шинэ акт
+              </button>
+            </div>
+
+            {showActForm && (
+              <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-5 space-y-4">
+                <h3 className="font-semibold text-purple-400 flex items-center gap-2"><ScrollText className="w-4 h-4" /> Шинэ далд ажлын акт</h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { key: "actNumber",  label: "Актын дугаар",      type: "text" },
+                    { key: "date",       label: "Огноо",              type: "date" },
+                    { key: "location",   label: "Км пикет",           type: "text" },
+                    { key: "workType",   label: "Ажлын төрөл",        type: "text" },
+                    { key: "inspector",  label: "Хяналт тавигч",      type: "text" },
+                    { key: "contractor", label: "Гүйцэтгэгч",         type: "text" },
+                  ].map(f => (
+                    <div key={f.key} className="space-y-1">
+                      <label className="text-xs text-white/40">{f.label}</label>
+                      <input type={f.type} value={(actForm as any)[f.key]}
+                        onChange={e => setActForm(p => ({ ...p, [f.key]: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-500 transition-colors" />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-white/40">Тайлбар (гүйцэтгэсэн ажлын мэдээлэл)</label>
+                  <textarea value={actForm.description} onChange={e => setActForm(p => ({ ...p, description: e.target.value }))}
+                    rows={3} placeholder="Хийгдсэн ажлын мэдээлэл..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none" />
+                </div>
+                <div className="flex gap-2">
+                  <button data-testid="btn-save-act" onClick={() => createAct.mutate(actForm)}
+                    disabled={createAct.isPending || !actForm.actNumber || !actForm.location}
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
+                    {createAct.isPending ? "..." : "Бүртгэх"}
+                  </button>
+                  <button onClick={() => setShowActForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
+                </div>
+              </div>
+            )}
+
+            {hiddenActs.length === 0 ? (
+              <div className="p-12 text-center text-white/30">
+                <ScrollText className="w-10 h-10 text-white/10 mx-auto mb-3" />
+                <p>Далд ажлын акт бүртгэгдээгүй байна</p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {hiddenActs.map((a: any) => {
+                  const st = ACT_STATUS[a.status] ?? ACT_STATUS.pending;
+                  return (
+                    <div key={a.id} data-testid={`act-${a.id}`}
+                      className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 hover:border-purple-500/30 transition-all">
+                      <div className="flex flex-wrap items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <span className="font-bold text-white font-mono">#{a.actNumber}</span>
+                            <span className={`text-xs px-2 py-0.5 rounded-lg border font-medium ${st.color}`}>{st.label}</span>
+                          </div>
+                          <div className="flex flex-wrap gap-3 text-xs text-white/40 mb-1">
+                            <span>📍 {a.location}</span>
+                            <span>🏗 {a.workType}</span>
+                            <span>📅 {a.date}</span>
+                            {a.inspector && <span>👁 {a.inspector}</span>}
+                            {a.contractor && <span>🤝 {a.contractor}</span>}
+                          </div>
+                          {a.description && <p className="text-xs text-white/50 mt-1">{a.description}</p>}
+                        </div>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {a.status === "pending" && (
+                            <>
+                              <button onClick={() => updateActStatus.mutate({ id: a.id, status: "approved" })}
+                                className="px-2.5 py-1 bg-green-700/60 hover:bg-green-600 rounded-lg text-xs font-medium transition-all">
+                                ✓ Зөвшөөрөх
+                              </button>
+                              <button onClick={() => updateActStatus.mutate({ id: a.id, status: "rejected" })}
+                                className="px-2.5 py-1 bg-red-700/60 hover:bg-red-600 rounded-lg text-xs font-medium transition-all">
+                                ✗ Буцаах
+                              </button>
+                            </>
+                          )}
+                          <button onClick={() => deleteAct.mutate(a.id)}
+                            className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );

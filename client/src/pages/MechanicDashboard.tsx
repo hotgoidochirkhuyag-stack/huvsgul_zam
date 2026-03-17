@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Truck, Plus, Trash2, LogOut, RefreshCw, ChevronDown,
   CheckCircle2, AlertTriangle, Calendar, Zap, FileText,
-  Search, Edit2, X, Clock, ShieldCheck, History
+  Search, Edit2, X, Clock, ShieldCheck, History,
+  Fuel, Timer, BarChart3, Save
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -48,7 +49,7 @@ export default function MechanicDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
 
-  const [tab, setTab] = useState<"vehicles" | "inspections">("vehicles");
+  const [tab, setTab] = useState<"vehicles" | "inspections" | "hours">("vehicles");
   const [search, setSearch] = useState("");
   const [filterReady, setFilterReady] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -73,6 +74,39 @@ export default function MechanicDashboard() {
   });
 
   const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+
+  // ── Цагийн бүртгэл ──────────────────────────────────────────────────────
+  const TODAY = new Date().toISOString().slice(0, 10);
+  const emptyHourLog = { vehicleId: "", vehicleName: "", date: TODAY, hoursWorked: "", fuelUsed: "", workFront: "", engineHours: "", notes: "", recordedBy: "" };
+  const [hourLog, setHourLog] = useState(emptyHourLog);
+  const [showHourForm, setShowHourForm] = useState(false);
+  const [hourDate, setHourDate] = useState(TODAY);
+
+  const { data: eqLogs = [], refetch: refetchLogs } = useQuery<any[]>({
+    queryKey: ["/api/equipment-logs", hourDate],
+    queryFn: () => fetch(`/api/equipment-logs?date=${hourDate}`, { headers: getHeaders() }).then(r => r.json()),
+    enabled: tab === "hours",
+  });
+
+  const createHourLog = useMutation({
+    mutationFn: (data: any) => fetch("/api/equipment-logs", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/equipment-logs"] });
+      setHourLog(emptyHourLog);
+      setShowHourForm(false);
+      toast({ title: "Цагийн бүртгэл хадгалагдлаа ✓" });
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const deleteHourLog = useMutation({
+    mutationFn: (id: number) => fetch(`/api/equipment-logs/${id}`, { method: "DELETE", headers: getHeaders() }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/equipment-logs"] }),
+  });
+
+  // Нийт статистик
+  const totalHours = eqLogs.reduce((s: number, l: any) => s + (l.hoursWorked ?? 0), 0);
+  const totalFuel  = eqLogs.reduce((s: number, l: any) => s + (l.fuelUsed ?? 0), 0);
 
   const filtered = vehicles.filter(v => {
     const matchSearch = !search || v.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -176,12 +210,15 @@ export default function MechanicDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-5">
+        <div className="flex flex-wrap gap-2 mb-5">
           <button onClick={() => setTab("vehicles")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "vehicles" ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
             <Truck className="w-4 h-4" /> Техникийн жагсаалт
           </button>
           <button onClick={() => setTab("inspections")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "inspections" ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
             <History className="w-4 h-4" /> Өмнөх үзлэгүүд
+          </button>
+          <button onClick={() => setTab("hours")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "hours" ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+            <Timer className="w-4 h-4" /> Цаг / Шатахуун
           </button>
         </div>
 
@@ -380,6 +417,144 @@ export default function MechanicDashboard() {
               </div>
             )}
             <div className="px-5 py-3 border-t border-white/5 text-xs text-slate-500">Нийт {filtered.length} техник</div>
+          </div>
+        )}
+
+        {/* ── ЦАГ / ШАТАХУУН ── */}
+        {tab === "hours" && (
+          <div className="space-y-4">
+            {/* Summary + date filter */}
+            <div className="flex flex-wrap items-center gap-3 justify-between">
+              <div className="flex gap-3">
+                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 text-center">
+                  <div className="text-2xl font-black text-orange-400">{totalHours.toFixed(1)}</div>
+                  <div className="text-xs text-white/40">Нийт цаг</div>
+                </div>
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 text-center">
+                  <div className="text-2xl font-black text-blue-400">{totalFuel.toFixed(0)}</div>
+                  <div className="text-xs text-white/40">Нийт шатахуун (л)</div>
+                </div>
+                <div className="bg-slate-700/30 border border-white/10 rounded-xl px-4 py-3 text-center">
+                  <div className="text-2xl font-black text-white">{eqLogs.length}</div>
+                  <div className="text-xs text-white/40">Техникийн тоо</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="date" value={hourDate} onChange={e => setHourDate(e.target.value)}
+                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none" />
+                <button onClick={() => setShowHourForm(f => !f)} data-testid="btn-add-hourlog"
+                  className="flex items-center gap-2 px-4 py-2 bg-orange-700 hover:bg-orange-600 text-white rounded-xl text-sm font-bold transition-all">
+                  <Plus className="w-4 h-4" /> Бүртгэх
+                </button>
+              </div>
+            </div>
+
+            {/* Add form */}
+            {showHourForm && (
+              <div className="bg-slate-900/80 border border-orange-500/30 rounded-2xl p-5 space-y-4">
+                <h3 className="font-semibold text-orange-400 flex items-center gap-2">
+                  <Timer className="w-4 h-4" /> Техникийн цагийн бүртгэл
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="col-span-2 sm:col-span-1 space-y-1">
+                    <label className="text-xs text-white/40">Техник сонгох</label>
+                    <select value={hourLog.vehicleId}
+                      onChange={e => {
+                        const v = vehicles.find((x: any) => x.id === parseInt(e.target.value));
+                        setHourLog(p => ({ ...p, vehicleId: e.target.value, vehicleName: v ? `${v.plateNumber} ${v.name}` : "" }));
+                      }}
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none">
+                      <option value="">-- Техник --</option>
+                      {vehicles.map((v: any) => (
+                        <option key={v.id} value={v.id}>{v.plateNumber} — {v.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  {[
+                    { key: "date",        label: "Огноо",              type: "date"   },
+                    { key: "hoursWorked", label: "Ажилсан цаг",        type: "number" },
+                    { key: "fuelUsed",    label: "Шатахуун (л)",        type: "number" },
+                    { key: "engineHours", label: "Хөдөлгүүрийн цаг (нийт)", type: "number" },
+                    { key: "workFront",   label: "Ажилсан фронт",      type: "text"   },
+                    { key: "recordedBy",  label: "Бүртгэсэн",          type: "text"   },
+                  ].map(f => (
+                    <div key={f.key} className="space-y-1">
+                      <label className="text-xs text-white/40">{f.label}</label>
+                      <input type={f.type} value={(hourLog as any)[f.key]}
+                        onChange={e => setHourLog(p => ({ ...p, [f.key]: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-orange-500 transition-colors" />
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-white/40">Тэмдэглэл</label>
+                  <input type="text" value={hourLog.notes} onChange={e => setHourLog(p => ({ ...p, notes: e.target.value }))}
+                    placeholder="Нэмэлт мэдээлэл..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none" />
+                </div>
+                <div className="flex gap-2">
+                  <button data-testid="btn-save-hourlog" onClick={() => createHourLog.mutate({
+                    ...hourLog,
+                    vehicleId:   parseInt(hourLog.vehicleId),
+                    hoursWorked: parseFloat(hourLog.hoursWorked) || 0,
+                    fuelUsed:    parseFloat(hourLog.fuelUsed) || 0,
+                    engineHours: hourLog.engineHours ? parseFloat(hourLog.engineHours) : null,
+                  })} disabled={createHourLog.isPending || !hourLog.vehicleId}
+                    className="px-5 py-2 bg-orange-600 hover:bg-orange-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
+                    {createHourLog.isPending ? "..." : "Хадгалах"}
+                  </button>
+                  <button onClick={() => setShowHourForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
+                </div>
+              </div>
+            )}
+
+            {/* Log table */}
+            <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="px-5 py-4 border-b border-white/10">
+                <h2 className="font-bold">{hourDate} — Техникийн ажилласан цаг</h2>
+              </div>
+              {eqLogs.length === 0 ? (
+                <div className="p-12 text-center text-slate-400">
+                  <Timer className="w-10 h-10 text-slate-700 mx-auto mb-2" />
+                  <p>Цагийн бүртгэл байхгүй байна</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-white/5">
+                  {/* Header */}
+                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-2 px-5 py-2 text-xs text-white/30">
+                    <span>Техник</span>
+                    <span className="text-right">Цаг</span>
+                    <span className="text-right">Шатахуун (л)</span>
+                    <span className="text-right">Хөдөлгүүр (ц)</span>
+                    <span>Фронт</span>
+                    <span />
+                  </div>
+                  {eqLogs.map((l: any) => (
+                    <div key={l.id} data-testid={`eq-log-${l.id}`}
+                      className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-2 px-5 py-3 items-center hover:bg-white/2 transition-colors">
+                      <div>
+                        <div className="font-semibold text-sm">{l.vehicleName || `ID:${l.vehicleId}`}</div>
+                        {l.recordedBy && <div className="text-xs text-white/30">{l.recordedBy}</div>}
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-orange-400">{l.hoursWorked}</span>
+                        <span className="text-xs text-white/30 ml-1">ц</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="font-bold text-blue-400">{l.fuelUsed}</span>
+                        <span className="text-xs text-white/30 ml-1">л</span>
+                      </div>
+                      <div className="text-right text-xs text-white/40">{l.engineHours ?? "—"}</div>
+                      <div className="text-xs text-white/40">{l.workFront || "—"}</div>
+                      <button onClick={() => deleteHourLog.mutate(l.id)}
+                        className="p-1 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

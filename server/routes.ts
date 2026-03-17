@@ -731,6 +731,130 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
+  // ===================== ЛАБ ТУРШИЛТ =====================
+
+  app.get("/api/lab-results", requireAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(schema.labResults).orderBy(desc(schema.labResults.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/lab-results", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertLabResultSchema.parse(req.body);
+      const [row] = await db.insert(schema.labResults).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.put("/api/lab-results/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [row] = await db.update(schema.labResults).set(req.body).where(eq(schema.labResults.id, id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/lab-results/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.labResults).where(eq(schema.labResults.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== АЖЛЫН ФРОНТ =====================
+
+  app.get("/api/work-fronts", requireAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(schema.workFronts).orderBy(desc(schema.workFronts.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/work-fronts", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertWorkFrontSchema.parse(req.body);
+      const [row] = await db.insert(schema.workFronts).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.put("/api/work-fronts/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [row] = await db.update(schema.workFronts).set(req.body).where(eq(schema.workFronts.id, id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/work-fronts/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.workFronts).where(eq(schema.workFronts.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== ТОНОГ ТӨХӨӨРӨМЖИЙН ЦАГ =====================
+
+  app.get("/api/equipment-logs", requireAdmin, async (req, res) => {
+    try {
+      const { date, vehicleId } = req.query;
+      let q = db.select().from(schema.equipmentLogs).$dynamic();
+      if (date) q = q.where(eq(schema.equipmentLogs.date, date as string));
+      if (vehicleId) q = q.where(eq(schema.equipmentLogs.vehicleId, parseInt(vehicleId as string)));
+      const rows = await q.orderBy(desc(schema.equipmentLogs.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/equipment-logs", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertEquipmentLogSchema.parse(req.body);
+      const [row] = await db.insert(schema.equipmentLogs).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/equipment-logs/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.equipmentLogs).where(eq(schema.equipmentLogs.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== ДАЛД АЖЛЫН АКТ =====================
+
+  app.get("/api/hidden-work-acts", requireAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(schema.hiddenWorkActs).orderBy(desc(schema.hiddenWorkActs.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/hidden-work-acts", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertHiddenWorkActSchema.parse(req.body);
+      const [row] = await db.insert(schema.hiddenWorkActs).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.put("/api/hidden-work-acts/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [row] = await db.update(schema.hiddenWorkActs).set(req.body).where(eq(schema.hiddenWorkActs.id, id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/hidden-work-acts/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.hiddenWorkActs).where(eq(schema.hiddenWorkActs.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Seed data
   seedInitialContent().catch(console.error);
   seedDefaultKpiConfigs().catch(console.error);
