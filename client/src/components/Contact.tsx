@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertContactSchema, type InsertContact } from "@shared/schema";
-import { Phone, Facebook, MapPin, Loader2, Mail } from "lucide-react";
+import { Phone, Facebook, MapPin, Loader2, Mail, MessageCircle, Send } from "lucide-react";
 import emailjs from '@emailjs/browser';
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -109,17 +109,33 @@ export default function Contact() {
                 </div>
               </a>
 
-              <a 
-                href="https://www.facebook.com/h.vsg.l.zam.hhk" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="flex items-center gap-6 group"
-              >
-                <div className="w-14 h-14 bg-background border border-primary/20 rounded-sm flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:border-primary transition-all duration-300">
-                  <Facebook className="w-6 h-6 text-primary group-hover:text-primary-foreground transition-colors" /> 
-                </div>
-                <h4 className="text-lg font-display font-bold text-foreground uppercase tracking-wide group-hover:text-primary transition-colors">Facebook хуудас</h4>
-              </a>
+              {/* Сошиал сувгууд */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8 pt-6 border-t border-border/50">
+                {[
+                  { icon: Facebook,       title: "Facebook",   desc: "хөвсгөл зам ххк",         link: "https://www.facebook.com/h.vsg.l.zam.hhk" },
+                  { icon: Mail,           title: "И-мэйл",     desc: "huvsgulzamllc@gmail.com",  link: "mailto:huvsgulzamllc@gmail.com" },
+                  { icon: MessageCircle,  title: "WhatsApp",   desc: "чатлах",                   link: "https://wa.me/97699112701" },
+                  { icon: Send,           title: "WeChat ID",  desc: "huvsgulzam_Admin",          link: null },
+                  { icon: Phone,          title: "Viber",      desc: "Viber чат",                link: "viber://chat?number=+97699112701" },
+                ].map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-4 group">
+                    <div className="w-12 h-12 bg-background border border-primary/20 rounded-sm flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:border-primary transition-all duration-300">
+                      <item.icon className="w-5 h-5 text-primary group-hover:text-primary-foreground transition-colors" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground mb-0.5">{item.title}</p>
+                      {item.link ? (
+                        <a href={item.link} target="_blank" rel="noopener noreferrer"
+                          className="text-foreground hover:text-primary font-bold text-sm transition-colors leading-tight">
+                          {item.desc}
+                        </a>
+                      ) : (
+                        <p className="text-foreground font-bold text-sm leading-tight">{item.desc}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
             </div>
           </motion.div>
 

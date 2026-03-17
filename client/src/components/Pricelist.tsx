@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertContactSchema, type InsertContact } from "@shared/schema";
-import { Phone, Mail, MapPin, Loader2, Calculator, Facebook, MessageCircle, Send } from "lucide-react";
+import { Phone, Loader2, Calculator } from "lucide-react";
 import emailjs from '@emailjs/browser';
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -92,50 +92,24 @@ export default function Pricelist() {
               Манай үйлдвэрлэж буй барилгын материалын үнийн саналыг форм бөглөхөд л хангалттай. Бид таны хэрэгцээнд тохирсон хамгийн уян хатан нөхцөлийг санал болгоно.
             </p>
 
-            <div className="space-y-10">
-              {/* Борлуулалтын албаны утас - Хэмжээ хэвээрээ */}
+            <div className="space-y-8">
+              {/* Борлуулалтын албаны утас */}
               <div className="flex items-start gap-6 group">
-                <div className="w-12 h-12 bg-background border border-primary/20 rounded-sm flex items-center justify-center shrink-0 group-hover:bg-primary transition-all duration-300">
-                  <Phone className="w-5 h-5 text-primary group-hover:text-primary-foreground" />
+                <div className="w-14 h-14 bg-background border border-primary/20 rounded-sm flex items-center justify-center shrink-0 group-hover:bg-primary transition-all duration-300">
+                  <Phone className="w-6 h-6 text-primary group-hover:text-primary-foreground" />
                 </div>
                 <div>
-                  <h4 className="text-md font-display font-bold text-foreground uppercase tracking-wide">Борлуулалтын алба</h4>
-                  <a href="tel:+976 9911 2701" className="text-primary hover:underline text-xl font-black tracking-tight">+976 9911 2701</a>
+                  <h4 className="text-sm font-display font-bold text-foreground uppercase tracking-wide mb-1">Борлуулалтын алба</h4>
+                  <a href="tel:+97699112701" className="text-primary hover:underline text-2xl font-black tracking-tight">+976 9911 2701</a>
+                  <p className="text-muted-foreground text-sm mt-1">Даваа — Баасан: 09:00 – 18:00</p>
                 </div>
               </div>
 
-              {/* Сошиал сувгууд: Зөвхөн энэ хэсгийг томруулав */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-10 gap-x-12 pt-10 border-t border-border/50">
-                {[
-                  { icon: Facebook, title: "Facebook", desc: "хөвсгөл зам ххк", link: "https://www.facebook.com/h.vsg.l.zam.hhk" },
-                  { icon: Mail, title: "И-мэйл", desc: "huvsgulzamllc@gmail.com", link: "mailto:huvsgulzamllc@gmail.com" },
-                  { icon: MessageCircle, title: "WhatsApp", desc: "чатлах", link: "https://wa.me/97699112701" },
-                  { icon: Send, title: "WeChat ID", desc: "huvsgulzam_Admin", link: null },
-                  { icon: Phone, title: "Viber", desc: "Viber чат", link: "viber://chat?number=+97699112701" },
-                ].map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-6 group">
-                    <div className="w-16 h-16 bg-background border-2 border-primary/10 rounded-sm flex items-center justify-center shrink-0 group-hover:bg-primary group-hover:border-primary transition-all duration-300 shadow-sm">
-                      <item.icon className="w-7 h-7 text-primary group-hover:text-primary-foreground" />
-                    </div>
-                    <div className="flex flex-col">
-                      <h4 className="text-[11px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1.5">
-                        {item.title}
-                      </h4>
-                      {item.link ? (
-                        <a 
-                          href={item.link} 
-                          target="_blank" 
-                          rel="noopener noreferrer" 
-                          className="text-foreground hover:text-primary text-lg font-black transition-colors leading-tight"
-                        >
-                          {item.desc}
-                        </a>
-                      ) : (
-                        <p className="text-foreground text-lg font-black leading-tight">{item.desc}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
+              {/* Нэмэлт мэдээлэл */}
+              <div className="bg-background/50 border border-border/50 rounded-sm p-6">
+                <p className="text-muted-foreground text-sm leading-relaxed">
+                  Асуулт, дэлгэрэнгүй мэдээлэл авахыг хүсвэл <span className="text-primary font-bold">Холбоо барих</span> хэсгийн Facebook, WhatsApp, Viber зэрэг суваг эсвэл и-мэйлээр холбогдоно уу.
+                </p>
               </div>
             </div>
           </motion.div>
