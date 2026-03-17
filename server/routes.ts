@@ -522,26 +522,23 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Норм тооцоолол: Асфальтын үйлдвэр 200м³/хоног, Бетон 1800м³/хоног, Бутлах 100тн/цаг*8ц
   const WAREHOUSE_DEFAULTS = [
-    // Асфальтбетон хольцын үйлдвэр (150-200 м³/хоног)
-    { name: "Битум БНД 60/90", category: "bitumen", unit: "тн", plant: "asphalt",  minStock: 10,   criticalStock: 20,   normBasis: "1м³ асфальт = 0.05тн битум × 200м³" },
-    { name: "Хайрга 0-2мм",   category: "stone",   unit: "тн", plant: "asphalt",  minStock: 40,   criticalStock: 80,   normBasis: "1м³ асфальт = 0.2тн × 200м³" },
-    { name: "Хайрга 2-5мм",   category: "stone",   unit: "тн", plant: "asphalt",  minStock: 60,   criticalStock: 120,  normBasis: "1м³ асфальт = 0.3тн × 200м³" },
-    { name: "Хайрга 5-10мм",  category: "stone",   unit: "тн", plant: "asphalt",  minStock: 50,   criticalStock: 100,  normBasis: "1м³ асфальт = 0.25тн × 200м³" },
-    { name: "Хайрга 10-20мм", category: "stone",   unit: "тн", plant: "asphalt",  minStock: 60,   criticalStock: 120,  normBasis: "1м³ асфальт = 0.3тн × 200м³" },
-    { name: "Минерал нунтаг",  category: "mineral", unit: "тн", plant: "asphalt",  minStock: 8,    criticalStock: 16,   normBasis: "1м³ асфальт = 0.04тн × 200м³" },
+    // Асфальтбетон хольцын үйлдвэр (150-200 м³/хоног) — нэр нь нормтой яг таарна
+    { name: "Битум БНД 60/90", category: "bitumen", unit: "тн", plant: "asphalt",  minStock: 10,   criticalStock: 20,   normBasis: "1м³ асфальт = 0.052тн битум × 200м³" },
+    { name: "Хайрга 0-2мм",   category: "stone",   unit: "тн", plant: "asphalt",  minStock: 42,   criticalStock: 84,   normBasis: "1м³ асфальт = 0.21тн × 200м³" },
+    { name: "Хайрга 2-5мм",   category: "stone",   unit: "тн", plant: "asphalt",  minStock: 56,   criticalStock: 112,  normBasis: "1м³ асфальт = 0.28тн × 200м³" },
+    { name: "Хайрга 5-10мм",  category: "stone",   unit: "тн", plant: "asphalt",  minStock: 60,   criticalStock: 120,  normBasis: "1м³ асфальт = 0.3тн × 200м³" },
+    { name: "Хайрга 10-20мм", category: "stone",   unit: "тн", plant: "asphalt",  minStock: 70,   criticalStock: 140,  normBasis: "1м³ асфальт = 0.35тн × 200м³" },
+    { name: "Минерал нунтаг",  category: "mineral", unit: "тн", plant: "asphalt",  minStock: 9,    criticalStock: 18,   normBasis: "1м³ асфальт = 0.045тн × 200м³" },
     { name: "Элс (асфальт)",   category: "sand",    unit: "тн", plant: "asphalt",  minStock: 30,   criticalStock: 60,   normBasis: "1м³ асфальт = 0.15тн × 200м³" },
     // Бетон зуурмагийн үйлдвэр (1300-1800 м³/хоног)
-    { name: "Цемент ПЦ400",    category: "cement",  unit: "тн", plant: "concrete", minStock: 576,  criticalStock: 1152, normBasis: "1м³ бетон = 0.32тн цемент × 1800м³" },
-    { name: "Элс (бетон)",     category: "sand",    unit: "м³", plant: "concrete", minStock: 1170, criticalStock: 2340, normBasis: "1м³ бетон = 0.65м³ элс × 1800м³" },
-    { name: "Хайрга 5-10мм",   category: "stone",   unit: "м³", plant: "concrete", minStock: 720,  criticalStock: 1440, normBasis: "1м³ бетон = 0.4м³ хайрга × 1800м³" },
-    { name: "Хайрга 10-20мм",  category: "stone",   unit: "м³", plant: "concrete", minStock: 1080, criticalStock: 2160, normBasis: "1м³ бетон = 0.6м³ хайрга × 1800м³" },
+    { name: "Цемент ПЦ400",    category: "cement",  unit: "тн", plant: "concrete", minStock: 630,  criticalStock: 1260, normBasis: "1м³ бетон = 0.35тн цемент × 1800м³" },
+    { name: "Элс (бетон)",     category: "sand",    unit: "м³", plant: "concrete", minStock: 1260, criticalStock: 2520, normBasis: "1м³ бетон = 0.7м³ элс × 1800м³" },
+    { name: "Хайрга 5-10мм",  category: "stone",   unit: "м³", plant: "concrete", minStock: 756,  criticalStock: 1512, normBasis: "1м³ бетон = 0.42м³ хайрга × 1800м³" },
+    { name: "Хайрга 10-20мм", category: "stone",   unit: "м³", plant: "concrete", minStock: 1044, criticalStock: 2088, normBasis: "1м³ бетон = 0.58м³ хайрга × 1800м³" },
     { name: "Химийн нэмэлт",   category: "other",   unit: "кг", plant: "concrete", minStock: 1800, criticalStock: 3600, normBasis: "1м³ бетон = 1кг нэмэлт × 1800м³" },
     // Бутлах ангилах үйлдвэр (цагт 100тн, 8цаг/өдөр = 800тн/өдөр)
-    { name: "Байгалийн чулуу (0-2мм фракц)", category: "stone", unit: "тн", plant: "crushing", minStock: 250, criticalStock: 500, normBasis: "Цагт 100тн, 25% эзлэх хэсэг" },
-    { name: "Байгалийн чулуу (2-5мм фракц)", category: "stone", unit: "тн", plant: "crushing", minStock: 200, criticalStock: 400, normBasis: "Цагт 100тн, 20% эзлэх хэсэг" },
-    { name: "Байгалийн чулуу (5-10мм фракц)",category: "stone", unit: "тн", plant: "crushing", minStock: 250, criticalStock: 500, normBasis: "Цагт 100тн, 25% эзлэх хэсэг" },
-    { name: "Байгалийн чулуу (10-20мм фракц)",category:"stone", unit: "тн", plant: "crushing", minStock: 300, criticalStock: 600, normBasis: "Цагт 100тн, 30% эзлэх хэсэг" },
-    { name: "Шатах тос (бутлуур)",category: "other", unit: "л",  plant: "crushing", minStock: 500,  criticalStock: 1000, normBasis: "Бутлуурын мэдэгдэхүүн" },
+    { name: "Байгалийн чулуу (оролт)", category: "stone", unit: "тн", plant: "crushing", minStock: 920, criticalStock: 1840, normBasis: "800тн гаралтад 1.15 харьцаа = 920тн оролт" },
+    { name: "Шатах тос (бутлуур)", category: "other", unit: "л", plant: "crushing", minStock: 500, criticalStock: 1000, normBasis: "Бутлуурын мэдэгдэхүүн" },
   ];
 
   async function seedWarehouse() {
@@ -551,6 +548,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         await db.insert(schema.warehouseItems).values(
           WAREHOUSE_DEFAULTS.map(d => ({ ...d, currentStock: 0 }))
         );
+      } else {
+        // Ensure each default item exists (upsert by name+plant)
+        for (const d of WAREHOUSE_DEFAULTS) {
+          const found = existing.find(e => e.name === d.name && e.plant === d.plant);
+          if (!found) {
+            await db.insert(schema.warehouseItems).values({ ...d, currentStock: 0 });
+          }
+        }
       }
     } catch {}
   }
@@ -672,6 +677,58 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         .where(eq(schema.materialChecks.planId, Number(req.params.planId)));
       res.json(rows);
     } catch { res.status(500).json({ error: "DB error" }); }
+  });
+
+  // Агуулахаас татах — plan дээр үндэслэн нөөц хасна
+  // draws: [{warehouseItemId, drawQty}]
+  app.post("/api/warehouse/draw-plan", requireToken, async (req, res) => {
+    try {
+      const { planId, date, draws } = req.body as {
+        planId: number;
+        date: string;
+        draws: Array<{ warehouseItemId: number; drawQty: number; materialName: string }>;
+      };
+      if (!planId || !draws || !Array.isArray(draws)) {
+        return res.status(400).json({ error: "planId, draws шаардлагатай" });
+      }
+      // Өмнөх plan-тай холбоотой log-уудыг буцаана (re-draw хийх үед)
+      const oldLogs = await db.select().from(schema.warehouseLogs)
+        .where(and(eq(schema.warehouseLogs.planId, planId), eq(schema.warehouseLogs.type, "plan_draw")));
+      for (const ol of oldLogs) {
+        // Хасагдсан хэмжээг буцааж нэмнэ
+        const item = await db.select().from(schema.warehouseItems).where(eq(schema.warehouseItems.id, ol.itemId)).then(r => r[0]);
+        if (item) {
+          await db.update(schema.warehouseItems)
+            .set({ currentStock: (item.currentStock ?? 0) + Math.abs(ol.quantity), updatedAt: new Date() })
+            .where(eq(schema.warehouseItems.id, ol.itemId));
+        }
+      }
+      // Хуучин log устгана
+      await db.delete(schema.warehouseLogs)
+        .where(and(eq(schema.warehouseLogs.planId, planId), eq(schema.warehouseLogs.type, "plan_draw")));
+
+      const results = [];
+      for (const d of draws) {
+        if (!d.warehouseItemId || d.drawQty <= 0) continue;
+        const item = await db.select().from(schema.warehouseItems).where(eq(schema.warehouseItems.id, d.warehouseItemId)).then(r => r[0]);
+        if (!item) continue;
+        const newStock = Math.max(0, (item.currentStock ?? 0) - d.drawQty);
+        await db.update(schema.warehouseItems)
+          .set({ currentStock: newStock, updatedAt: new Date() })
+          .where(eq(schema.warehouseItems.id, d.warehouseItemId));
+        const [log] = await db.insert(schema.warehouseLogs).values({
+          itemId: d.warehouseItemId,
+          planId,
+          date,
+          quantity: -d.drawQty,
+          type: "plan_draw",
+          notes: `${date} өдрийн үйлдвэрлэлийн хэрэгцээ — ${d.materialName}`,
+          recordedBy: "Систем",
+        }).returning();
+        results.push({ itemId: d.warehouseItemId, drawQty: d.drawQty, newStock, logId: log.id });
+      }
+      res.json({ success: true, results });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
   // Seed data

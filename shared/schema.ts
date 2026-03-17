@@ -207,9 +207,10 @@ export const warehouseItems = pgTable("warehouse_items", {
 export const warehouseLogs = pgTable("warehouse_logs", {
   id: serial("id").primaryKey(),
   itemId: integer("item_id").notNull(),
+  planId: integer("plan_id"),                     // Аль үйлдвэрлэлийн планаас татсан
   date: text("date").notNull(),
   quantity: real("quantity").notNull(),           // Эерэг = орсон, сөрөг = гарсан
-  type: text("type").notNull(),                   // in | out | adjust
+  type: text("type").notNull(),                   // in | out | adjust | plan_draw
   notes: text("notes"),
   recordedBy: text("recorded_by"),
   createdAt: timestamp("created_at").defaultNow(),
