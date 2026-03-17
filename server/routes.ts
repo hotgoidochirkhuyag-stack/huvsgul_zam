@@ -12,25 +12,56 @@ import multer from "multer";
 import { v2 as cloudinary } from "cloudinary";
 import { Readable } from "stream";
 import path from "path";
+import fs from "fs";
 
 // ======= CLOUDINARY тохиргоо =======
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key:    process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+const hasCloudinary = !!(
+  process.env.CLOUDINARY_CLOUD_NAME &&
+  process.env.CLOUDINARY_API_KEY &&
+  process.env.CLOUDINARY_API_SECRET
+);
 
-function uploadToCloudinary(buffer: Buffer, folder: string): Promise<{ secure_url: string; public_id: string }> {
-  return new Promise((resolve, reject) => {
-    const stream = cloudinary.uploader.upload_stream(
-      { folder, resource_type: "image" },
-      (err, result) => {
-        if (err || !result) return reject(err ?? new Error("Cloudinary upload failed"));
-        resolve({ secure_url: result.secure_url, public_id: result.public_id });
-      }
-    );
-    Readable.from(buffer).pipe(stream);
+if (hasCloudinary) {
+  cloudinary.config({
+    cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+    api_key:    process.env.CLOUDINARY_API_KEY,
+    api_secret: process.env.CLOUDINARY_API_SECRET,
   });
+}
+
+// Локал uploads фолдер
+const LOCAL_UPLOAD_DIR = path.join(process.cwd(), "uploads");
+if (!fs.existsSync(LOCAL_UPLOAD_DIR)) fs.mkdirSync(LOCAL_UPLOAD_DIR, { recursive: true });
+
+async function uploadFile(
+  buffer: Buffer,
+  originalname: string,
+  folder: string
+): Promise<{ secure_url: string; public_id: string }> {
+  if (hasCloudinary) {
+    // Cloudinary руу upload хийх
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder, resource_type: "image" },
+        (err, result) => {
+          if (err || !result) return reject(err ?? new Error("Cloudinary upload failed"));
+          resolve({ secure_url: result.secure_url, public_id: result.public_id });
+        }
+      );
+      Readable.from(buffer).pipe(stream);
+    });
+  } else {
+    // Локал fallback — uploads/ фолдерт хадгалах
+    const ext = path.extname(originalname) || ".jpg";
+    const safeName = folder.replace(/\//g, "_");
+    const filename = `${safeName}_${Date.now()}${ext}`;
+    const filepath = path.join(LOCAL_UPLOAD_DIR, filename);
+    fs.writeFileSync(filepath, buffer);
+    return {
+      secure_url: `/uploads/${filename}`,
+      public_id:  `local/${filename}`,
+    };
+  }
 }
 
 // ======= MULTER — санах ойд хадгалах (Cloudinary руу дамжуулах) =======
@@ -977,7 +1008,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const inserted = [];
       const folder = `hovsgol-zam/${entityType}/${entityId}`;
       for (const file of files) {
-        const { secure_url, public_id } = await uploadToCloudinary(file.buffer, folder);
+        const { secure_url, public_id } = await uploadFile(file.buffer, file.originalname, folder);
         const [row] = await db.insert(schema.workPhotos).values({
           entityType,
           entityId: parseInt(entityId),
