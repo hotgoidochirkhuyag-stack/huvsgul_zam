@@ -34,25 +34,28 @@ export default function Pricelist() {
   const onSubmit = async (data: PriceRequestData) => {
     setIsSending(true);
     try {
+      // EmailJS-ээр мэйл илгээх
       await emailjs.send(
         'service_zo80ffc',
         'template_1qp8wlm',
-        {
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          product: data.product,
-          quantity: data.quantity,
-          message: data.message
-        },
+        { name: data.name, email: data.email, phone: data.phone, product: data.product, quantity: data.quantity, message: data.message },
         'jMUTsjEJc7DCIHEK4'
       );
-
+      // DB-д бүртгэх
+      const productNote = data.product ? `Бүтээгдэхүүн: ${data.product}${data.quantity ? `, Тоо хэмжээ: ${data.quantity}` : ""}. ` : "";
+      await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: data.name, email: data.email, phone: data.phone,
+          message: `${productNote}${data.message || "Үнийн санал авах хүсэлт"}`,
+          type: "Үнийн санал",
+        }),
+      });
       toast({
         title: "Хүсэлт амжилттай илгээгдлээ!",
         description: "Бид үнийн саналыг боловсруулаад тантай эргэж холбогдох болно.",
       });
-
       form.reset();
     } catch (error) {
       console.error("Email error:", error);

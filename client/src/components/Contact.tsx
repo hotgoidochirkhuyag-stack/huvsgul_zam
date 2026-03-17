@@ -23,25 +23,24 @@ export default function Contact() {
 
   const onSubmit = async (data: InsertContact) => {
     setIsSending(true);
-
     try {
+      // EmailJS-ээр мэйл илгээх
       await emailjs.send(
         'service_zo80ffc',
         'template_1qp8wlm',
-        {
-          name: data.name,
-          email: data.email,
-          phone: data.phone,
-          message: data.message
-        },
+        { name: data.name, email: data.email, phone: data.phone, message: data.message },
         'jMUTsjEJc7DCIHEK4'
       );
-
+      // DB-д бүртгэх
+      await fetch("/api/contacts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ...data, type: "Холбоо барих" }),
+      });
       toast({
         title: "Амжилттай илгээгдлээ!",
         description: "Бид таны хүсэлтийг хүлээн авлаа. Тантай тун удахгүй холбогдох болно.",
       });
-
       form.reset();
     } catch (error) {
       console.error("Email error:", error);

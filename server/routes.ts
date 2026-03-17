@@ -190,6 +190,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const data = z.object({
         name: z.string().min(1), email: z.string().email(),
         phone: z.string().optional(), message: z.string().min(1),
+        type: z.string().optional().default("Холбоо барих"),
       }).parse(req.body);
       const [c] = await db.insert(schema.contacts).values(data).returning();
       res.status(201).json(c);

@@ -19,6 +19,7 @@ export const contacts = pgTable("contacts", {
   email: text("email").notNull(),
   phone: text("phone"),
   message: text("message").notNull(),
+  type: text("type").notNull().default("Холбоо барих"), // Холбоо барих | Үнийн санал | Ажлын байр
   createdAt: timestamp("created_at").defaultNow(),
 });
 
