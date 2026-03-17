@@ -303,12 +303,10 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
                       {emp.phone ? (
                         <div className="flex gap-1.5 shrink-0">
                           <a
-                            href={`https://wa.me/${cleanPhone(emp.phone)}?text=${msg}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center gap-1 px-2.5 py-1.5 bg-green-600/20 hover:bg-green-600/30 text-green-400 rounded-lg text-xs font-bold transition-all"
+                            href={`viber://chat?number=%2B${cleanPhone(emp.phone)}&text=${msg}`}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 rounded-lg text-xs font-bold transition-all"
                           >
-                            <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                            <MessageCircle className="w-3.5 h-3.5" /> Viber
                           </a>
                           <a
                             href={`sms:${emp.phone}?body=${msg}`}
