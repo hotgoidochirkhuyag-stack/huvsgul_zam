@@ -144,37 +144,65 @@ function InspectionForm({ vehicles, onDone }: { vehicles: Vehicle[]; onDone: () 
   );
 }
 
-function InspectionRow({ insp, vehicles }: { insp: VehicleInspection; vehicles: Vehicle[] }) {
+function InspectionRow({
+  insp, vehicles, onVideoCall, isOnCall, jitsiReady,
+}: {
+  insp: VehicleInspection;
+  vehicles: Vehicle[];
+  onVideoCall: (insp: VehicleInspection) => void;
+  isOnCall: boolean;
+  jitsiReady: boolean;
+}) {
   const [open, setOpen] = useState(false);
   const vehicle = vehicles.find(v => v.id === insp.vehicleId);
   let checksArr: { item: string; ok: boolean }[] = [];
   try { checksArr = JSON.parse(insp.checks); } catch { /* */ }
   const failedItems = checksArr.filter(c => !c.ok);
   return (
-    <div data-testid={`inspection-row-${insp.id}`} className="bg-slate-900/60 border border-white/10 rounded-xl overflow-hidden">
-      <div className="flex items-center gap-4 px-5 py-4 cursor-pointer hover:bg-white/5 transition-colors" onClick={() => setOpen(o => !o)}>
-        <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${insp.passed ? "bg-green-500/20" : "bg-red-500/20"}`}>
-          {insp.passed ? <CheckCircle2 className="text-green-400" size={20} /> : <XCircle className="text-red-400" size={20} />}
+    <div data-testid={`inspection-row-${insp.id}`}
+      className={`border rounded-xl overflow-hidden transition-all ${isOnCall ? "border-green-500/40 bg-green-500/5" : "bg-slate-900/60 border-white/10"}`}>
+      <div className="flex items-center gap-3 px-4 py-3">
+        {/* Статус */}
+        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${insp.passed ? "bg-green-500/20" : "bg-red-500/20"}`}>
+          {insp.passed ? <CheckCircle2 className="text-green-400" size={18} /> : <XCircle className="text-red-400" size={18} />}
         </div>
-        <div className="flex-1 min-w-0">
+        {/* Мэдээлэл */}
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setOpen(o => !o)}>
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-semibold text-white text-sm">{insp.employeeName}</span>
             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${insp.passed ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"}`}>
               {insp.passed ? "Тэнцсэн" : "Тэнцэлгүй"}
             </span>
-            {failedItems.length > 0 && <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">{failedItems.length} зүйл дутуу</span>}
+            {failedItems.length > 0 && <span className="text-xs bg-orange-500/20 text-orange-400 px-2 py-0.5 rounded-full">{failedItems.length} дутуу</span>}
           </div>
           <div className="flex items-center gap-3 mt-0.5">
-            <span className="text-xs text-slate-400 flex items-center gap-1"><Car size={11} />
+            <span className="text-xs text-slate-400 flex items-center gap-1"><Car size={10} />
               {vehicle ? `${vehicle.plateNumber} — ${vehicle.name}` : `Техник #${insp.vehicleId}`}
             </span>
-            <span className="text-xs text-slate-500 flex items-center gap-1"><Clock size={11} />{fmtTime(insp.createdAt)}</span>
+            <span className="text-xs text-slate-500 flex items-center gap-1"><Clock size={10} />{fmtTime(insp.createdAt)}</span>
           </div>
         </div>
-        {open ? <ChevronUp size={16} className="text-slate-400 shrink-0" /> : <ChevronDown size={16} className="text-slate-400 shrink-0" />}
+        {/* Видео залгах товч */}
+        <button
+          data-testid={`btn-video-${insp.id}`}
+          onClick={() => onVideoCall(insp)}
+          disabled={!jitsiReady}
+          className={`flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold shrink-0 transition-all disabled:opacity-40 ${
+            isOnCall
+              ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+              : "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+          }`}
+        >
+          {isOnCall ? <VideoOff size={14} /> : <Video size={14} />}
+          {isOnCall ? "Таслах" : "Видео"}
+        </button>
+        {/* Дэлгэрэнгүй */}
+        <button onClick={() => setOpen(o => !o)} className="text-slate-500 hover:text-slate-300 transition-colors ml-1">
+          {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+        </button>
       </div>
       {open && (
-        <div className="px-5 pb-4 border-t border-white/5">
+        <div className="px-4 pb-3 border-t border-white/5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5 mt-3">
             {checksArr.map((c, i) => (
               <div key={i} className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg ${c.ok ? "text-green-300 bg-green-500/5" : "text-red-300 bg-red-500/10"}`}>
@@ -191,6 +219,58 @@ function InspectionRow({ insp, vehicles }: { insp: VehicleInspection; vehicles: 
 
 function InspectionTab({ vehicles }: { vehicles: Vehicle[] }) {
   const [showForm, setShowForm] = useState(false);
+
+  /* ── Jitsi ── */
+  const [jitsiReady, setJitsiReady] = useState(false);
+  const [activeInsp, setActiveInsp] = useState<VehicleInspection | null>(null);
+  const [copied, setCopied] = useState(false);
+  const meetRef = useRef<HTMLDivElement>(null);
+  const apiRef  = useRef<any>(null);
+
+  useEffect(() => {
+    if ((window as any).JitsiMeetExternalAPI) { setJitsiReady(true); return; }
+    const s = document.createElement("script");
+    s.src = "https://meet.jit.si/external_api.js";
+    s.async = true;
+    s.onload = () => setJitsiReady(true);
+    document.body.appendChild(s);
+  }, []);
+
+  useEffect(() => {
+    if (!activeInsp || !jitsiReady || !meetRef.current) return;
+    if (apiRef.current) { apiRef.current.dispose(); apiRef.current = null; }
+    const safe = activeInsp.employeeName.replace(/\s+/g, "").replace(/[^\w]/g, "");
+    apiRef.current = new (window as any).JitsiMeetExternalAPI("meet.jit.si", {
+      roomName: `KhuvsgulZam_Zasvar_${safe}`,
+      width: "100%", height: 440,
+      parentNode: meetRef.current,
+      userInfo: { displayName: "Инженер" },
+      configOverwrite: { startWithAudioMuted: false, startWithVideoMuted: false },
+      interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ["microphone","camera","chat","hangup","tileview","fullscreen"] },
+    });
+    apiRef.current.addEventListener("videoConferenceLeft", endCall);
+  }, [activeInsp, jitsiReady]);
+
+  const startCall = (insp: VehicleInspection) => {
+    if (activeInsp?.id === insp.id) { endCall(); return; }
+    setActiveInsp(insp);
+  };
+
+  const endCall = () => {
+    if (apiRef.current) { apiRef.current.dispose(); apiRef.current = null; }
+    setActiveInsp(null);
+  };
+
+  const meetUrl = activeInsp
+    ? `https://meet.jit.si/KhuvsgulZam_Zasvar_${activeInsp.employeeName.replace(/\s+/g, "").replace(/[^\w]/g, "")}`
+    : "";
+
+  const copyLink = () => {
+    navigator.clipboard.writeText(meetUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const todayStr = today();
   const { data: allInspections = [], isLoading, refetch } = useQuery<VehicleInspection[]>({
     queryKey: ["/api/erp/vehicle-inspections-today"],
@@ -241,7 +321,7 @@ function InspectionTab({ vehicles }: { vehicles: Vehicle[] }) {
         )}
       </div>
 
-      {/* Өнөөдрийн үзлэгүүд */}
+      {/* Өнөөдрийн үзлэгүүд + Видео дуудлага */}
       <div>
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-3">
@@ -253,6 +333,36 @@ function InspectionTab({ vehicles }: { vehicles: Vehicle[] }) {
             <RefreshCw size={12} /> Шинэчлэх
           </button>
         </div>
+
+        {/* Видео дуудлагын цонх */}
+        {activeInsp && (
+          <div className="mb-4 bg-slate-900/80 border border-green-500/30 rounded-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span className="font-semibold text-sm text-white">{activeInsp.employeeName} — Видео дуудлага</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button data-testid="btn-copy-link" onClick={copyLink}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs">
+                  {copied ? <Check size={12} className="text-green-400" /> : <Copy size={12} />}
+                  {copied ? "Хуулагдлаа" : "Линк хуулах"}
+                </button>
+                <button data-testid="btn-end-call" onClick={endCall}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-lg text-xs">
+                  <VideoOff size={12} /> Дуусгах
+                </button>
+              </div>
+            </div>
+            <div className="px-5 py-2 bg-slate-800/50 border-b border-white/5">
+              <p className="text-xs text-slate-400 flex items-center gap-1.5 truncate">
+                <Link2 size={10} /><span className="text-blue-400 text-xs">{meetUrl}</span>
+              </p>
+            </div>
+            <div ref={meetRef} className="w-full" />
+          </div>
+        )}
+
         {isLoading ? (
           <div className="flex items-center justify-center py-16 text-slate-400 gap-2"><Loader2 size={20} className="animate-spin" /> Ачааллаж байна...</div>
         ) : inspections.length === 0 ? (
@@ -261,7 +371,18 @@ function InspectionTab({ vehicles }: { vehicles: Vehicle[] }) {
             <p className="text-slate-400 text-sm">Өнөөдөр үзлэг хийгдээгүй байна</p>
           </div>
         ) : (
-          <div className="space-y-3">{inspections.map(insp => <InspectionRow key={insp.id} insp={insp} vehicles={vehicles} />)}</div>
+          <div className="space-y-2">
+            {inspections.map(insp => (
+              <InspectionRow
+                key={insp.id}
+                insp={insp}
+                vehicles={vehicles}
+                onVideoCall={startCall}
+                isOnCall={activeInsp?.id === insp.id}
+                jitsiReady={jitsiReady}
+              />
+            ))}
+          </div>
         )}
       </div>
 
