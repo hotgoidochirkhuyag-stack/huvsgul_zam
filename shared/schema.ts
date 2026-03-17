@@ -10,6 +10,12 @@ export const projects = pgTable("projects", {
   description: text("description").notNull(),
   imageUrl: text("image_url").notNull(),
   category: text("category").notNull(),
+  location: text("location"),
+  length: text("length"),
+  year: text("year"),
+  clientName: text("client_name"),
+  contractValue: text("contract_value"),
+  progress: integer("progress"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

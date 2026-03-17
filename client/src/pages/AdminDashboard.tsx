@@ -8,12 +8,13 @@ import {
 import {
   UserCheck, ShieldCheck, TrendingUp, Factory, BookOpen, Target,
   AlertTriangle, CheckCircle2, Clock, Gauge, Bot, RefreshCw,
-  Sparkles, FileText, ChevronRight, Video, Loader2,
+  Sparkles, FileText, ChevronRight, Video, Loader2, Globe,
+  MapPin, Ruler, Calendar, Building2, DollarSign, Pencil, Save, X,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
 
-type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting";
+type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "website";
 
 function hdrs() {
   return {
@@ -812,6 +813,218 @@ function MeetingTab() {
   );
 }
 
+/* ══════════════════════ 8. ВЭБСАЙТ — Онцлох төслүүд ══════════════════════ */
+function WebsiteTab() {
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<any>({});
+
+  const { data: projects = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/projects"],
+    queryFn: () => fetch("/api/projects").then(r => r.json()),
+  });
+
+  const updateProject = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      fetch(`/api/projects/${id}`, {
+        method: "PATCH",
+        headers: hdrs(),
+        body: JSON.stringify(data),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      setEditId(null);
+    },
+  });
+
+  const startEdit = (p: any) => {
+    setEditId(p.id);
+    setEditForm({
+      title: p.title ?? "",
+      description: p.description ?? "",
+      location: p.location ?? "",
+      length: p.length ?? "",
+      year: p.year ?? "",
+      clientName: p.clientName ?? "",
+      contractValue: p.contractValue ?? "",
+      progress: p.progress ?? 0,
+    });
+  };
+
+  const CATS: Record<string, string> = {
+    "Авто зам": "amber",
+    "Гүүр": "blue",
+    "Дэд бүтэц": "green",
+  };
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-slate-900/80 to-slate-900/40 rounded-2xl border border-white/10 p-5">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-amber-600/20 rounded-xl border border-amber-500/20">
+            <Globe className="w-6 h-6 text-amber-400" />
+          </div>
+          <div>
+            <h2 className="font-black text-white text-lg">Онцлох төслүүд</h2>
+            <p className="text-slate-400 text-xs mt-0.5">Нүүр хуудасны "Онцлох төслүүд" хэсгийн мэдээлэл засах</p>
+          </div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-16 text-slate-400 gap-2">
+          <Loader2 className="w-5 h-5 animate-spin" /> Ачааллаж байна...
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {projects.map((p: any) => {
+            const c = CATS[p.category] ?? "slate";
+            const isEditing = editId === p.id;
+
+            return (
+              <div key={p.id} className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+                {/* Card header */}
+                <div className="flex items-center gap-4 p-4 border-b border-white/5">
+                  <img src={p.imageUrl} alt={p.title} className="w-16 h-16 object-cover rounded-xl shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-bold bg-${c}-500/15 text-${c}-400`}>
+                        {p.category}
+                      </span>
+                    </div>
+                    <p className="font-bold text-white text-sm truncate">{p.title}</p>
+                    <p className="text-slate-500 text-xs truncate">{p.description}</p>
+                  </div>
+                  <button
+                    onClick={() => isEditing ? setEditId(null) : startEdit(p)}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      isEditing
+                        ? "bg-slate-700 text-slate-400 hover:bg-slate-600"
+                        : "bg-amber-600/20 text-amber-400 hover:bg-amber-600/30"
+                    }`}
+                  >
+                    {isEditing ? <><X size={12} /> Болих</> : <><Pencil size={12} /> Засах</>}
+                  </button>
+                </div>
+
+                {/* Edit form */}
+                {isEditing && (
+                  <div className="p-5 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {[
+                        { key: "title",         label: "Гарчиг",          icon: <FileText size={13} />, ph: "Төслийн нэр" },
+                        { key: "location",      label: "Байршил",          icon: <MapPin size={13} />, ph: "Мурэн — Тосонцэнгэл" },
+                        { key: "length",        label: "Урт / Хэмжээ",    icon: <Ruler size={13} />, ph: "245 км" },
+                        { key: "year",          label: "Хугацаа",          icon: <Calendar size={13} />, ph: "2021–2024" },
+                        { key: "clientName",    label: "Захиалагч",        icon: <Building2 size={13} />, ph: "ЗТХЯ" },
+                        { key: "contractValue", label: "Гэрээний дүн",    icon: <DollarSign size={13} />, ph: "₮12.5 тэрбум" },
+                      ].map(f => (
+                        <div key={f.key}>
+                          <label className="flex items-center gap-1.5 text-xs text-slate-400 mb-1.5">
+                            <span className="text-amber-400">{f.icon}</span> {f.label}
+                          </label>
+                          <input
+                            type="text"
+                            value={editForm[f.key]}
+                            onChange={e => setEditForm((p: any) => ({ ...p, [f.key]: e.target.value }))}
+                            placeholder={f.ph}
+                            className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50 placeholder-slate-600"
+                          />
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Description */}
+                    <div>
+                      <label className="text-xs text-slate-400 mb-1.5 block">Тайлбар (Modal-д харагдана)</label>
+                      <textarea
+                        value={editForm.description}
+                        onChange={e => setEditForm((p: any) => ({ ...p, description: e.target.value }))}
+                        rows={3}
+                        placeholder="Төслийн дэлгэрэнгүй тайлбар..."
+                        className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50 placeholder-slate-600 resize-none"
+                      />
+                    </div>
+
+                    {/* Progress */}
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <label className="text-xs text-slate-400">Гүйцэтгэлийн явц</label>
+                        <span className="text-amber-400 font-bold text-sm">{editForm.progress}%</span>
+                      </div>
+                      <input
+                        type="range" min="0" max="100" step="1"
+                        value={editForm.progress}
+                        onChange={e => setEditForm((p: any) => ({ ...p, progress: parseInt(e.target.value) }))}
+                        className="w-full accent-amber-500"
+                      />
+                      <div className="h-2 bg-white/10 rounded-full mt-2 overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-amber-500 to-amber-400 rounded-full transition-all"
+                          style={{ width: `${editForm.progress}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Save button */}
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => updateProject.mutate({ id: p.id, data: editForm })}
+                        disabled={updateProject.isPending}
+                        className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all"
+                      >
+                        {updateProject.isPending ? <><RefreshCw size={14} className="animate-spin" /> Хадгалж байна...</> : <><Save size={14} /> Хадгалах</>}
+                      </button>
+                      <button onClick={() => setEditId(null)} className="px-4 py-2 bg-slate-800 text-slate-400 hover:bg-slate-700 rounded-xl text-sm transition-all">
+                        Болих
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Preview (when not editing) */}
+                {!isEditing && (
+                  <div className="px-4 pb-4 pt-2 grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    {[
+                      { icon: <MapPin size={11} />, val: p.location },
+                      { icon: <Ruler size={11} />, val: p.length },
+                      { icon: <Calendar size={11} />, val: p.year },
+                      { icon: <Building2 size={11} />, val: p.clientName },
+                    ].map((item, i) => item.val && (
+                      <div key={i} className="flex items-center gap-1.5 text-xs text-slate-400">
+                        <span className="text-amber-400/60">{item.icon}</span>
+                        <span>{item.val}</span>
+                      </div>
+                    ))}
+                    {p.progress != null && (
+                      <div className="col-span-2 sm:col-span-4 mt-1">
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs text-slate-500">Явц</span>
+                          <span className="text-xs text-amber-400 font-bold">{p.progress}%</span>
+                        </div>
+                        <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                          <div className="h-full bg-amber-500 rounded-full" style={{ width: `${p.progress}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
+
+          {projects.length === 0 && (
+            <div className="text-center py-16 text-slate-500">
+              <Globe className="w-10 h-10 mx-auto mb-3 text-slate-700" />
+              <p>Онцлох төсөл бүртгэгдээгүй байна</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════ MAIN ══════════════════════ */
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "attendance",  label: "Ирц / ХАБЭА",         icon: UserCheck   },
@@ -821,6 +1034,7 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "kpi",        label: "KPI / OEE",             icon: Gauge       },
   { key: "ai",         label: "AI Агент",              icon: Bot         },
   { key: "meeting",    label: "Онлайн хурал",          icon: Video       },
+  { key: "website",    label: "Вэбсайт",               icon: Globe       },
 ];
 
 export default function AdminDashboard() {
@@ -866,6 +1080,7 @@ export default function AdminDashboard() {
         {tab === "kpi"         && <KpiTab />}
         {tab === "ai"          && <AiAgentTab />}
         {tab === "meeting"     && <MeetingTab />}
+        {tab === "website"     && <WebsiteTab />}
       </main>
     </div>
   );

@@ -113,6 +113,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/projects", async (_req, res) => {
     res.json(await storage.getProjects());
   });
+  app.patch("/api/projects/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, description, location, length, year, clientName, contractValue, progress } = req.body;
+      const [updated] = await db.update(schema.projects)
+        .set({ title, description, location, length, year, clientName, contractValue, progress })
+        .where(eq(schema.projects.id, id))
+        .returning();
+      res.json(updated);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
   app.get("/api/stats", async (_req, res) => {
     res.json(await storage.getStats());
   });
