@@ -135,6 +135,7 @@ export const kpiConfigs = pgTable("kpi_configs", {
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
   employeeId: integer("employee_id").notNull(),
+  workFrontId: integer("work_front_id"),  // Ажиллах хэсэгтэй холбосон
   date: text("date").notNull(),           // YYYY-MM-DD
   location: text("location").notNull(),   // Газрын нэр
   workType: text("work_type").notNull(),  // Ажлын төрөл

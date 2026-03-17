@@ -436,11 +436,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.post("/api/erp/tasks", async (req, res) => {
     const token = req.headers["x-admin-token"];
     if (token !== "authenticated") return res.status(401).json({ message: "Зөвшөөрөлгүй" });
-    const { employeeId, date, location, workType, equipment, notes, assignedBy } = req.body;
+    const { employeeId, workFrontId, date, location, workType, equipment, notes, assignedBy } = req.body;
     if (!employeeId || !date || !location || !workType)
       return res.status(400).json({ message: "Заавал талбарууд дутуу байна" });
     const [task] = await db.insert(schema.tasks).values({
-      employeeId, date, location, workType, equipment, notes, assignedBy, status: "pending",
+      employeeId, workFrontId: workFrontId ?? null, date, location, workType, equipment, notes, assignedBy, status: "pending",
     }).returning();
     res.status(201).json(task);
   });

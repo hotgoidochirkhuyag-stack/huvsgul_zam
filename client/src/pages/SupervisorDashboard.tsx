@@ -15,8 +15,16 @@ function getHeaders() {
 }
 
 // ── Зургийн хэсэг компонент ─────────────────────────────────────────────────
-function PhotoSection({ entityType, entityId }: { entityType: string; entityId: number }) {
-  const [open, setOpen] = useState(false);
+function PhotoSection({
+  entityType, entityId,
+  externalOpen, onExternalToggle,
+}: {
+  entityType: string; entityId: number;
+  externalOpen?: boolean; onExternalToggle?: () => void;
+}) {
+  const [internalOpen, setInternalOpen] = useState(false);
+  const open = externalOpen !== undefined ? externalOpen : internalOpen;
+  const toggle = onExternalToggle ?? (() => setInternalOpen(o => !o));
   const [uploading, setUploading] = useState(false);
   const [caption, setCaption] = useState("");
   const [photoDate, setPhotoDate] = useState(new Date().toISOString().slice(0, 10));
@@ -61,16 +69,19 @@ function PhotoSection({ entityType, entityId }: { entityType: string; entityId: 
   }
 
   return (
-    <div className="mt-3 pt-3 border-t border-white/10">
-      <button
-        data-testid={`btn-photo-toggle-${entityType}-${entityId}`}
-        onClick={() => setOpen(o => !o)}
-        className={`flex items-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-semibold transition-all ${open ? "bg-amber-600/20 text-amber-400 border border-amber-500/30" : "bg-white/5 text-white/60 border border-white/10 hover:bg-amber-600/10 hover:text-amber-400 hover:border-amber-500/20"}`}
-      >
-        <Camera className="w-4 h-4" />
-        <span>📷 Баримт зураг {photos.length > 0 ? `(${photos.length} зураг)` : "оруулах"}</span>
-        {open ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
-      </button>
+    <div className={externalOpen !== undefined ? "" : "mt-3 pt-3 border-t border-white/10"}>
+      {/* Self-contained горимд toggle товч харуулна */}
+      {externalOpen === undefined && (
+        <button
+          data-testid={`btn-photo-toggle-${entityType}-${entityId}`}
+          onClick={toggle}
+          className={`flex items-center gap-2 w-full px-3 py-2 rounded-xl text-xs font-semibold transition-all ${open ? "bg-amber-600/20 text-amber-400 border border-amber-500/30" : "bg-white/5 text-white/60 border border-white/10 hover:bg-amber-600/10 hover:text-amber-400 hover:border-amber-500/20"}`}
+        >
+          <Camera className="w-4 h-4" />
+          <span>📷 Баримт зураг {photos.length > 0 ? `(${photos.length} зураг)` : "оруулах"}</span>
+          {open ? <ChevronUp className="w-3.5 h-3.5 ml-auto" /> : <ChevronDown className="w-3.5 h-3.5 ml-auto" />}
+        </button>
+      )}
 
       {open && (
         <div className="pb-1 space-y-3">
@@ -169,6 +180,7 @@ export default function SupervisorDashboard() {
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({
     employeeId: "",
+    workFrontId: "",
     date: TODAY,
     location: "",
     workType: "",
@@ -176,6 +188,9 @@ export default function SupervisorDashboard() {
     notes: "",
     assignedBy: "",
   });
+
+  // Ажиллах хэсгийн зургийн самбар (гадаас удирддаг)
+  const [openPhotoFrontId, setOpenPhotoFrontId] = useState<number | null>(null);
 
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["/api/erp/employees"],
@@ -206,8 +221,8 @@ export default function SupervisorDashboard() {
   const { data: workFronts = [], refetch: refetchFronts } = useQuery<any[]>({
     queryKey: ["/api/work-fronts"],
     queryFn: () => fetch("/api/work-fronts", { headers: getHeaders() }).then(r => r.json()),
-    enabled: tab === "fronts",
   });
+  const frontMap = new Map((workFronts ?? []).map((f: any) => [f.id, f]));
 
   const createFront = useMutation({
     mutationFn: (data: any) => fetch("/api/work-fronts", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
@@ -272,13 +287,17 @@ export default function SupervisorDashboard() {
     mutationFn: () => fetch("/api/erp/tasks", {
       method: "POST",
       headers: getHeaders(),
-      body: JSON.stringify({ ...form, employeeId: parseInt(form.employeeId) }),
+      body: JSON.stringify({
+        ...form,
+        employeeId: parseInt(form.employeeId),
+        workFrontId: form.workFrontId ? parseInt(form.workFrontId) : null,
+      }),
     }).then(r => r.json()),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["/api/erp/tasks"] });
       setShowForm(false);
-      setForm({ employeeId: "", date: TODAY, location: "", workType: "", equipment: "", notes: "", assignedBy: "" });
-      toast({ title: "Даалгавар амжилттай тавигдлаа!" });
+      setForm({ employeeId: "", workFrontId: "", date: TODAY, location: "", workType: "", equipment: "", notes: "", assignedBy: "" });
+      toast({ title: "Ажил амжилттай хуваарилагдлаа!" });
     },
     onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
@@ -337,7 +356,7 @@ export default function SupervisorDashboard() {
         <div className="flex flex-wrap items-center gap-3 mb-5">
           <div className="flex flex-wrap gap-2">
             <button onClick={() => setTab("tasks")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === "tasks" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-              <ClipboardList className="w-4 h-4" /> Даалгавар
+              <ClipboardList className="w-4 h-4" /> Ажил хуваарилах
             </button>
             <button onClick={() => setTab("reports")} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${tab === "reports" ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
               <FileText className="w-4 h-4" /> Тайлангууд
@@ -356,23 +375,25 @@ export default function SupervisorDashboard() {
           </div>
         </div>
 
-        {/* ── ДААЛГАВРЫН ХУУДАС ── */}
+        {/* ── АЖИЛ ХУВААРИЛАХ ── */}
         {tab === "tasks" && (
           <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-              <h2 className="font-bold">{filterDate} — Даалгавар</h2>
+              <h2 className="font-bold">{filterDate} — Ажил хуваарилалт</h2>
               <button
                 onClick={() => setShowForm(!showForm)}
                 className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl text-sm transition-all"
               >
-                <Plus className="w-4 h-4" /> Даалгавар тавих
+                <Plus className="w-4 h-4" /> Ажил хуваарилах
               </button>
             </div>
 
-            {/* Шинэ даалгавар маягт */}
+            {/* Шинэ ажил хуваарилах маягт */}
             {showForm && (
               <div className="p-5 border-b border-white/10 bg-blue-600/5">
-                <p className="text-sm font-bold text-blue-300 mb-3">Шинэ даалгавар тавих</p>
+                <p className="text-sm font-bold text-blue-300 mb-3 flex items-center gap-2">
+                  <Users className="w-4 h-4" /> Шинэ ажил хуваарилах
+                </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
                   {/* Ажилтан сонгох */}
                   <div className="relative">
@@ -383,22 +404,35 @@ export default function SupervisorDashboard() {
                     </select>
                     <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
+                  {/* Ажиллах хэсэг сонгох */}
+                  <div className="relative">
+                    <select value={form.workFrontId} onChange={e => setForm(f => ({ ...f, workFrontId: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none appearance-none">
+                      <option value="">Ажиллах хэсэг сонгох</option>
+                      {workFronts.map((wf: any) => (
+                        <option key={wf.id} value={wf.id}>
+                          {wf.name}{wf.chainageStart !== null ? ` — км ${wf.chainageStart}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                  </div>
                   {/* Огноо */}
                   <input type="date" value={form.date} onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
                     className="bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none" />
-                  {/* Газрын нэр */}
-                  <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                    placeholder="Газрын нэр * (жишээ: Зам-1 талбай)"
-                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50" />
                   {/* Ажлын төрөл */}
                   <input value={form.workType} onChange={e => setForm(f => ({ ...f, workType: e.target.value }))}
                     placeholder="Ажлын төрөл * (жишээ: Асфальт тавих)"
+                    className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50" />
+                  {/* Байрлал */}
+                  <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                    placeholder="Байрлал * (жишээ: км 12+500)"
                     className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50" />
                   {/* Техник */}
                   <input value={form.equipment} onChange={e => setForm(f => ({ ...f, equipment: e.target.value }))}
                     placeholder="Ашиглах техник (жишээ: Экскаватор CAT 320)"
                     className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50" />
-                  {/* Тавьсан хүний нэр */}
+                  {/* Хуваарилагч */}
                   <input value={form.assignedBy} onChange={e => setForm(f => ({ ...f, assignedBy: e.target.value }))}
                     placeholder="Таны нэр (ахлах)"
                     className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-blue-500/50" />
@@ -414,26 +448,27 @@ export default function SupervisorDashboard() {
                     disabled={!form.employeeId || !form.location || !form.workType || createTask.isPending}
                     className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 text-white font-bold rounded-xl text-sm transition-all"
                   >
-                    {createTask.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                    Даалгавар тавих
+                    {createTask.isPending ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Users className="w-4 h-4" />}
+                    Хуваарилах
                   </button>
                   <button onClick={() => setShowForm(false)} className="px-4 text-slate-400 hover:text-white text-sm transition-all">Болих</button>
                 </div>
               </div>
             )}
 
-            {/* Даалгаврын жагсаалт */}
+            {/* Ажлын жагсаалт */}
             {tasksLoading ? (
               <div className="p-12 text-center text-slate-400">Уншиж байна...</div>
             ) : tasks.length === 0 ? (
               <div className="p-12 text-center text-slate-400">
                 <ClipboardList className="w-10 h-10 text-slate-700 mx-auto mb-2" />
-                <p>Энэ өдөрт даалгавар байхгүй</p>
+                <p>Энэ өдөрт хуваарилсан ажил байхгүй</p>
               </div>
             ) : (
               <div className="divide-y divide-white/5">
                 {tasks.map((t: any) => {
                   const emp = empMap.get(t.employeeId);
+                  const wf = t.workFrontId ? frontMap.get(t.workFrontId) : null;
                   const status = TASK_STATUS[t.status] ?? TASK_STATUS.pending;
                   const StatusIcon = status.icon;
                   return (
@@ -445,12 +480,17 @@ export default function SupervisorDashboard() {
                             <span className={`flex items-center gap-1 px-2 py-0.5 rounded border text-xs font-medium ${status.cls}`}>
                               <StatusIcon className="w-3 h-3" />{status.label}
                             </span>
+                            {wf && (
+                              <span className="flex items-center gap-1 px-2 py-0.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded text-xs">
+                                <Navigation className="w-3 h-3" />{wf.name}
+                              </span>
+                            )}
                           </div>
                           <p className="text-sm text-slate-300 font-medium">{t.workType}</p>
                           <div className="flex flex-wrap gap-3 mt-1.5 text-xs text-slate-500">
                             <span className="flex items-center gap-1"><MapPin className="w-3 h-3" />{t.location}</span>
                             {t.equipment && <span className="flex items-center gap-1"><Wrench className="w-3 h-3" />{t.equipment}</span>}
-                            {t.assignedBy && <span className="text-slate-600">Тавьсан: {t.assignedBy}</span>}
+                            {t.assignedBy && <span className="text-slate-600">Хуваарилсан: {t.assignedBy}</span>}
                           </div>
                           {t.notes && <p className="text-xs text-slate-500 mt-1 italic">{t.notes}</p>}
                         </div>
@@ -590,6 +630,15 @@ export default function SupervisorDashboard() {
                               {f.notes && <p className="text-xs text-white/30 mt-1 italic">{f.notes}</p>}
                             </div>
                             <div className="flex items-center gap-2 shrink-0">
+                              {/* Зургийн товч — шууд харагдана */}
+                              <button
+                                data-testid={`btn-photo-front-${f.id}`}
+                                onClick={() => setOpenPhotoFrontId(openPhotoFrontId === f.id ? null : f.id)}
+                                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all ${openPhotoFrontId === f.id ? "bg-amber-500/20 text-amber-400 border border-amber-500/30" : "bg-white/5 text-white/50 border border-white/10 hover:bg-amber-500/10 hover:text-amber-400"}`}
+                              >
+                                <Camera className="w-3.5 h-3.5" />
+                                <span>Зураг</span>
+                              </button>
                               <button onClick={() => { setEditingFront(f.id); setEditFrontData({ progress: f.progress, supervisor: f.supervisor, crewSize: f.crewSize, status: f.status }); }}
                                 className="p-1.5 text-white/30 hover:text-white hover:bg-white/10 rounded-lg transition-all">
                                 <Edit2 className="w-4 h-4" />
@@ -610,8 +659,17 @@ export default function SupervisorDashboard() {
                                 style={{ width: `${prog}%` }} />
                             </div>
                           </div>
-                          {/* Баримт зураг */}
-                          <PhotoSection entityType="work_front" entityId={f.id} />
+                          {/* Баримт зураг — товч дарсан үед харагдана */}
+                          {openPhotoFrontId === f.id && (
+                            <div className="mt-3 pt-3 border-t border-amber-500/20">
+                              <PhotoSection
+                                entityType="work_front"
+                                entityId={f.id}
+                                externalOpen={true}
+                                onExternalToggle={() => setOpenPhotoFrontId(null)}
+                              />
+                            </div>
+                          )}
                         </>
                       )}
                     </div>
