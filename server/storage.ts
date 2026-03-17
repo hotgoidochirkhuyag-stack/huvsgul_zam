@@ -58,7 +58,7 @@ export const storage = {
     }
   },
 
-  // 2. Stats Images - "stats" хавтаснаас авах
+  // 2. Stats Images - "stats" хавтаснаас авах + DB-ийн тайлбартай нэгтгэх
   async getStats() {
     try {
       if (!process.env.CLOUDINARY_CLOUD_NAME) return [];
@@ -69,15 +69,30 @@ export const storage = {
         .max_results(20)
         .execute();
 
-      return res.resources.map((r: any) => ({
-        id: r.public_id,
-        imageUrl: r.secure_url,
-        description: r.public_id.split("/").pop() || "Статистикийн зураг",
-      }));
+      const metas = await db.select().from(schema.statsMetadata);
+      const metaMap = new Map(metas.map(m => [m.publicId, m]));
+
+      return res.resources.map((r: any) => {
+        const meta = metaMap.get(r.public_id);
+        return {
+          id: r.public_id,
+          imageUrl: r.secure_url,
+          description: meta?.description ?? r.public_id.split("/").pop() ?? "Статистикийн зураг",
+        };
+      });
     } catch (e) {
       console.error("Cloudinary Stats алдаа:", e);
       return [];
     }
+  },
+
+  async upsertStatsMetadata(publicId: string, description: string) {
+    await db.insert(schema.statsMetadata)
+      .values({ publicId, description })
+      .onConflictDoUpdate({
+        target: schema.statsMetadata.publicId,
+        set: { description },
+      });
   },
 
   // 3. Featured Videos - "videos" хавтаснаас авах

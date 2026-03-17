@@ -131,6 +131,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getStats());
   });
 
+  app.patch("/api/stats/metadata", requireAdmin, async (req, res) => {
+    try {
+      const { publicId, description } = req.body;
+      if (!publicId) return res.status(400).json({ error: "publicId шаардлагатай" });
+      await storage.upsertStatsMetadata(publicId, description ?? "");
+      res.json({ ok: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
   // ============ AI ҮНИЙН САНАЛ ============
   app.post("/api/ai/price-estimate", async (req, res) => {
     const { product, quantity, unit } = req.body;

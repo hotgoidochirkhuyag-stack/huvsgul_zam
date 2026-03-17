@@ -9,7 +9,7 @@ import {
   UserCheck, ShieldCheck, TrendingUp, Factory, BookOpen, Target,
   AlertTriangle, CheckCircle2, Clock, Gauge, Bot, RefreshCw,
   Sparkles, FileText, ChevronRight, Video, Loader2, Globe,
-  MapPin, Ruler, Calendar, Building2, DollarSign, Pencil, Save, X,
+  MapPin, Ruler, Calendar, Building2, DollarSign, Pencil, Save, X, ImageIcon,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
@@ -1017,6 +1017,111 @@ function WebsiteTab() {
             <div className="text-center py-16 text-slate-500">
               <Globe className="w-10 h-10 mx-auto mb-3 text-slate-700" />
               <p>Онцлох төсөл бүртгэгдээгүй байна</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Stats зургийн тайлбар ── */}
+      <StatsImageDescriptions />
+    </div>
+  );
+}
+
+function StatsImageDescriptions() {
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editDesc, setEditDesc] = useState("");
+
+  const { data: images = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/stats"],
+    queryFn: () => fetch("/api/stats").then(r => r.json()),
+  });
+
+  const updateDesc = useMutation({
+    mutationFn: ({ publicId, description }: { publicId: string; description: string }) =>
+      fetch("/api/stats/metadata", {
+        method: "PATCH",
+        headers: hdrs(),
+        body: JSON.stringify({ publicId, description }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/stats"] });
+      setEditId(null);
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-slate-900/80 to-slate-900/40 rounded-2xl border border-white/10 p-5">
+        <div className="flex items-center gap-3">
+          <div className="p-3 bg-amber-600/20 rounded-xl border border-amber-500/20">
+            <ImageIcon className="w-6 h-6 text-amber-400" />
+          </div>
+          <div>
+            <h2 className="font-black text-white text-lg">Stats хэсгийн зургууд</h2>
+            <p className="text-slate-400 text-xs mt-0.5">Нүүр хуудасны "Манай компани өнөөдөр" хэсгийн зурагны тайлбар засах</p>
+          </div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12 text-slate-400 gap-2">
+          <Loader2 className="w-5 h-5 animate-spin" /> Ачааллаж байна...
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {images.map((img: any) => {
+            const isEditing = editId === img.id;
+            return (
+              <div key={img.id} className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+                <div className="flex items-center gap-4 p-4">
+                  <img src={img.imageUrl} alt={img.description} className="w-16 h-16 object-cover rounded-xl shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white text-sm font-semibold truncate">{img.description}</p>
+                    <p className="text-slate-600 text-xs truncate">{img.id}</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (isEditing) { setEditId(null); }
+                      else { setEditId(img.id); setEditDesc(img.description ?? ""); }
+                    }}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                      isEditing
+                        ? "bg-slate-700 text-slate-400 hover:bg-slate-600"
+                        : "bg-amber-600/20 text-amber-400 hover:bg-amber-600/30"
+                    }`}
+                  >
+                    {isEditing ? <><X size={12} /> Болих</> : <><Pencil size={12} /> Засах</>}
+                  </button>
+                </div>
+                {isEditing && (
+                  <div className="px-4 pb-4 space-y-3">
+                    <input
+                      value={editDesc}
+                      onChange={e => setEditDesc(e.target.value)}
+                      placeholder="Зурагны тайлбар..."
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder:text-slate-600 focus:outline-none focus:border-amber-500/50"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => updateDesc.mutate({ publicId: img.id, description: editDesc })}
+                        disabled={updateDesc.isPending}
+                        className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all"
+                      >
+                        {updateDesc.isPending ? <><RefreshCw size={14} className="animate-spin" /> Хадгалж байна...</> : <><Save size={14} /> Хадгалах</>}
+                      </button>
+                      <button onClick={() => setEditId(null)} className="px-4 py-2 bg-slate-800 text-slate-400 hover:bg-slate-700 rounded-xl text-sm transition-all">Болих</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {images.length === 0 && (
+            <div className="text-center py-12 text-slate-500">
+              <ImageIcon className="w-10 h-10 mx-auto mb-3 text-slate-700" />
+              <p>Stats зураг бүртгэгдээгүй байна</p>
             </div>
           )}
         </div>

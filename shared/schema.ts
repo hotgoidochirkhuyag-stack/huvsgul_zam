@@ -31,6 +31,11 @@ export const projectMetadata = pgTable("project_metadata", {
   progress: integer("progress"),
 });
 
+export const statsMetadata = pgTable("stats_metadata", {
+  publicId: text("public_id").primaryKey(),
+  description: text("description"),
+});
+
 export const contacts = pgTable("contacts", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
