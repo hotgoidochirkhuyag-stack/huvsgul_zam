@@ -3,17 +3,15 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Forklift, Factory, ShieldCheck, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useGallery } from "@/hooks/use-gallery"; 
 
-const statsConfig = [
-  { id: 1, icon: Forklift, label: "Техникийн бэлэн байдал", suffix: "%", value: "Уншиж байна...", delay: 0.1 },
-  { id: 2, icon: Factory, label: "Үйлдвэрлэлд бэлэн байгаа нөөц", suffix: "%", value: "Уншиж байна...", delay: 0.2 },
-  { id: 3, icon: Factory, label: "Борлуулах боломжтой бетон зуурмаг", suffix: "м3", value: "Уншиж байна...", delay: 0.3 },
-  { id: 4, icon: ShieldCheck, label: "Бетон зуурмагийн чанарын баталгаа", suffix: "%", value: "Уншиж байна...", delay: 0.4 }
-];
-
 export default function Stats() {
-  const [stats, setStats] = useState(statsConfig);
   const { data: gallery } = useGallery("/api/stats");
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  const [techReadiness, setTechReadiness] = useState<number | null>(null);
+  const [inventoryReadiness, setInventoryReadiness] = useState<number | null>(null);
+  const [concreteSaleable, setConcreteSaleable] = useState<number | null>(null);
+  const [qualityRate, setQualityRate] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!gallery || gallery.length <= 1) return;
@@ -23,32 +21,65 @@ export default function Stats() {
     return () => clearInterval(interval);
   }, [gallery]);
 
-  const fetchAllData = async () => {
+  const fetchStats = async () => {
     try {
-      const resp = await fetch("/api/sheet-data");
-      if (!resp.ok) throw new Error("Sheet fetch failed");
-      const text = await resp.text();
-      const rows = text.split(/\r?\n/).map((l: string) => l.split(','));
-
-      const targetRow = rows[4];
-
-      if (targetRow && targetRow.length > 0) {
-        setStats(prev => prev.map((s, index) => {
-          const rawValue = targetRow[index + 1]?.replace(/"/g, '').trim();
-          if (!rawValue) return s;
-          return { ...s, value: `${rawValue}${s.suffix || ""}` };
-        }));
-      }
+      const resp = await fetch("/api/public/stats");
+      if (!resp.ok) return;
+      const data = await resp.json();
+      setTechReadiness(data.techReadiness);
+      setInventoryReadiness(data.inventoryReadiness);
+      setConcreteSaleable(data.concreteSaleable);
+      setQualityRate(data.qualityRate);
     } catch (e) {
-      console.error("Sheet error:", e);
+      console.error("Stats fetch error:", e);
+    } finally {
+      setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchAllData();
-    const interval = setInterval(fetchAllData, 30000);
+    fetchStats();
+    const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
   }, []);
+
+  const fmt = (val: number | null, suffix: string) =>
+    loading || val === null ? "..." : `${val}${suffix}`;
+
+  const stats = [
+    {
+      id: 1,
+      icon: Forklift,
+      label: "Техникийн бэлэн байдал",
+      display: fmt(techReadiness, "%"),
+      color: techReadiness !== null && techReadiness >= 80 ? "text-green-400" : techReadiness !== null && techReadiness >= 50 ? "text-amber-400" : "text-red-400",
+      delay: 0.1,
+    },
+    {
+      id: 2,
+      icon: Factory,
+      label: "Үйлдвэрлэлд бэлэн байгаа нөөц",
+      display: fmt(inventoryReadiness, "%"),
+      color: inventoryReadiness !== null && inventoryReadiness >= 80 ? "text-green-400" : inventoryReadiness !== null && inventoryReadiness >= 50 ? "text-amber-400" : "text-red-400",
+      delay: 0.2,
+    },
+    {
+      id: 3,
+      icon: Factory,
+      label: "Борлуулах боломжтой бетон зуурмаг",
+      display: fmt(concreteSaleable, " м³"),
+      color: "text-foreground",
+      delay: 0.3,
+    },
+    {
+      id: 4,
+      icon: ShieldCheck,
+      label: "Бетон зуурмагийн чанарын баталгаа",
+      display: fmt(qualityRate, "%"),
+      color: qualityRate !== null && qualityRate >= 90 ? "text-green-400" : qualityRate !== null && qualityRate >= 70 ? "text-amber-400" : "text-red-400",
+      delay: 0.4,
+    },
+  ];
 
   const nextSlide = () => gallery && setCurrentSlide((prev) => (prev + 1) % gallery.length);
   const prevSlide = () => gallery && setCurrentSlide((prev) => (prev - 1 + gallery.length) % gallery.length);
@@ -71,11 +102,11 @@ export default function Stats() {
 
             <div className="grid grid-cols-2 gap-6 md:gap-8">
               {stats.map((stat) => (
-                <motion.div 
-                  key={stat.id} 
-                  initial={{ opacity: 0, y: 20 }} 
-                  whileInView={{ opacity: 1, y: 0 }} 
-                  viewport={{ once: true }} 
+                <motion.div
+                  key={stat.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
                   transition={{ duration: 0.5, delay: stat.delay }}
                   whileHover={{ y: -5, scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -83,7 +114,11 @@ export default function Stats() {
                 >
                   <stat.icon className="w-6 h-6 text-primary mb-4" />
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{stat.label}</p>
-                  <h3 className="text-2xl md:text-3xl font-black text-foreground leading-tight">{stat.value}</h3>
+                  {loading ? (
+                    <Loader2 className="w-6 h-6 animate-spin text-primary/50" />
+                  ) : (
+                    <h3 className={`text-2xl md:text-3xl font-black leading-tight ${stat.color}`}>{stat.display}</h3>
+                  )}
                 </motion.div>
               ))}
             </div>

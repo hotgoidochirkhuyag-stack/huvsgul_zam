@@ -131,6 +131,49 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(500).json({ error: "Sheet татахад алдаа гарлаа" });
     }
   });
+
+  // ============ ERP-ийн нийтийн статистик (нэвтрэх шаардлагагүй) ============
+  app.get("/api/public/stats", async (_req, res) => {
+    try {
+      // 1. Техникийн бэлэн байдал — isReady=true техникийн хувь
+      const [vehStats] = await db.select({
+        total: sql<number>`count(*)`,
+        ready: sql<number>`count(*) filter (where is_ready = true)`,
+      }).from(schema.vehicles);
+      const techReadiness = Number(vehStats.total) > 0
+        ? Math.round((Number(vehStats.ready) / Number(vehStats.total)) * 100)
+        : 0;
+
+      // 2. Үйлдвэрлэлд бэлэн байгаа нөөц — current_stock >= min_stock байгаа зүйлсийн хувь
+      const [whStats] = await db.select({
+        total: sql<number>`count(*) filter (where min_stock > 0)`,
+        ready: sql<number>`count(*) filter (where min_stock > 0 and current_stock >= min_stock)`,
+      }).from(schema.warehouseItems);
+      const inventoryReadiness = Number(whStats.total) > 0
+        ? Math.round((Number(whStats.ready) / Number(whStats.total)) * 100)
+        : 0;
+
+      // 3. Борлуулах боломжтой бетон зуурмаг — plant='concrete' нийт нөөц (м³)
+      const [concStats] = await db.select({
+        totalStock: sql<number>`coalesce(sum(current_stock), 0)`,
+      }).from(schema.warehouseItems).where(eq(schema.warehouseItems.plant, "concrete"));
+      const concreteSaleable = Math.round(Number(concStats.totalStock));
+
+      // 4. Бетон зуурмагийн чанарын баталгаа — pass/fail дүнгийн pass хувь
+      const [labStats] = await db.select({
+        total: sql<number>`count(*) filter (where status in ('pass','fail'))`,
+        passed: sql<number>`count(*) filter (where status = 'pass')`,
+      }).from(schema.labResults);
+      const qualityRate = Number(labStats.total) > 0
+        ? Math.round((Number(labStats.passed) / Number(labStats.total)) * 100)
+        : 0;
+
+      res.json({ techReadiness, inventoryReadiness, concreteSaleable, qualityRate });
+    } catch (e) {
+      console.error("Public stats error:", e);
+      res.status(500).json({ error: "Статистик татахад алдаа" });
+    }
+  });
   app.get("/api/content", async (_req, res) => {
     res.json(await db.select().from(schema.content));
   });
