@@ -285,10 +285,25 @@ export const equipmentLogs = pgTable("equipment_logs", {
   date: text("date").notNull(),
   hoursWorked: real("hours_worked").default(0),     // Ажилсан цаг
   fuelUsed: real("fuel_used").default(0),           // Шатахуун литр
+  fuelType: text("fuel_type").default("diesel"),    // diesel | petrol
   workFront: text("work_front"),                    // Хаана ажилсан
   engineHours: real("engine_hours"),                // Нийт хөдөлгүүрийн цаг
   notes: text("notes"),
   recordedBy: text("recorded_by"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// ===================== ШАТАХУУН ТӨСӨВ =====================
+// Компани шатахуун физик нөөцлөхгүй — мөнгөн төсвөөр тооцоолно
+export const fuelBudgets = pgTable("fuel_budgets", {
+  id: serial("id").primaryKey(),
+  year: integer("year").notNull(),
+  month: integer("month").notNull(),                  // 1–12
+  budgetAmount: real("budget_amount").notNull(),       // Батлагдсан төсөв (₮)
+  dieselPrice: real("diesel_price").notNull(),         // Дизелийн үнэ (₮/л)
+  petrolPrice: real("petrol_price").notNull(),         // Бензины үнэ (₮/л)
+  approvedBy: text("approved_by"),
+  notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -335,6 +350,7 @@ export const insertLabResultSchema = createInsertSchema(labResults).omit({ id: t
 export const insertWorkFrontSchema = createInsertSchema(workFronts).omit({ id: true, createdAt: true });
 export const insertEquipmentLogSchema = createInsertSchema(equipmentLogs).omit({ id: true, createdAt: true });
 export const insertHiddenWorkActSchema = createInsertSchema(hiddenWorkActs).omit({ id: true, createdAt: true });
+export const insertFuelBudgetSchema = createInsertSchema(fuelBudgets).omit({ id: true, createdAt: true });
 
 // ===================== TYPES =====================
 
@@ -387,6 +403,8 @@ export type EquipmentLog = typeof equipmentLogs.$inferSelect;
 export type InsertEquipmentLog = z.infer<typeof insertEquipmentLogSchema>;
 export type HiddenWorkAct = typeof hiddenWorkActs.$inferSelect;
 export type InsertHiddenWorkAct = z.infer<typeof insertHiddenWorkActSchema>;
+export type FuelBudget = typeof fuelBudgets.$inferSelect;
+export type InsertFuelBudget = z.infer<typeof insertFuelBudgetSchema>;
 
 // ============ NORM CONFIGS — засварлах боломжтой БНбД норм ============
 export const normConfigs = pgTable("norm_configs", {

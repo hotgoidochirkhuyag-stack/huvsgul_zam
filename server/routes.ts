@@ -4,7 +4,7 @@ import express from "express";
 import { storage } from "./storage.js";
 import { db } from "./db.js";
 import * as schema from "../shared/schema.js";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { calculateEmployeeKpi, calculateTeamKpi, seedDefaultKpiConfigs } from "./kpiEngine.js";
 import { syncNormsFromOrder } from "./normAgent.js";
@@ -822,6 +822,77 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       await db.delete(schema.equipmentLogs).where(eq(schema.equipmentLogs.id, parseInt(req.params.id)));
       res.json({ success: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== ШАТАХУУН ТӨСӨВ =====================
+
+  // Бүх төсвийн жагсаалт
+  app.get("/api/fuel-budgets", requireAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(schema.fuelBudgets)
+        .orderBy(desc(schema.fuelBudgets.year), desc(schema.fuelBudgets.month));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Одоогийн сарын төсөв
+  app.get("/api/fuel-budgets/current", requireAdmin, async (req, res) => {
+    try {
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = now.getMonth() + 1;
+      const rows = await db.select().from(schema.fuelBudgets)
+        .where(and(eq(schema.fuelBudgets.year, year), eq(schema.fuelBudgets.month, month)))
+        .limit(1);
+      res.json(rows[0] ?? null);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Сарын зарцуулалтын дүн (equipment_logs-оос)
+  app.get("/api/fuel-budgets/summary", requireAdmin, async (req, res) => {
+    try {
+      const { year, month } = req.query;
+      const y = parseInt(year as string) || new Date().getFullYear();
+      const m = parseInt(month as string) || (new Date().getMonth() + 1);
+      const pad = (n: number) => n.toString().padStart(2, "0");
+      const prefix = `${y}-${pad(m)}`;
+      const logs = await db.select().from(schema.equipmentLogs)
+        .where(sql`${schema.equipmentLogs.date} LIKE ${prefix + "%"}`);
+      const dieselLiters = logs.filter(l => (l.fuelType ?? "diesel") === "diesel")
+        .reduce((s, l) => s + (l.fuelUsed ?? 0), 0);
+      const petrolLiters = logs.filter(l => l.fuelType === "petrol")
+        .reduce((s, l) => s + (l.fuelUsed ?? 0), 0);
+      res.json({ dieselLiters, petrolLiters, totalLogs: logs.length });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Шинэ төсөв батлах
+  app.post("/api/fuel-budgets", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertFuelBudgetSchema.parse(req.body);
+      // Тухайн сарын өмнөх төсвийг устгана
+      await db.delete(schema.fuelBudgets)
+        .where(and(eq(schema.fuelBudgets.year, data.year), eq(schema.fuelBudgets.month, data.month)));
+      const [row] = await db.insert(schema.fuelBudgets).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Үнийг шинэчлэх (PATCH)
+  app.patch("/api/fuel-budgets/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { dieselPrice, petrolPrice, budgetAmount, approvedBy, notes } = req.body;
+      const updates: any = {};
+      if (dieselPrice !== undefined) updates.dieselPrice = dieselPrice;
+      if (petrolPrice !== undefined) updates.petrolPrice = petrolPrice;
+      if (budgetAmount !== undefined) updates.budgetAmount = budgetAmount;
+      if (approvedBy !== undefined) updates.approvedBy = approvedBy;
+      if (notes !== undefined) updates.notes = notes;
+      const [row] = await db.update(schema.fuelBudgets).set(updates)
+        .where(eq(schema.fuelBudgets.id, id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
   // ===================== ДАЛД АЖЛЫН АКТ =====================
