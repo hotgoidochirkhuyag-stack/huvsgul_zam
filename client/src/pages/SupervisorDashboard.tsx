@@ -4,7 +4,7 @@ import {
   ClipboardList, Plus, Trash2, LogOut, RefreshCw,
   MapPin, Wrench, Users, FileText, ChevronDown,
   CheckCircle2, Clock, AlertCircle, Calendar,
-  Navigation, ScrollText, Edit2, Save, X,
+  Navigation, ScrollText, Edit2, Save, X, Check,
   Camera, Image as ImageIcon, Upload, ChevronUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -254,6 +254,7 @@ export default function SupervisorDashboard() {
   const emptyAct = { actNumber: "", date: TODAY, location: "", workType: "", description: "", inspector: "", contractor: "", status: "pending", notes: "" };
   const [showActForm, setShowActForm] = useState(false);
   const [actForm, setActForm] = useState(emptyAct);
+  const [newActId, setNewActId] = useState<number | null>(null);
 
   const { data: hiddenActs = [], refetch: refetchActs } = useQuery<any[]>({
     queryKey: ["/api/hidden-work-acts"],
@@ -263,7 +264,12 @@ export default function SupervisorDashboard() {
 
   const createAct = useMutation({
     mutationFn: (data: any) => fetch("/api/hidden-work-acts", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/hidden-work-acts"] }); setShowActForm(false); setActForm(emptyAct); toast({ title: "Далд ажлын акт бүртгэгдлээ ✓" }); },
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["/api/hidden-work-acts"] });
+      setActForm(emptyAct);
+      setNewActId(data.id);
+      toast({ title: "Далд ажлын акт бүртгэгдлээ ✓" });
+    },
     onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
 
@@ -692,39 +698,78 @@ export default function SupervisorDashboard() {
             </div>
 
             {showActForm && (
-              <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-5 space-y-4">
-                <h3 className="font-semibold text-purple-400 flex items-center gap-2"><ScrollText className="w-4 h-4" /> Шинэ далд ажлын акт</h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  {[
-                    { key: "actNumber",  label: "Актын дугаар",      type: "text" },
-                    { key: "date",       label: "Огноо",              type: "date" },
-                    { key: "location",   label: "Км пикет",           type: "text" },
-                    { key: "workType",   label: "Ажлын төрөл",        type: "text" },
-                    { key: "inspector",  label: "Хяналт тавигч",      type: "text" },
-                    { key: "contractor", label: "Гүйцэтгэгч",         type: "text" },
-                  ].map(f => (
-                    <div key={f.key} className="space-y-1">
-                      <label className="text-xs text-white/40">{f.label}</label>
-                      <input type={f.type} value={(actForm as any)[f.key]}
-                        onChange={e => setActForm(p => ({ ...p, [f.key]: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-500 transition-colors" />
+              <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl overflow-hidden">
+                {/* ── Маягт (акт хадгалагдаагүй үед) ── */}
+                {!newActId ? (
+                  <div className="p-5 space-y-4">
+                    <h3 className="font-semibold text-purple-400 flex items-center gap-2">
+                      <ScrollText className="w-4 h-4" /> Шинэ далд ажлын акт
+                    </h3>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                      {[
+                        { key: "actNumber",  label: "Актын дугаар",      type: "text" },
+                        { key: "date",       label: "Огноо",              type: "date" },
+                        { key: "location",   label: "Км пикет",           type: "text" },
+                        { key: "workType",   label: "Ажлын төрөл",        type: "text" },
+                        { key: "inspector",  label: "Хяналт тавигч",      type: "text" },
+                        { key: "contractor", label: "Гүйцэтгэгч",         type: "text" },
+                      ].map(f => (
+                        <div key={f.key} className="space-y-1">
+                          <label className="text-xs text-white/40">{f.label}</label>
+                          <input type={f.type} value={(actForm as any)[f.key]}
+                            onChange={e => setActForm(p => ({ ...p, [f.key]: e.target.value }))}
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-500 transition-colors" />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-white/40">Тайлбар (гүйцэтгэсэн ажлын мэдээлэл)</label>
-                  <textarea value={actForm.description} onChange={e => setActForm(p => ({ ...p, description: e.target.value }))}
-                    rows={3} placeholder="Хийгдсэн ажлын мэдээлэл..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none" />
-                </div>
-                <div className="flex gap-2">
-                  <button data-testid="btn-save-act" onClick={() => createAct.mutate(actForm)}
-                    disabled={createAct.isPending || !actForm.actNumber || !actForm.location}
-                    className="px-5 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
-                    {createAct.isPending ? "..." : "Бүртгэх"}
-                  </button>
-                  <button onClick={() => setShowActForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
-                </div>
+                    <div className="space-y-1">
+                      <label className="text-xs text-white/40">Тайлбар (гүйцэтгэсэн ажлын мэдээлэл)</label>
+                      <textarea value={actForm.description} onChange={e => setActForm(p => ({ ...p, description: e.target.value }))}
+                        rows={3} placeholder="Хийгдсэн ажлын мэдээлэл..."
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none" />
+                    </div>
+                    <div className="flex gap-2">
+                      <button data-testid="btn-save-act" onClick={() => createAct.mutate(actForm)}
+                        disabled={createAct.isPending || !actForm.actNumber || !actForm.location}
+                        className="px-5 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
+                        {createAct.isPending ? "..." : "Бүртгэх"}
+                      </button>
+                      <button onClick={() => setShowActForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
+                    </div>
+                  </div>
+                ) : (
+                  /* ── Акт хадгалагдсаны дараа: зураг upload хэсэг ── */
+                  <div className="p-5 space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
+                          <Check className="w-4 h-4 text-green-400" />
+                        </div>
+                        <div>
+                          <p className="text-sm font-bold text-green-400">Акт амжилттай бүртгэгдлээ</p>
+                          <p className="text-xs text-white/40">Доор баримт зурагнуудаа нэмж болно</p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => { setNewActId(null); setShowActForm(false); }}
+                        className="px-4 py-2 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-xl text-sm font-medium transition-all"
+                      >
+                        Дуусгах
+                      </button>
+                    </div>
+                    <div className="border-t border-white/10 pt-4">
+                      <p className="text-xs text-amber-400 font-semibold mb-3 flex items-center gap-1.5">
+                        <Camera className="w-3.5 h-3.5" /> Баримт зураг нэмэх
+                      </p>
+                      <PhotoSection
+                        entityType="hidden_act"
+                        entityId={newActId}
+                        externalOpen={true}
+                        onExternalToggle={() => {}}
+                      />
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
