@@ -32,7 +32,7 @@ export default function EngineerDashboard() {
       <div className="grid grid-cols-1 gap-6">
         <div className="bg-slate-900/50 p-6 rounded-2xl border border-white/10">
           <h2 className="text-sm text-slate-400 mb-4 uppercase tracking-wider">Техникийн шууд хяналт</h2>
-          <FactoryControl mode="ENGINEER_WORKER" />
+          <FactoryControl mode="CONFERENCE_HALL" />
         </div>
       </div>
     </div>
