@@ -30,7 +30,7 @@ const ROW1: Card[] = [
 
 const ROW2: Card[] = [
   { name: "Төлөвлөлт / Гүйцэтгэл",  desc: "Ажлын фронт, далд акт, даалгавар", path: "/admin/SUPERVISOR", icon: ClipboardList,   color: "blue"   },
-  { name: "Админ самбар",            desc: "ADMIN систем — бүх хяналт",         path: "/admin/ADMIN",      icon: LayoutDashboard, color: "slate"   },
+  { name: "ТУЗ-ын самбар",           desc: "Удирдлагын зөвлөл — хяналтын самбар", path: "/admin/ADMIN",    icon: LayoutDashboard, color: "slate"   },
   { name: "Техникийн дэмжлэг",       desc: "Инженер, үйлдвэрийн хяналт",       path: "/admin/ENGINEER",   icon: Wrench,          color: "red"     },
   { name: "Төслийн хөгжүүлэлт",      desc: "Бүртгэл, хүсэлт, KPI дүн",        path: "/admin/PROJECT",    icon: BarChart3,       color: "teal"    },
 ];
