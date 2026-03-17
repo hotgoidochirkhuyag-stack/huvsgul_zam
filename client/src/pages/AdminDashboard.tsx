@@ -11,7 +11,7 @@ import {
   Sparkles, FileText, ChevronRight, Video,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
-import { FactoryControl } from "@/components/FactoryControl";
+import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
 
 type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting";
 
@@ -646,44 +646,74 @@ function AiAgentTab() {
 
 /* ══════════════════════ 7. ОНЛАЙН ХУРАЛ ══════════════════════ */
 function MeetingTab() {
-  const [mode, setMode] = useState<"DIRECTOR_ENGINEER" | "ENGINEER_WORKER" | "VENDOR_SUPPORT">("DIRECTOR_ENGINEER");
+  const [mode, setMode] = useState<MeetingMode>("CONFERENCE_HALL");
 
-  const MODES = [
-    { key: "DIRECTOR_ENGINEER" as const, label: "Захирал — Инженер",  desc: "Удирдлага ↔ Талбайн инженер" },
-    { key: "ENGINEER_WORKER"  as const, label: "Инженер — Ажилчид",  desc: "Инженер ↔ Талбайн ажилчид" },
-    { key: "VENDOR_SUPPORT"   as const, label: "Гадаад дэмжлэг",     desc: "Нийлүүлэгч ↔ Техникийн зөвлөх" },
+  const MODES: { key: MeetingMode; label: string; sub: string; icon: any; bg: string; border: string; active: string }[] = [
+    {
+      key:    "CONFERENCE_HALL",
+      label:  "Хурлын заал",
+      sub:    "Инженер, оператор, механик, лаборатори болон бусад ажилтнуудтай хамтарсан хурал",
+      icon:   Video,
+      bg:     "bg-blue-600/20",
+      border: "border-blue-500/20",
+      active: "bg-blue-600 border-blue-500",
+    },
+    {
+      key:    "BOARD_DIRECTOR",
+      label:  "ТУЗ / Захирал",
+      sub:    "ТУЗ-ын гишүүд, Захирал болон удирдлагын зөвлөлийн хаалттай хурал",
+      icon:   Video,
+      bg:     "bg-amber-600/20",
+      border: "border-amber-500/20",
+      active: "bg-amber-600 border-amber-500",
+    },
   ];
 
   return (
     <div className="space-y-5">
-      <div className="bg-slate-900/60 rounded-2xl border border-white/10 p-5">
-        <div className="flex items-center gap-3 mb-5">
-          <div className="p-2.5 bg-indigo-600/20 rounded-xl">
-            <Video className="w-5 h-5 text-indigo-400" />
-          </div>
-          <div>
-            <h2 className="font-bold text-white">Онлайн хурал / Видео холболт</h2>
-            <p className="text-slate-500 text-xs">Талбай, үйлдвэр, удирдлагын хооронд шууд холболт</p>
-          </div>
+      <div className="flex items-center gap-3 mb-1">
+        <div className="p-2.5 bg-indigo-600/20 rounded-xl">
+          <Video className="w-5 h-5 text-indigo-400" />
         </div>
+        <div>
+          <h2 className="font-bold text-white">Онлайн хурал / Видео холболт</h2>
+          <p className="text-slate-500 text-xs">Хурлын горим сонгоод хурал эхлүүлнэ үү</p>
+        </div>
+      </div>
 
-        <div className="flex flex-wrap gap-2 mb-5">
-          {MODES.map(m => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {MODES.map(m => {
+          const Icon = m.icon;
+          const isActive = mode === m.key;
+          return (
             <button
               key={m.key}
               onClick={() => setMode(m.key)}
-              className={`px-4 py-2.5 rounded-xl border text-sm transition-all ${
-                mode === m.key
-                  ? "bg-indigo-600 border-indigo-500 text-white font-bold"
-                  : "bg-slate-800 border-white/10 text-slate-400 hover:border-white/30 hover:text-white"
+              className={`p-5 rounded-2xl border text-left transition-all hover:scale-[1.01] ${
+                isActive ? `${m.active} text-white` : `${m.bg} ${m.border} hover:border-white/20`
               }`}
             >
-              <span className="font-semibold">{m.label}</span>
-              <span className="text-xs opacity-60 ml-2 hidden sm:inline">{m.desc}</span>
+              <div className="flex items-start gap-3">
+                <div className={`p-2.5 rounded-xl ${isActive ? "bg-white/20" : m.bg}`}>
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-black text-white text-base mb-1">{m.label}</p>
+                  <p className={`text-xs leading-relaxed ${isActive ? "text-white/70" : "text-slate-500"}`}>{m.sub}</p>
+                </div>
+              </div>
+              {isActive && (
+                <div className="mt-3 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                  <span className="text-xs text-white/70 font-semibold">Сонгогдсон</span>
+                </div>
+              )}
             </button>
-          ))}
-        </div>
+          );
+        })}
+      </div>
 
+      <div className="bg-slate-900/60 rounded-2xl border border-white/10 p-5">
         <FactoryControl mode={mode} />
       </div>
     </div>
