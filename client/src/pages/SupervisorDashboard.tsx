@@ -191,6 +191,7 @@ export default function SupervisorDashboard() {
 
   // Ажиллах хэсгийн зургийн самбар (гадаас удирддаг)
   const [openPhotoFrontId, setOpenPhotoFrontId] = useState<number | null>(null);
+  const [openPhotoActId, setOpenPhotoActId] = useState<number | null>(null);
 
   const { data: employees = [] } = useQuery<any[]>({
     queryKey: ["/api/erp/employees"],
@@ -254,7 +255,6 @@ export default function SupervisorDashboard() {
   const emptyAct = { actNumber: "", date: TODAY, location: "", workType: "", description: "", inspector: "", contractor: "", status: "pending", notes: "" };
   const [showActForm, setShowActForm] = useState(false);
   const [actForm, setActForm] = useState(emptyAct);
-  const [newActId, setNewActId] = useState<number | null>(null);
 
   const { data: hiddenActs = [], refetch: refetchActs } = useQuery<any[]>({
     queryKey: ["/api/hidden-work-acts"],
@@ -267,8 +267,10 @@ export default function SupervisorDashboard() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ["/api/hidden-work-acts"] });
       setActForm(emptyAct);
-      setNewActId(data.id);
-      toast({ title: "Далд ажлын акт бүртгэгдлээ ✓" });
+      setShowActForm(false);
+      // Шинэ актын зургийн самбарыг автоматаар нэмэх
+      setOpenPhotoActId(data.id);
+      toast({ title: "✓ Акт бүртгэгдлээ — зурагнуудаа доор нэмнэ үү" });
     },
     onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
@@ -698,78 +700,44 @@ export default function SupervisorDashboard() {
             </div>
 
             {showActForm && (
-              <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl overflow-hidden">
-                {/* ── Маягт (акт хадгалагдаагүй үед) ── */}
-                {!newActId ? (
-                  <div className="p-5 space-y-4">
-                    <h3 className="font-semibold text-purple-400 flex items-center gap-2">
-                      <ScrollText className="w-4 h-4" /> Шинэ далд ажлын акт
-                    </h3>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                      {[
-                        { key: "actNumber",  label: "Актын дугаар",      type: "text" },
-                        { key: "date",       label: "Огноо",              type: "date" },
-                        { key: "location",   label: "Км пикет",           type: "text" },
-                        { key: "workType",   label: "Ажлын төрөл",        type: "text" },
-                        { key: "inspector",  label: "Хяналт тавигч",      type: "text" },
-                        { key: "contractor", label: "Гүйцэтгэгч",         type: "text" },
-                      ].map(f => (
-                        <div key={f.key} className="space-y-1">
-                          <label className="text-xs text-white/40">{f.label}</label>
-                          <input type={f.type} value={(actForm as any)[f.key]}
-                            onChange={e => setActForm(p => ({ ...p, [f.key]: e.target.value }))}
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-500 transition-colors" />
-                        </div>
-                      ))}
+              <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-5 space-y-4">
+                <h3 className="font-semibold text-purple-400 flex items-center gap-2">
+                  <ScrollText className="w-4 h-4" /> Шинэ далд ажлын акт
+                </h3>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {[
+                    { key: "actNumber",  label: "Актын дугаар *",    type: "text" },
+                    { key: "date",       label: "Огноо",              type: "date" },
+                    { key: "location",   label: "Байрлал (км пикет) *", type: "text" },
+                    { key: "workType",   label: "Ажлын төрөл",        type: "text" },
+                    { key: "inspector",  label: "Хяналт тавигч",      type: "text" },
+                    { key: "contractor", label: "Гүйцэтгэгч",         type: "text" },
+                  ].map(f => (
+                    <div key={f.key} className="space-y-1">
+                      <label className="text-xs text-white/40">{f.label}</label>
+                      <input type={f.type} value={(actForm as any)[f.key]}
+                        onChange={e => setActForm(p => ({ ...p, [f.key]: e.target.value }))}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-purple-500 transition-colors" />
                     </div>
-                    <div className="space-y-1">
-                      <label className="text-xs text-white/40">Тайлбар (гүйцэтгэсэн ажлын мэдээлэл)</label>
-                      <textarea value={actForm.description} onChange={e => setActForm(p => ({ ...p, description: e.target.value }))}
-                        rows={3} placeholder="Хийгдсэн ажлын мэдээлэл..."
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none" />
-                    </div>
-                    <div className="flex gap-2">
-                      <button data-testid="btn-save-act" onClick={() => createAct.mutate(actForm)}
-                        disabled={createAct.isPending || !actForm.actNumber || !actForm.location}
-                        className="px-5 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
-                        {createAct.isPending ? "..." : "Бүртгэх"}
-                      </button>
-                      <button onClick={() => setShowActForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
-                    </div>
-                  </div>
-                ) : (
-                  /* ── Акт хадгалагдсаны дараа: зураг upload хэсэг ── */
-                  <div className="p-5 space-y-4">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-full bg-green-500/20 flex items-center justify-center">
-                          <Check className="w-4 h-4 text-green-400" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-green-400">Акт амжилттай бүртгэгдлээ</p>
-                          <p className="text-xs text-white/40">Доор баримт зурагнуудаа нэмж болно</p>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => { setNewActId(null); setShowActForm(false); }}
-                        className="px-4 py-2 bg-purple-600/30 hover:bg-purple-600/50 text-purple-300 rounded-xl text-sm font-medium transition-all"
-                      >
-                        Дуусгах
-                      </button>
-                    </div>
-                    <div className="border-t border-white/10 pt-4">
-                      <p className="text-xs text-amber-400 font-semibold mb-3 flex items-center gap-1.5">
-                        <Camera className="w-3.5 h-3.5" /> Баримт зураг нэмэх
-                      </p>
-                      <PhotoSection
-                        entityType="hidden_act"
-                        entityId={newActId}
-                        externalOpen={true}
-                        onExternalToggle={() => {}}
-                      />
-                    </div>
-                  </div>
-                )}
+                  ))}
+                </div>
+                <div className="space-y-1">
+                  <label className="text-xs text-white/40">Тайлбар</label>
+                  <textarea value={actForm.description} onChange={e => setActForm(p => ({ ...p, description: e.target.value }))}
+                    rows={2} placeholder="Гүйцэтгэсэн ажлын тайлбар..."
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm resize-none focus:outline-none" />
+                </div>
+                <p className="text-xs text-amber-400/70 flex items-center gap-1.5">
+                  <Camera className="w-3 h-3" /> Актыг хадгалсны дараа зургаа нэмэх боломжтой
+                </p>
+                <div className="flex gap-2">
+                  <button data-testid="btn-save-act" onClick={() => createAct.mutate(actForm)}
+                    disabled={createAct.isPending || !actForm.actNumber || !actForm.location}
+                    className="px-5 py-2 bg-purple-600 hover:bg-purple-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
+                    {createAct.isPending ? "..." : "Бүртгэх"}
+                  </button>
+                  <button onClick={() => setShowActForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
+                </div>
               </div>
             )}
 
@@ -782,45 +750,67 @@ export default function SupervisorDashboard() {
               <div className="space-y-3">
                 {hiddenActs.map((a: any) => {
                   const st = ACT_STATUS[a.status] ?? ACT_STATUS.pending;
+                  const photoOpen = openPhotoActId === a.id;
                   return (
                     <div key={a.id} data-testid={`act-${a.id}`}
-                      className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 hover:border-purple-500/30 transition-all">
-                      <div className="flex flex-wrap items-start gap-3">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className="font-bold text-white font-mono">#{a.actNumber}</span>
-                            <span className={`text-xs px-2 py-0.5 rounded-lg border font-medium ${st.color}`}>{st.label}</span>
+                      className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden hover:border-purple-500/30 transition-all">
+                      {/* Карт header */}
+                      <div className="p-4">
+                        <div className="flex flex-wrap items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-2 mb-1">
+                              <span className="font-bold text-white font-mono">#{a.actNumber}</span>
+                              <span className={`text-xs px-2 py-0.5 rounded-lg border font-medium ${st.color}`}>{st.label}</span>
+                            </div>
+                            <div className="flex flex-wrap gap-3 text-xs text-white/40">
+                              <span>📍 {a.location}</span>
+                              {a.workType && <span>🏗 {a.workType}</span>}
+                              <span>📅 {a.date}</span>
+                              {a.inspector && <span>👁 {a.inspector}</span>}
+                              {a.contractor && <span>🤝 {a.contractor}</span>}
+                            </div>
+                            {a.description && <p className="text-xs text-white/40 mt-1 italic">{a.description}</p>}
                           </div>
-                          <div className="flex flex-wrap gap-3 text-xs text-white/40 mb-1">
-                            <span>📍 {a.location}</span>
-                            <span>🏗 {a.workType}</span>
-                            <span>📅 {a.date}</span>
-                            {a.inspector && <span>👁 {a.inspector}</span>}
-                            {a.contractor && <span>🤝 {a.contractor}</span>}
+                          <div className="flex items-center gap-2 shrink-0">
+                            {/* Зургийн товч — тод харагдана */}
+                            <button
+                              data-testid={`btn-photo-act-${a.id}`}
+                              onClick={() => setOpenPhotoActId(photoOpen ? null : a.id)}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all border ${photoOpen ? "bg-amber-500/20 text-amber-300 border-amber-500/40" : "bg-amber-600/15 text-amber-400 border-amber-500/30 hover:bg-amber-500/25"}`}
+                            >
+                              <Camera className="w-3.5 h-3.5" />
+                              <span>📷 Зураг</span>
+                            </button>
+                            {a.status === "pending" && (
+                              <>
+                                <button onClick={() => updateActStatus.mutate({ id: a.id, status: "approved" })}
+                                  className="px-2.5 py-1.5 bg-green-700/60 hover:bg-green-600 rounded-lg text-xs font-medium transition-all">
+                                  ✓
+                                </button>
+                                <button onClick={() => updateActStatus.mutate({ id: a.id, status: "rejected" })}
+                                  className="px-2.5 py-1.5 bg-red-700/60 hover:bg-red-600 rounded-lg text-xs font-medium transition-all">
+                                  ✗
+                                </button>
+                              </>
+                            )}
+                            <button onClick={() => deleteAct.mutate(a.id)}
+                              className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
                           </div>
-                          {a.description && <p className="text-xs text-white/50 mt-1">{a.description}</p>}
-                        </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {a.status === "pending" && (
-                            <>
-                              <button onClick={() => updateActStatus.mutate({ id: a.id, status: "approved" })}
-                                className="px-2.5 py-1 bg-green-700/60 hover:bg-green-600 rounded-lg text-xs font-medium transition-all">
-                                ✓ Зөвшөөрөх
-                              </button>
-                              <button onClick={() => updateActStatus.mutate({ id: a.id, status: "rejected" })}
-                                className="px-2.5 py-1 bg-red-700/60 hover:bg-red-600 rounded-lg text-xs font-medium transition-all">
-                                ✗ Буцаах
-                              </button>
-                            </>
-                          )}
-                          <button onClick={() => deleteAct.mutate(a.id)}
-                            className="p-1.5 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
                         </div>
                       </div>
-                      {/* Баримт зураг — далд ажлын актад хавсаргах */}
-                      <PhotoSection entityType="hidden_act" entityId={a.id} />
+                      {/* Зургийн хэсэг — "📷 Зураг" товч дарсан үед нээгдэнэ */}
+                      {photoOpen && (
+                        <div className="border-t border-amber-500/20 px-4 pb-4 pt-3">
+                          <PhotoSection
+                            entityType="hidden_act"
+                            entityId={a.id}
+                            externalOpen={true}
+                            onExternalToggle={() => setOpenPhotoActId(null)}
+                          />
+                        </div>
+                      )}
                     </div>
                   );
                 })}
