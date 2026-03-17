@@ -305,6 +305,15 @@ export default function Pricelist() {
             className="bg-background p-8 md:p-12 rounded-sm border border-border shadow-2xl shadow-black/50"
           >
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
+              {/* Тайлбар */}
+              <div className="flex items-start gap-3 bg-primary/8 border border-primary/20 rounded-sm px-4 py-3">
+                <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  <span className="text-foreground font-semibold">Материал</span> болон <span className="text-foreground font-semibold">тоо хэмжээ</span>-г оруулаад зүүн талын{" "}
+                  <span className="text-primary font-bold">"AI-ээр тооцоолох"</span> товч дарвал зах зээл дээрх үнийн судалгаа харагдана.
+                </p>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Материал сонгох *</label>
