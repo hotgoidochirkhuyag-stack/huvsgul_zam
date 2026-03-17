@@ -2,7 +2,8 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, Plus, Trash2, QrCode, LogOut, RefreshCw,
-  Clock, ShieldCheck, Download, Search, Building2, HardHat, Factory, ChevronDown
+  Clock, ShieldCheck, Download, Search, Building2, HardHat, Factory, ChevronDown,
+  Pencil, X, Check,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -37,6 +38,8 @@ export default function HRDashboard() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [newEmp, setNewEmp] = useState({ name: "", department: "field", role: "", salaryBase: "", phone: "", registerNumber: "" });
   const [regError, setRegError] = useState("");
+  const [editEmp, setEditEmp] = useState<any>(null);
+  const [editRegError, setEditRegError] = useState("");
 
   // Монгол улсын регистрийн дугаарын стандарт: 2 кирилл үсэг + 8 цифр (жишээ: АА12345678)
   const MN_REG = /^[А-ЯӨҮЁ]{2}\d{8}$/;
@@ -84,6 +87,28 @@ export default function HRDashboard() {
       qc.invalidateQueries({ queryKey: ["/api/erp/employees"] });
       toast({ title: "Ажилтан устгагдлаа" });
     },
+  });
+
+  const updateEmployee = useMutation({
+    mutationFn: () => fetch(`/api/erp/employees/${editEmp.id}`, {
+      method: "PATCH",
+      headers: getAdminHeaders(),
+      body: JSON.stringify({
+        name:           editEmp.name,
+        department:     editEmp.department,
+        role:           editEmp.role,
+        salaryBase:     parseFloat(editEmp.salaryBase) || 0,
+        phone:          editEmp.phone || null,
+        registerNumber: editEmp.registerNumber ? editEmp.registerNumber.toUpperCase() : null,
+      }),
+    }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/erp/employees"] });
+      setEditEmp(null);
+      setEditRegError("");
+      toast({ title: "Мэдээлэл шинэчлэгдлээ" });
+    },
+    onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
 
   // Хайлт + шүүлт
@@ -291,8 +316,102 @@ export default function HRDashboard() {
                   <tbody>
                     {filtered.map((e: any, i: number) => {
                       const dept = DEPT_LABEL[e.department] ?? { label: e.department, cls: "bg-slate-500/10 text-slate-400" };
+                      const isEditing = editEmp?.id === e.id;
+
+                      if (isEditing) {
+                        return (
+                          <tr key={e.id} className="border-t border-purple-500/30 bg-purple-600/5">
+                            <td className="p-2.5 text-slate-500 text-sm">{i + 1}</td>
+                            {/* Нэр */}
+                            <td className="p-2">
+                              <input
+                                value={editEmp.name}
+                                onChange={ev => setEditEmp((f: any) => ({ ...f, name: ev.target.value }))}
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-purple-500/50"
+                              />
+                            </td>
+                            {/* Хэлтэс */}
+                            <td className="p-2">
+                              <select
+                                value={editEmp.department}
+                                onChange={ev => setEditEmp((f: any) => ({ ...f, department: ev.target.value }))}
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-2 py-1.5 text-white text-sm outline-none"
+                              >
+                                {DEPT_OPTIONS.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
+                              </select>
+                            </td>
+                            {/* Албан тушаал */}
+                            <td className="p-2">
+                              <input
+                                value={editEmp.role}
+                                onChange={ev => setEditEmp((f: any) => ({ ...f, role: ev.target.value }))}
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-purple-500/50"
+                              />
+                            </td>
+                            {/* Регистр */}
+                            <td className="p-2">
+                              <div className="flex flex-col gap-0.5">
+                                <input
+                                  value={editEmp.registerNumber ?? ""}
+                                  onChange={ev => {
+                                    const raw = ev.target.value.toUpperCase().replace(/[^А-ЯӨҮЁ\d]/g, "").slice(0, 10);
+                                    setEditEmp((f: any) => ({ ...f, registerNumber: raw }));
+                                    setEditRegError(validateReg(raw));
+                                  }}
+                                  placeholder="АА12345678"
+                                  maxLength={10}
+                                  className={`w-full bg-slate-800 border rounded-lg px-3 py-1.5 text-white text-sm font-mono outline-none ${editRegError ? "border-red-500/50" : "border-white/10 focus:border-purple-500/50"}`}
+                                />
+                                {editRegError && <p className="text-red-400 text-[10px]">{editRegError}</p>}
+                              </div>
+                            </td>
+                            {/* Утас */}
+                            <td className="p-2">
+                              <input
+                                value={editEmp.phone ?? ""}
+                                onChange={ev => {
+                                  const raw = ev.target.value.replace(/[^\d+\-\s]/g, "").slice(0, 15);
+                                  setEditEmp((f: any) => ({ ...f, phone: raw }));
+                                }}
+                                placeholder="99112233"
+                                type="tel"
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-purple-500/50"
+                              />
+                            </td>
+                            {/* Цалин */}
+                            <td className="p-2">
+                              <input
+                                value={editEmp.salaryBase ?? ""}
+                                onChange={ev => setEditEmp((f: any) => ({ ...f, salaryBase: ev.target.value }))}
+                                type="number"
+                                className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-purple-500/50"
+                              />
+                            </td>
+                            {/* Хадгалах / Цуцлах */}
+                            <td className="p-2">
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  onClick={() => updateEmployee.mutate()}
+                                  disabled={!editEmp.name || !editEmp.role || !!editRegError || updateEmployee.isPending}
+                                  className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-500 disabled:opacity-40 text-white rounded-lg text-xs font-bold transition-all"
+                                >
+                                  {updateEmployee.isPending ? <RefreshCw className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
+                                  Хадгалах
+                                </button>
+                                <button
+                                  onClick={() => { setEditEmp(null); setEditRegError(""); }}
+                                  className="p-1.5 text-slate-400 hover:text-white hover:bg-white/10 rounded-lg transition-all"
+                                >
+                                  <X className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      }
+
                       return (
-                        <tr key={e.id} className="border-t border-white/5 hover:bg-white/2 transition-colors">
+                        <tr key={e.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
                           <td className="p-3.5 text-slate-500 text-sm">{i + 1}</td>
                           <td className="p-3.5">
                             <p className="text-white font-semibold text-sm">{e.name}</p>
@@ -318,6 +437,17 @@ export default function HRDashboard() {
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 text-amber-400 rounded-lg text-xs font-bold transition-all"
                               >
                                 <QrCode className="w-3.5 h-3.5" /> QR
+                              </button>
+                              <button
+                                onClick={() => {
+                                  setEditEmp({ ...e, salaryBase: e.salaryBase ?? "" });
+                                  setEditRegError("");
+                                  setShowAddForm(false);
+                                }}
+                                title="Засварлах"
+                                className="p-1.5 text-purple-400/60 hover:text-purple-400 hover:bg-purple-500/20 rounded-lg transition-all"
+                              >
+                                <Pencil className="w-3.5 h-3.5" />
                               </button>
                               <button
                                 onClick={() => { if (confirm(`${e.name}-г устгах уу?`)) deleteEmployee.mutate(e.id); }}

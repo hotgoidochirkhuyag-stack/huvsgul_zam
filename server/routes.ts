@@ -222,6 +222,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(201).json(emp);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
+  app.patch("/api/erp/employees/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = schema.insertEmployeeSchema.partial().parse(req.body);
+      const [emp] = await db.update(schema.employees).set(data).where(eq(schema.employees.id, id)).returning();
+      if (!emp) return res.status(404).json({ error: "Ажилтан олдсонгүй" });
+      res.json(emp);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
   app.delete("/api/erp/employees/:id", requireAdmin, async (req, res) => {
     await db.delete(schema.employees).where(eq(schema.employees.id, parseInt(req.params.id)));
     res.json({ success: true });
