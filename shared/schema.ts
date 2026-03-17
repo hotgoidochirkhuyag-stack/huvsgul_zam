@@ -388,6 +388,39 @@ export type InsertEquipmentLog = z.infer<typeof insertEquipmentLogSchema>;
 export type HiddenWorkAct = typeof hiddenWorkActs.$inferSelect;
 export type InsertHiddenWorkAct = z.infer<typeof insertHiddenWorkActSchema>;
 
+// ============ NORM CONFIGS — засварлах боломжтой БНбД норм ============
+export const normConfigs = pgTable("norm_configs", {
+  id:           serial("id").primaryKey(),
+  category:     text("category").notNull(),       // asphalt | concrete | crushing
+  recipeKey:    text("recipe_key").notNull(),      // "АБ-2 (Дунд давхарга)" гэх мэт
+  materialName: text("material_name").notNull(),
+  unit:         text("unit").notNull(),
+  rate:         real("rate").notNull(),            // одоогийн ашиглах утга
+  bnbdRate:     real("bnbd_rate").notNull(),       // БНбД-ийн албан ёсны лавлах утга
+  bnbdRef:      text("bnbd_ref"),                  // "БНбД 3.01.100" гэх мэт
+  updatedBy:    text("updated_by"),
+  updatedAt:    timestamp("updated_at").defaultNow(),
+});
+
+export const insertNormConfigSchema = createInsertSchema(normConfigs).omit({ id: true, updatedAt: true });
+export type NormConfig = typeof normConfigs.$inferSelect;
+export type InsertNormConfig = z.infer<typeof insertNormConfigSchema>;
+
+// ============ NORM AUDIT LOG — хэн, хэзээ, юу засав ============
+export const normAuditLog = pgTable("norm_audit_log", {
+  id:           serial("id").primaryKey(),
+  normConfigId: integer("norm_config_id").notNull(),
+  recipeKey:    text("recipe_key").notNull(),
+  materialName: text("material_name").notNull(),
+  oldRate:      real("old_rate").notNull(),
+  newRate:      real("new_rate").notNull(),
+  changedBy:    text("changed_by").notNull(),
+  changedAt:    timestamp("changed_at").defaultNow(),
+  note:         text("note"),
+});
+
+export type NormAuditEntry = typeof normAuditLog.$inferSelect;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;

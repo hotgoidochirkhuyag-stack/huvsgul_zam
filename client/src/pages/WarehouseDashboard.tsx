@@ -7,9 +7,9 @@ import {
   CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp,
   Save, LogOut, Calendar, Factory, Layers, Hammer, Package,
   ArrowDown, Info, TrendingDown, Warehouse, Plus, Minus, Edit3,
-  Trash2, PackagePlus, TruckIcon
+  Trash2, PackagePlus, TruckIcon, Pencil, History, ShieldCheck, X
 } from "lucide-react";
-import type { ProductionPlan, MaterialCheck, WarehouseItem } from "@shared/schema";
+import type { ProductionPlan, MaterialCheck, WarehouseItem, NormConfig, NormAuditEntry } from "@shared/schema";
 
 // ===================== БНбД НОРМУУД (ЗАССАН) — асфальтын рецептур, бетоны ангилал =====================
 
@@ -1044,14 +1044,212 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
   );
 }
 
+// ─── Норм засварлах модал ─────────────────────────────────────────────────────
+const DEVIATION_THRESHOLD = 0.10; // 10%-иас хэтэрвэл анхааруулна
+
+function NormEditorModal({ token, onClose }: { token: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const role = localStorage.getItem("userRole") || "ENGINEER";
+  const [editValues, setEditValues] = useState<Record<number, string>>({});
+  const [notes, setNotes]           = useState<Record<number, string>>({});
+  const [saving, setSaving]         = useState<Record<number, boolean>>({});
+  const [activeTab, setActiveTab]   = useState<"asphalt" | "concrete" | "crushing">("asphalt");
+  const [showLog, setShowLog]       = useState(false);
+
+  const { data: norms = [], isLoading } = useQuery<NormConfig[]>({
+    queryKey: ["/api/norm-configs"],
+    queryFn: async () => {
+      const r = await fetch("/api/norm-configs", { headers: { "x-admin-token": token } });
+      return r.json();
+    },
+  });
+
+  const { data: auditLog = [] } = useQuery<NormAuditEntry[]>({
+    queryKey: ["/api/norm-audit-log"],
+    queryFn: async () => {
+      const r = await fetch("/api/norm-audit-log", { headers: { "x-admin-token": token } });
+      return r.json();
+    },
+    enabled: showLog,
+  });
+
+  const handleSave = async (norm: NormConfig) => {
+    const rawVal = editValues[norm.id];
+    if (rawVal === undefined || rawVal === "") return;
+    const newRate = parseFloat(rawVal);
+    if (isNaN(newRate) || newRate <= 0) {
+      toast({ title: "Буруу утга", description: "Эерэг тоо оруулна уу", variant: "destructive" }); return;
+    }
+    setSaving(s => ({ ...s, [norm.id]: true }));
+    try {
+      const r = await fetch(`/api/norm-configs/${norm.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+        body: JSON.stringify({ rate: newRate, changedBy: role, note: notes[norm.id] || null }),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      await queryClient.invalidateQueries({ queryKey: ["/api/norm-configs"] });
+      await queryClient.invalidateQueries({ queryKey: ["/api/norm-audit-log"] });
+      setEditValues(v => { const c = { ...v }; delete c[norm.id]; return c; });
+      setNotes(n => { const c = { ...n }; delete c[norm.id]; return c; });
+      toast({ title: "Хадгалагдлаа", description: `${norm.materialName} → ${newRate} ${norm.unit}` });
+    } catch { toast({ title: "Алдаа гарлаа", variant: "destructive" }); }
+    setSaving(s => ({ ...s, [norm.id]: false }));
+  };
+
+  const tabNorms = norms.filter(n => n.category === activeTab);
+  const grouped: Record<string, NormConfig[]> = {};
+  tabNorms.forEach(n => { (grouped[n.recipeKey] = grouped[n.recipeKey] || []).push(n); });
+
+  const catLabel: Record<string, string> = { asphalt: "Асфальт рецептүүд", concrete: "Бетоны ангилал", crushing: "Бутлах үйлдвэр" };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <div className="bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="w-5 h-5 text-amber-400" />
+            <span className="font-bold text-white tracking-wide">БНбД Норм засварлах</span>
+            <span className="text-xs text-white/30 ml-2">— {role}</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setShowLog(s => !s)}
+              className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg transition-all ${showLog ? "bg-indigo-600/30 text-indigo-300" : "bg-white/5 text-white/40 hover:bg-white/10"}`}>
+              <History size={13} /> Засварын түүх
+            </button>
+            <button onClick={onClose} className="text-white/30 hover:text-white/70 transition-colors"><X size={20} /></button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 px-6 pt-3">
+          {(["asphalt", "concrete", "crushing"] as const).map(cat => (
+            <button key={cat} onClick={() => setActiveTab(cat)}
+              className={`text-xs px-3 py-1.5 rounded-lg font-semibold transition-all ${activeTab === cat ? "bg-amber-600/30 text-amber-300" : "text-white/30 hover:text-white/60"}`}>
+              {catLabel[cat]}
+            </button>
+          ))}
+        </div>
+
+        {/* Body */}
+        <div className="overflow-y-auto flex-1 px-6 py-4 space-y-6">
+          {isLoading && <div className="text-white/30 text-sm text-center py-8">Ачааллаж байна…</div>}
+
+          {/* Норм засах */}
+          {!showLog && Object.entries(grouped).map(([recipeKey, mats]) => (
+            <div key={recipeKey}>
+              <div className="text-xs text-amber-400/70 font-semibold uppercase tracking-wider mb-2">{recipeKey}</div>
+              <div className="space-y-2">
+                {mats.map(norm => {
+                  const current = editValues[norm.id] !== undefined ? parseFloat(editValues[norm.id]) : norm.rate;
+                  const deviation = norm.bnbdRate > 0 ? Math.abs(current - norm.bnbdRate) / norm.bnbdRate : 0;
+                  const isDeviated = deviation > DEVIATION_THRESHOLD;
+                  const isEditing  = editValues[norm.id] !== undefined;
+                  return (
+                    <div key={norm.id} className={`rounded-xl border px-4 py-3 transition-all ${isDeviated ? "border-red-500/30 bg-red-900/10" : isEditing ? "border-amber-500/30 bg-amber-900/10" : "border-white/5 bg-white/2"}`}>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs text-white/70 flex-1 min-w-[140px]">{norm.materialName}</span>
+
+                        {/* БНбД лавлах */}
+                        <span className="text-xs text-emerald-400/50 flex items-center gap-1">
+                          <ShieldCheck size={11} /> БНбД: {norm.bnbdRate} {norm.unit}
+                          {norm.bnbdRef && <span className="text-white/20 ml-1">({norm.bnbdRef})</span>}
+                        </span>
+
+                        {/* Засах input */}
+                        <input
+                          type="number" step="0.001" min="0"
+                          value={editValues[norm.id] ?? norm.rate}
+                          onChange={e => setEditValues(v => ({ ...v, [norm.id]: e.target.value }))}
+                          className="w-24 bg-white/5 border border-white/10 rounded-lg px-2 py-1 text-xs text-white text-center focus:outline-none focus:border-amber-500/50"
+                          data-testid={`input-norm-${norm.id}`}
+                        />
+                        <span className="text-xs text-white/30 w-6">{norm.unit}</span>
+
+                        {/* Хадгалах */}
+                        {isEditing && (
+                          <button onClick={() => handleSave(norm)} disabled={saving[norm.id]}
+                            className="text-xs px-3 py-1 bg-amber-600/30 text-amber-300 hover:bg-amber-600/50 rounded-lg transition-all disabled:opacity-50"
+                            data-testid={`btn-save-norm-${norm.id}`}>
+                            {saving[norm.id] ? "…" : "Хадгалах"}
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Хазайлт анхааруулга */}
+                      {isDeviated && (
+                        <div className="mt-2 flex items-center gap-1.5 text-xs text-red-400/80">
+                          <AlertTriangle size={12} />
+                          БНбД нормоос {(deviation * 100).toFixed(1)}% хазайж байна — зохих зөвшөөрөл шаардлагатай
+                        </div>
+                      )}
+
+                      {/* Тайлбар + сүүлчийн засвар */}
+                      {isEditing && (
+                        <input type="text" placeholder="Засварын тайлбар (заавал биш)…"
+                          value={notes[norm.id] ?? ""}
+                          onChange={e => setNotes(n => ({ ...n, [norm.id]: e.target.value }))}
+                          className="mt-2 w-full bg-white/5 border border-white/5 rounded-lg px-3 py-1.5 text-xs text-white/60 placeholder:text-white/20 focus:outline-none focus:border-amber-500/30"
+                        />
+                      )}
+                      {norm.updatedBy && !isEditing && (
+                        <div className="mt-1 text-xs text-white/20">
+                          Сүүлд засав: <span className="text-white/35">{norm.updatedBy}</span>
+                          {norm.updatedAt && <span className="ml-1">· {new Date(norm.updatedAt).toLocaleDateString("mn-MN")}</span>}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+
+          {/* Аудит лог */}
+          {showLog && (
+            <div className="space-y-2">
+              <div className="text-xs text-white/25 uppercase tracking-wider mb-2">Засварын бүртгэл (сүүлийн 50)</div>
+              {auditLog.length === 0 && <div className="text-white/20 text-xs text-center py-6">Одоогоор засвар хийгдээгүй байна</div>}
+              {auditLog.map(log => (
+                <div key={log.id} className="rounded-xl border border-white/5 bg-white/2 px-4 py-3">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                    <span className="text-white/60 font-medium">{log.materialName}</span>
+                    <span className="text-white/25">{log.recipeKey}</span>
+                    <span className="text-red-400/60">{log.oldRate}</span>
+                    <span className="text-white/20">→</span>
+                    <span className="text-emerald-400/60">{log.newRate}</span>
+                    <span className="ml-auto text-amber-400/50 font-semibold">{log.changedBy}</span>
+                    <span className="text-white/20">{log.changedAt ? new Date(log.changedAt).toLocaleString("mn-MN") : ""}</span>
+                  </div>
+                  {log.note && <div className="text-xs text-white/30 mt-1 italic">"{log.note}"</div>}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-white/5 text-xs text-white/20 flex items-center gap-1.5">
+          <ShieldCheck size={11} className="text-emerald-400/40" />
+          БНбД нормоос ±10%-иас хэтэрсэн утгыг улаанаар тэмдэглэнэ. Засвар бүрийг систем бүртгэнэ.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function WarehouseDashboard() {
   const [, setLocation] = useLocation();
   const today = new Date().toISOString().slice(0, 10);
   const [date, setDate] = useState(today);
   const [activeTab, setActiveTab] = useState<"plan"|"stock">("plan");
+  const [normEditorOpen, setNormEditorOpen] = useState(false);
   const token  = localStorage.getItem("adminToken") ?? "";
   const hdrs   = { "x-admin-token": token };
+  const role   = localStorage.getItem("userRole") ?? "";
+  const canEditNorms = ["ENGINEER", "ADMIN", "PROJECT"].includes(role);
 
   // Бүх агуулахын нөөц — PlantBlock-уудад дамжуулна
   const { data: itemsRaw } = useQuery({
@@ -1155,7 +1353,16 @@ export default function WarehouseDashboard() {
 
           {/* Norm reference */}
           <div className="rounded-xl border border-white/5 bg-white/2 p-4">
-            <div className="text-xs text-white/25 font-semibold uppercase tracking-wider mb-3">БНбД норм лавлах</div>
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs text-white/25 font-semibold uppercase tracking-wider">БНбД норм лавлах</div>
+              {canEditNorms && (
+                <button onClick={() => setNormEditorOpen(true)}
+                  data-testid="btn-open-norm-editor"
+                  className="flex items-center gap-1.5 text-xs px-3 py-1.5 bg-amber-600/20 text-amber-400 hover:bg-amber-600/30 rounded-lg transition-all font-semibold">
+                  <Pencil size={12} /> Норм засах
+                </button>
+              )}
+            </div>
             <div className="grid sm:grid-cols-3 gap-4 text-xs text-white/35">
               <div>
                 <div className="text-amber-400/60 font-medium mb-1">Асфальт АБ-2 (1 м³):</div>
@@ -1184,6 +1391,10 @@ export default function WarehouseDashboard() {
 
         {activeTab === "stock" && <StockTab allItems={allItems} token={token} />}
       </div>
+
+      {normEditorOpen && (
+        <NormEditorModal token={token} onClose={() => setNormEditorOpen(false)} />
+      )}
     </div>
   );
 }

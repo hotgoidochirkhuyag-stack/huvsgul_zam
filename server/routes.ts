@@ -855,11 +855,126 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ============ NORM CONFIGS — засварлах БНбД норм ============
+
+  // Норм бүгдийг авах (анхны утгыг seed хийнэ)
+  app.get("/api/norm-configs", requireAdmin, async (_req, res) => {
+    try {
+      await seedNormConfigs();
+      const rows = await db.select().from(schema.normConfigs).orderBy(schema.normConfigs.category, schema.normConfigs.id);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Нэг норм засах + аудит лог хадгалах
+  app.put("/api/norm-configs/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { rate, changedBy, note } = req.body;
+      if (typeof rate !== "number") return res.status(400).json({ error: "rate шаардлагатай" });
+
+      const [existing] = await db.select().from(schema.normConfigs).where(eq(schema.normConfigs.id, id));
+      if (!existing) return res.status(404).json({ error: "Олдсонгүй" });
+
+      // Аудит лог
+      await db.insert(schema.normAuditLog).values({
+        normConfigId: id,
+        recipeKey:    existing.recipeKey,
+        materialName: existing.materialName,
+        oldRate:      existing.rate,
+        newRate:      rate,
+        changedBy:    changedBy || "Тодорхойгүй",
+        note:         note || null,
+      });
+
+      // Норм шинэчлэх
+      const [updated] = await db.update(schema.normConfigs)
+        .set({ rate, updatedBy: changedBy || "Тодорхойгүй", updatedAt: new Date() })
+        .where(eq(schema.normConfigs.id, id))
+        .returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Аудит логийг авах (сүүлийн 50)
+  app.get("/api/norm-audit-log", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.normAuditLog)
+        .orderBy(desc(schema.normAuditLog.changedAt))
+        .limit(50);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Seed data
   seedInitialContent().catch(console.error);
   seedDefaultKpiConfigs().catch(console.error);
   seedWarehouse().catch(console.error);
   return httpServer;
+}
+
+// ============ БНбД норм-ийн анхны утгыг хадгалах ============
+async function seedNormConfigs() {
+  const existing = await db.select().from(schema.normConfigs).limit(1);
+  if (existing.length > 0) return; // Аль хэдийн seed хийсэн
+
+  const defaults: Omit<schema.InsertNormConfig, "updatedAt">[] = [
+    // Асфальтбетон АБ-1
+    { category: "asphalt", recipeKey: "АБ-1 (Дотор давхарга)", materialName: "Битум БНД 60/90",  unit: "тн", rate: 0.129, bnbdRate: 0.129, bnbdRef: "БНбД 3.01.100 Хүснэгт 4", updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-1 (Дотор давхарга)", materialName: "Хайрга 10-20мм",   unit: "тн", rate: 0.517, bnbdRate: 0.517, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-1 (Дотор давхарга)", materialName: "Хайрга 5-10мм",    unit: "тн", rate: 0.423, bnbdRate: 0.423, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-1 (Дотор давхарга)", materialName: "Хайрга 2-5мм",     unit: "тн", rate: 0.329, bnbdRate: 0.329, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-1 (Дотор давхарга)", materialName: "Хайрга 0-2мм",     unit: "тн", rate: 0.353, bnbdRate: 0.353, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-1 (Дотор давхарга)", materialName: "Минерал нунтаг",   unit: "тн", rate: 0.212, bnbdRate: 0.212, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-1 (Дотор давхарга)", materialName: "Элс (асфальт)",    unit: "тн", rate: 0.387, bnbdRate: 0.387, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    // Асфальтбетон АБ-2
+    { category: "asphalt", recipeKey: "АБ-2 (Дунд давхарга)", materialName: "Битум БНД 60/90",  unit: "тн", rate: 0.120, bnbdRate: 0.120, bnbdRef: "БНбД 3.01.100 Хүснэгт 4", updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-2 (Дунд давхарга)", materialName: "Хайрга 10-20мм",   unit: "тн", rate: 0.672, bnbdRate: 0.672, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-2 (Дунд давхарга)", materialName: "Хайрга 5-10мм",    unit: "тн", rate: 0.480, bnbdRate: 0.480, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-2 (Дунд давхарга)", materialName: "Хайрга 2-5мм",     unit: "тн", rate: 0.312, bnbdRate: 0.312, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-2 (Дунд давхарга)", materialName: "Хайрга 0-2мм",     unit: "тн", rate: 0.288, bnbdRate: 0.288, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-2 (Дунд давхарга)", materialName: "Минерал нунтаг",   unit: "тн", rate: 0.192, bnbdRate: 0.192, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "АБ-2 (Дунд давхарга)", materialName: "Элс (асфальт)",    unit: "тн", rate: 0.336, bnbdRate: 0.336, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    // Асфальтбетон ДАБ
+    { category: "asphalt", recipeKey: "ДАБ (Доод давхарга)", materialName: "Битум БНД 60/90",   unit: "тн", rate: 0.109, bnbdRate: 0.109, bnbdRef: "БНбД 3.01.100 Хүснэгт 4", updatedBy: null },
+    { category: "asphalt", recipeKey: "ДАБ (Доод давхарга)", materialName: "Хайрга 10-20мм",    unit: "тн", rate: 0.847, bnbdRate: 0.847, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "ДАБ (Доод давхарга)", materialName: "Хайрга 5-10мм",     unit: "тн", rate: 0.532, bnbdRate: 0.532, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "ДАБ (Доод давхарга)", materialName: "Хайрга 2-5мм",      unit: "тн", rate: 0.290, bnbdRate: 0.290, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "ДАБ (Доод давхарга)", materialName: "Хайрга 0-2мм",      unit: "тн", rate: 0.242, bnbdRate: 0.242, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "ДАБ (Доод давхарга)", materialName: "Минерал нунтаг",    unit: "тн", rate: 0.169, bnbdRate: 0.169, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    { category: "asphalt", recipeKey: "ДАБ (Доод давхарга)", materialName: "Элс (асфальт)",     unit: "тн", rate: 0.230, bnbdRate: 0.230, bnbdRef: "БНбД 3.01.100",             updatedBy: null },
+    // Бетон C15/20
+    { category: "concrete", recipeKey: "C15/20 (Суурь, хонгил)",       materialName: "Цемент ПЦ400",    unit: "тн", rate: 0.280, bnbdRate: 0.280, bnbdRef: "БНбД 3.01.102 Хүснэгт 5", updatedBy: null },
+    { category: "concrete", recipeKey: "C15/20 (Суурь, хонгил)",       materialName: "Элс (бетон)",     unit: "м³", rate: 0.750, bnbdRate: 0.750, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C15/20 (Суурь, хонгил)",       materialName: "Хайрга 5-10мм",  unit: "м³", rate: 0.400, bnbdRate: 0.400, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C15/20 (Суурь, хонгил)",       materialName: "Хайрга 10-20мм", unit: "м³", rate: 0.560, bnbdRate: 0.560, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C15/20 (Суурь, хонгил)",       materialName: "Ус",              unit: "м³", rate: 0.190, bnbdRate: 0.190, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    // Бетон C20/25
+    { category: "concrete", recipeKey: "C20/25 (Ерөнхий бүтэц)",      materialName: "Цемент ПЦ400",    unit: "тн", rate: 0.320, bnbdRate: 0.320, bnbdRef: "БНбД 3.01.102 Хүснэгт 5", updatedBy: null },
+    { category: "concrete", recipeKey: "C20/25 (Ерөнхий бүтэц)",      materialName: "Элс (бетон)",     unit: "м³", rate: 0.710, bnbdRate: 0.710, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C20/25 (Ерөнхий бүтэц)",      materialName: "Хайрга 5-10мм",  unit: "м³", rate: 0.380, bnbdRate: 0.380, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C20/25 (Ерөнхий бүтэц)",      materialName: "Хайрга 10-20мм", unit: "м³", rate: 0.540, bnbdRate: 0.540, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C20/25 (Ерөнхий бүтэц)",      materialName: "Ус",              unit: "м³", rate: 0.185, bnbdRate: 0.185, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    // Бетон C25/30
+    { category: "concrete", recipeKey: "C25/30 (Замын хавтан, хана)", materialName: "Цемент ПЦ500",   unit: "тн", rate: 0.350, bnbdRate: 0.350, bnbdRef: "БНбД 3.01.102 Хүснэгт 5", updatedBy: null },
+    { category: "concrete", recipeKey: "C25/30 (Замын хавтан, хана)", materialName: "Элс (бетон)",    unit: "м³", rate: 0.680, bnbdRate: 0.680, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C25/30 (Замын хавтан, хана)", materialName: "Хайрга 5-10мм", unit: "м³", rate: 0.400, bnbdRate: 0.400, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C25/30 (Замын хавтан, хана)", materialName: "Хайрга 10-20мм",unit: "м³", rate: 0.550, bnbdRate: 0.550, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C25/30 (Замын хавтан, хана)", materialName: "Химийн нэмэлт", unit: "кг", rate: 0.900, bnbdRate: 0.900, bnbdRef: "ГОСТ 24211",                updatedBy: null },
+    { category: "concrete", recipeKey: "C25/30 (Замын хавтан, хана)", materialName: "Ус",             unit: "м³", rate: 0.180, bnbdRate: 0.180, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    // Бетон C30/37
+    { category: "concrete", recipeKey: "C30/37 (Гүүр, тулгуур)",      materialName: "Цемент ПЦ500",   unit: "тн", rate: 0.400, bnbdRate: 0.400, bnbdRef: "БНбД 3.01.102 Хүснэгт 5", updatedBy: null },
+    { category: "concrete", recipeKey: "C30/37 (Гүүр, тулгуур)",      materialName: "Элс (бетон)",    unit: "м³", rate: 0.620, bnbdRate: 0.620, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C30/37 (Гүүр, тулгуур)",      materialName: "Хайрга 5-10мм", unit: "м³", rate: 0.360, bnbdRate: 0.360, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C30/37 (Гүүр, тулгуур)",      materialName: "Хайрга 10-20мм",unit: "м³", rate: 0.520, bnbdRate: 0.520, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    { category: "concrete", recipeKey: "C30/37 (Гүүр, тулгуур)",      materialName: "Химийн нэмэлт", unit: "кг", rate: 1.200, bnbdRate: 1.200, bnbdRef: "ГОСТ 24211",                updatedBy: null },
+    { category: "concrete", recipeKey: "C30/37 (Гүүр, тулгуур)",      materialName: "Ус",             unit: "м³", rate: 0.175, bnbdRate: 0.175, bnbdRef: "БНбД 3.01.102",             updatedBy: null },
+    // Бутлах үйлдвэр
+    { category: "crushing", recipeKey: "Бутлах ангилах үйлдвэр", materialName: "Байгалийн чулуу (оролт)", unit: "тн", rate: 1.150, bnbdRate: 1.150, bnbdRef: "БНбД 3.01.100 Хавсралт", updatedBy: null },
+    { category: "crushing", recipeKey: "Бутлах ангилах үйлдвэр", materialName: "Шатах тос",               unit: "л",  rate: 0.625, bnbdRate: 0.625, bnbdRef: "Үйлдвэрийн норм",          updatedBy: null },
+  ];
+
+  await db.insert(schema.normConfigs).values(defaults);
 }
 
 async function seedInitialContent() {
