@@ -1,21 +1,20 @@
 import { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Lock, Loader2, ArrowLeft } from 'lucide-react';
-import { useLocation, useParams } from 'wouter';
+import { useLocation } from 'wouter';
 
 const AdminLogin = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [, setLocation] = useLocation();
-  const params = useParams<{ role?: string }>();
-  // Роль авах: 1) useParams  2) window.location.pathname  3) localStorage pendingRole
-  const selectedRole =
-    params.role?.toUpperCase() ||
-    window.location.pathname.split('/').filter(Boolean).pop()?.toUpperCase() ||
-    localStorage.getItem("pendingRole") ||
-    '';
+  const [location, setLocation] = useLocation();
+
+  // Роль авах: pathname-аас (/admin/LAB → "LAB") эсвэл localStorage-аас
+  const pathRole = location.split('/').filter(Boolean).pop()?.toUpperCase() ?? '';
+  const selectedRole = (['ADMIN','BOARD','PROJECT','ENGINEER','HR','SUPERVISOR','MECHANIC','WAREHOUSE','LAB'].includes(pathRole))
+    ? pathRole
+    : localStorage.getItem("pendingRole") ?? '';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
