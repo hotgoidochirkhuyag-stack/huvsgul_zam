@@ -9,23 +9,33 @@ import { z } from "zod";
 import { calculateEmployeeKpi, calculateTeamKpi, seedDefaultKpiConfigs } from "./kpiEngine.js";
 import { syncNormsFromOrder } from "./normAgent.js";
 import multer from "multer";
+import { v2 as cloudinary } from "cloudinary";
+import { Readable } from "stream";
 import path from "path";
-import fs from "fs";
 
-// ======= MULTER — зураг хадгалах тохиргоо =======
-const uploadStorage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
-    const dir = path.join(process.cwd(), "uploads", "photos");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (_req, file, cb) => {
-    const unique = `${Date.now()}-${Math.round(Math.random() * 1e6)}`;
-    cb(null, `${unique}${path.extname(file.originalname)}`);
-  },
+// ======= CLOUDINARY тохиргоо =======
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key:    process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
 });
+
+function uploadToCloudinary(buffer: Buffer, folder: string): Promise<{ secure_url: string; public_id: string }> {
+  return new Promise((resolve, reject) => {
+    const stream = cloudinary.uploader.upload_stream(
+      { folder, resource_type: "image" },
+      (err, result) => {
+        if (err || !result) return reject(err ?? new Error("Cloudinary upload failed"));
+        resolve({ secure_url: result.secure_url, public_id: result.public_id });
+      }
+    );
+    Readable.from(buffer).pipe(stream);
+  });
+}
+
+// ======= MULTER — санах ойд хадгалах (Cloudinary руу дамжуулах) =======
 const uploadMiddleware = multer({
-  storage: uploadStorage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB
   fileFilter: (_req, file, cb) => {
     const allowed = /jpeg|jpg|png|webp|heic/i;
@@ -953,7 +963,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ============ АЖЛЫН ЗУРАГ — photo upload/retrieve/delete ============
 
-  // Зураг upload хийх (work_front эсвэл hidden_act-д)
+  // Зураг upload хийх → Cloudinary
   app.post("/api/photos/upload", requireAdmin, uploadMiddleware.array("photos", 10), async (req, res) => {
     try {
       const { entityType, entityId, caption, uploadedBy, photoDate } = req.body;
@@ -965,14 +975,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         return res.status(400).json({ error: "Зураг сонгоогүй байна" });
       }
       const inserted = [];
+      const folder = `hovsgol-zam/${entityType}/${entityId}`;
       for (const file of files) {
+        const { secure_url, public_id } = await uploadToCloudinary(file.buffer, folder);
         const [row] = await db.insert(schema.workPhotos).values({
           entityType,
           entityId: parseInt(entityId),
-          filename: `/uploads/photos/${file.filename}`,
-          caption: caption || null,
+          filename:     secure_url,
+          cloudinaryId: public_id,
+          caption:    caption || null,
           uploadedBy: uploadedBy || null,
-          photoDate: photoDate || null,
+          photoDate:  photoDate || null,
         }).returning();
         inserted.push(row);
       }
@@ -994,14 +1007,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // Зураг устгах
+  // Зураг устгах → Cloudinary + DB
   app.delete("/api/photos/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const [photo] = await db.select().from(schema.workPhotos).where(eq(schema.workPhotos.id, id));
       if (photo) {
-        const filePath = path.join(process.cwd(), photo.filename);
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+        if (photo.cloudinaryId) {
+          await cloudinary.uploader.destroy(photo.cloudinaryId).catch(() => {});
+        }
         await db.delete(schema.workPhotos).where(eq(schema.workPhotos.id, id));
       }
       res.json({ success: true });

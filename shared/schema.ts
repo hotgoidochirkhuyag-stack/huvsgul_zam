@@ -328,13 +328,14 @@ export const hiddenWorkActs = pgTable("hidden_work_acts", {
 
 export const workPhotos = pgTable("work_photos", {
   id: serial("id").primaryKey(),
-  entityType: text("entity_type").notNull(),  // "work_front" | "hidden_act"
-  entityId:   integer("entity_id").notNull(), // work_fronts.id | hidden_work_acts.id
-  filename:   text("filename").notNull(),     // /uploads/photos/xxx.jpg
-  caption:    text("caption"),               // Тайлбар
-  uploadedBy: text("uploaded_by"),
-  photoDate:  text("photo_date"),            // Зураг авсан огноо
-  createdAt:  timestamp("created_at").defaultNow(),
+  entityType:   text("entity_type").notNull(),  // "work_front" | "hidden_act"
+  entityId:     integer("entity_id").notNull(), // work_fronts.id | hidden_work_acts.id
+  filename:     text("filename").notNull(),     // Cloudinary secure_url
+  cloudinaryId: text("cloudinary_id"),          // Cloudinary public_id (устгахад хэрэглэнэ)
+  caption:      text("caption"),               // Тайлбар
+  uploadedBy:   text("uploaded_by"),
+  photoDate:    text("photo_date"),            // Зураг авсан огноо
+  createdAt:    timestamp("created_at").defaultNow(),
 });
 
 export const insertWorkPhotoSchema = createInsertSchema(workPhotos).omit({ id: true, createdAt: true });
