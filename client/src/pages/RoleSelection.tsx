@@ -87,7 +87,12 @@ export default function RoleSelection() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {ROW1.map(item => (
-              <CardButton key={item.name} item={item} onClick={() => setLocation(item.path)} />
+              <CardButton key={item.name} item={item} onClick={() => {
+                localStorage.removeItem("adminToken");
+                localStorage.removeItem("userRole");
+                localStorage.setItem("pendingRole", item.path.split('/').pop() ?? '');
+                setLocation(item.path);
+              }} />
             ))}
           </div>
         </div>
@@ -99,7 +104,12 @@ export default function RoleSelection() {
           </h2>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             {ROW2.map(item => (
-              <CardButton key={item.name} item={item} onClick={() => setLocation(item.path)} />
+              <CardButton key={item.name} item={item} onClick={() => {
+                localStorage.removeItem("adminToken");
+                localStorage.removeItem("userRole");
+                localStorage.setItem("pendingRole", item.path.split('/').pop() ?? '');
+                setLocation(item.path);
+              }} />
             ))}
           </div>
         </div>
@@ -118,7 +128,12 @@ export default function RoleSelection() {
 
         {/* ── Администратор (нуугдмал) ──────────────────────────────────────── */}
         <div className="border-t border-white/5 pt-5">
-          <CardButton item={ADMIN_CARD} onClick={() => setLocation(ADMIN_CARD.path)} />
+          <CardButton item={ADMIN_CARD} onClick={() => {
+            localStorage.removeItem("adminToken");
+            localStorage.removeItem("userRole");
+            localStorage.setItem("pendingRole", "ADMIN");
+            setLocation(ADMIN_CARD.path);
+          }} />
         </div>
       </div>
     </div>

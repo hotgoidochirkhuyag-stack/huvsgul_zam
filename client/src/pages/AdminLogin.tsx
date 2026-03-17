@@ -9,7 +9,13 @@ const AdminLogin = () => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [, setLocation] = useLocation();
-  const { role: selectedRole } = useParams<{ role: string }>();
+  const params = useParams<{ role?: string }>();
+  // Роль авах: 1) useParams  2) window.location.pathname  3) localStorage pendingRole
+  const selectedRole =
+    params.role?.toUpperCase() ||
+    window.location.pathname.split('/').filter(Boolean).pop()?.toUpperCase() ||
+    localStorage.getItem("pendingRole") ||
+    '';
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -31,7 +37,8 @@ const AdminLogin = () => {
       }
 
       localStorage.setItem('adminToken', data.token);
-      localStorage.setItem('userRole', data.role); 
+      localStorage.setItem('userRole', data.role);
+      localStorage.removeItem('pendingRole');
 
       // Рольдоо таарсан самбар луу шилжих
       const routes: Record<string, string> = {
