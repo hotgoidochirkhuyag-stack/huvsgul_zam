@@ -7,7 +7,7 @@ import {
   CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp,
   Save, LogOut, Calendar, Factory, Layers, Hammer, Package,
   ArrowDown, Info, TrendingDown, Warehouse, Plus, Minus, Edit3,
-  Trash2, PackagePlus, TruckIcon, Pencil
+  Trash2, PackagePlus, TruckIcon
 } from "lucide-react";
 import type { ProductionPlan, MaterialCheck, WarehouseItem } from "@shared/schema";
 
@@ -1153,13 +1153,6 @@ export default function WarehouseDashboard() {
             <PlantBlock key={`${pk}-${date}`} plantKey={pk} date={date} token={token} allItems={allItems} />
           ))}
 
-          {/* Norm link — detail is managed in Lab QC dashboard */}
-          <a href="/dashboard/lab-qc"
-            data-testid="link-norm-editor"
-            className="flex items-center gap-2 px-4 py-3 rounded-xl border border-emerald-500/20 bg-emerald-600/5 hover:bg-emerald-600/10 text-emerald-400 text-sm font-semibold transition-all">
-            <Pencil size={14} />
-            БНбД норм харах / Лаборатори →
-          </a>
         </>}
 
         {activeTab === "stock" && <StockTab allItems={allItems} token={token} />}
