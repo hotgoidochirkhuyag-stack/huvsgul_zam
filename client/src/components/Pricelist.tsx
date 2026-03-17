@@ -82,8 +82,7 @@ function AiEstimator({
         {!result && !loading && (
           <div className="text-center">
             <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
-              Дээр сонгосон материал, тоо хэмжээний дагуу <br />
-              <span className="text-foreground font-semibold">зах зээлийн үнийн дундаж тооцоолол</span>-ыг хийнэ.
+              <span className="text-foreground font-semibold">Материал</span> болон <span className="text-foreground font-semibold">тоо хэмжээ</span>-г оруулаад зүүн талын <span className="text-primary font-bold">"AI-ээр тооцоолох"</span> товч дарвал зах зээл дээрх үнийн судалгаа харагдана.
             </p>
             {error && (
               <div className="flex items-center gap-2 text-destructive text-xs mb-3 justify-center">
