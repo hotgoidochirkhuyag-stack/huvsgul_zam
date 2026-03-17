@@ -119,18 +119,6 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/videos", async (_req, res) => {
     res.json(await storage.getFeaturedVideos());
   });
-  app.get("/api/sheet-data", async (_req, res) => {
-    try {
-      const url = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQb3rZqDRJ1qaDEmvNHcnhlHjAFAR1XBesPxDFH5d20X8GVU8VAsuijvUcz8asTLpe8YgT65Y9-7yFZ/pub?output=csv";
-      const response = await fetch(url);
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      const text = await response.text();
-      res.setHeader("Content-Type", "text/plain");
-      res.send(text);
-    } catch (e) {
-      res.status(500).json({ error: "Sheet татахад алдаа гарлаа" });
-    }
-  });
 
   // ============ ERP-ийн нийтийн статистик (нэвтрэх шаардлагагүй) ============
   app.get("/api/public/stats", async (_req, res) => {
