@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { queryClient } from "@/lib/queryClient";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
   Tooltip, ResponsiveContainer, Legend, PieChart, Pie, Cell,
 } from "recharts";
 import {
   UserCheck, ShieldCheck, TrendingUp, Factory, BookOpen, Target,
-  AlertTriangle, CheckCircle2, Clock, Gauge
+  AlertTriangle, CheckCircle2, Clock, Gauge, Bot, RefreshCw,
+  Sparkles, FileText, ChevronRight,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 
-type Tab = "attendance" | "project" | "production" | "norm" | "kpi";
+type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai";
 
 function hdrs() {
   return {
@@ -488,6 +490,159 @@ function KpiTab() {
   );
 }
 
+/* ══════════════════════ 6. AI АГЕНТ ══════════════════════ */
+function AiAgentTab() {
+  const [normOrder, setNormOrder] = useState("");
+
+  const syncNorm = useMutation({
+    mutationFn: () =>
+      fetch("/api/erp/sync-norms", {
+        method: "POST",
+        headers: hdrs(),
+        body: JSON.stringify({ orderNumber: normOrder }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/norm-configs"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/erp/kpi-configs"] });
+    },
+  });
+
+  const { data: auditLog = [] } = useQuery<any[]>({
+    queryKey: ["/api/norm-audit-log"],
+    queryFn: () => fetch("/api/norm-audit-log", { headers: hdrs() }).then(r => r.json()),
+  });
+
+  const SAMPLE_ORDERS = [
+    { code: "А-63",  desc: "Замын барилга — ерөнхий норм" },
+    { code: "А-141", desc: "Асфальтбетон хольцын норм" },
+    { code: "А-200", desc: "Бетон зуурмагийн норм" },
+    { code: "А-89",  desc: "Хөрсний ажлын норм" },
+  ];
+
+  return (
+    <div className="space-y-6">
+      {/* Hero card */}
+      <div className="bg-gradient-to-br from-blue-900/30 to-purple-900/20 rounded-2xl border border-blue-500/20 p-6">
+        <div className="flex items-start gap-4 mb-6">
+          <div className="p-4 bg-blue-600/20 rounded-2xl border border-blue-500/20">
+            <Bot className="w-8 h-8 text-blue-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2 mb-1">
+              <h2 className="font-black text-white text-xl">AI Норм Агент</h2>
+              <span className="px-2 py-0.5 bg-blue-600/30 text-blue-300 text-xs font-bold rounded-full flex items-center gap-1">
+                <Sparkles className="w-3 h-3" /> AI
+              </span>
+            </div>
+            <p className="text-slate-400 text-sm leading-relaxed max-w-xl">
+              ЗТХЯ болон legalinfo.mn-аас тушаалын нормуудыг автоматаар уншиж, 
+              KPI болон норм тохиргоог шинэчилнэ. ТУЗ-ын хурлаар батлагдсан нормыг 
+              системд тусгах боломжтой.
+            </p>
+          </div>
+        </div>
+
+        <div className="flex flex-col sm:flex-row gap-3">
+          <input
+            value={normOrder}
+            onChange={e => setNormOrder(e.target.value)}
+            placeholder="Тушаалын дугаар оруулна уу (жишээ: А-63, А-141)"
+            className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white outline-none focus:border-blue-500/50 placeholder:text-slate-600 transition-all"
+          />
+          <button
+            onClick={() => syncNorm.mutate()}
+            disabled={!normOrder.trim() || syncNorm.isPending}
+            className="px-6 py-3 bg-blue-600 hover:bg-blue-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-bold rounded-xl transition-all flex items-center gap-2 whitespace-nowrap"
+          >
+            {syncNorm.isPending
+              ? <><RefreshCw className="w-4 h-4 animate-spin" /> Татаж байна...</>
+              : <><RefreshCw className="w-4 h-4" /> Норм татах</>}
+          </button>
+        </div>
+
+        {syncNorm.data && (
+          <div className={`mt-4 p-4 rounded-xl text-sm flex items-start gap-3 ${
+            syncNorm.data.success
+              ? "bg-green-500/10 border border-green-500/30 text-green-300"
+              : "bg-amber-500/10 border border-amber-500/30 text-amber-300"
+          }`}>
+            {syncNorm.data.success
+              ? <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+              : <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />}
+            <span>{syncNorm.data.message}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Sample orders */}
+      <div>
+        <h3 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3">Дэмжигдсэн тушаалуудын жишээ</h3>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          {SAMPLE_ORDERS.map(o => (
+            <button
+              key={o.code}
+              onClick={() => setNormOrder(o.code)}
+              className={`p-4 rounded-xl border text-left transition-all hover:scale-[1.02] ${
+                normOrder === o.code
+                  ? "bg-blue-600/20 border-blue-500/40"
+                  : "bg-slate-900/60 border-white/10 hover:border-white/20"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-1">
+                <p className="font-black text-white text-sm">{o.code}</p>
+                <ChevronRight className="w-3.5 h-3.5 text-slate-500" />
+              </div>
+              <p className="text-xs text-slate-500 leading-snug">{o.desc}</p>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Audit log */}
+      {auditLog.length > 0 && (
+        <div className="bg-slate-900/60 rounded-2xl border border-white/10 overflow-hidden">
+          <div className="p-4 border-b border-white/10 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-slate-400" />
+            <h3 className="font-bold text-white text-sm">Синхронизацийн лог</h3>
+            <span className="ml-auto text-xs text-slate-500">{auditLog.length} бүртгэл</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-800/50">
+                <tr>
+                  {["Тушаалын №","Статус","Мэдэгдэл","Огноо"].map(h => (
+                    <th key={h} className="text-left p-3 text-slate-400 text-xs uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {auditLog.slice(0, 20).map((log: any, i: number) => (
+                  <tr key={i} className="border-t border-white/5 hover:bg-white/[0.02]">
+                    <td className="p-3 text-white font-mono text-sm">{log.orderNumber ?? "—"}</td>
+                    <td className="p-3">
+                      <span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${
+                        log.success ? "bg-green-600/20 text-green-400" : "bg-red-600/20 text-red-400"
+                      }`}>
+                        {log.success ? "Амжилттай" : "Алдаа"}
+                      </span>
+                    </td>
+                    <td className="p-3 text-slate-300 text-sm max-w-xs">
+                      <p className="truncate">{log.message ?? "—"}</p>
+                    </td>
+                    <td className="p-3 text-slate-500 text-xs">
+                      {log.createdAt ? new Date(log.createdAt).toLocaleDateString("mn-MN") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ══════════════════════ MAIN ══════════════════════ */
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "attendance",  label: "Ирц / ХАБЭА",         icon: UserCheck   },
@@ -495,6 +650,7 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "production", label: "Үйлдвэрлэлийн явц",    icon: Factory     },
   { key: "norm",       label: "Норм",                  icon: BookOpen    },
   { key: "kpi",        label: "KPI / OEE",             icon: Gauge       },
+  { key: "ai",         label: "AI Агент",              icon: Bot         },
 ];
 
 export default function AdminDashboard() {
@@ -538,6 +694,7 @@ export default function AdminDashboard() {
         {tab === "production"  && <ProductionTab />}
         {tab === "norm"        && <NormTab />}
         {tab === "kpi"         && <KpiTab />}
+        {tab === "ai"          && <AiAgentTab />}
       </main>
     </div>
   );
