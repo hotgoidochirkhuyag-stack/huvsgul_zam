@@ -59,7 +59,7 @@ export default function Footer() {
                 <img
                   src="/logo.png"
                   alt="Хөвсгөл Зам Лого"
-                  className="h-16 w-auto object-contain brightness-0 invert dark:brightness-100 dark:invert-0 transition-transform group-hover/logo:scale-105 duration-300"
+                  className="h-16 w-auto object-contain transition-transform group-hover/logo:scale-105 duration-300 rounded-sm"
                 />
               </div>
               <span className="font-display font-bold text-2xl leading-none tracking-wider text-foreground uppercase">
