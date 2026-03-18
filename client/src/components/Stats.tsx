@@ -47,12 +47,12 @@ function AutoRotatingSlot({ images }: { images: { id: string; imageUrl: string; 
           </span>
         </div>
 
-        {/* Hover info */}
+        {/* Description - always visible */}
         {images.length > 0 && current.description && (
-          <div className="absolute bottom-0 left-0 right-0 z-20 p-6 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-            <h4 className="text-white text-base font-black uppercase tracking-wide leading-tight">
+          <div className="absolute bottom-0 left-0 right-0 z-20 p-5">
+            <p className="text-white/95 text-sm leading-relaxed line-clamp-3">
               {current.description}
-            </h4>
+            </p>
           </div>
         )}
       </div>
