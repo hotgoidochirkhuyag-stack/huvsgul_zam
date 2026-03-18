@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Facebook, MessageCircle, MessageSquare, PhoneCall, Mail } from "lucide-react";
+import { Mail } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 export default function Footer() {
   const { toast } = useToast();
   const [jobEmail, setJobEmail] = useState("");
   const [newsEmail, setNewsEmail] = useState("");
+  const [adviceEmail, setAdviceEmail] = useState("");
   const [jobLoading, setJobLoading] = useState(false);
   const [newsLoading, setNewsLoading] = useState(false);
+  const [adviceLoading, setAdviceLoading] = useState(false);
 
   const scrollToSection = (id: string) => {
     const el = document.getElementById(id);
@@ -74,57 +76,30 @@ export default function Footer() {
             </p>
           </div>
 
-          {/* 2. Шууд холбогдох */}
+          {/* 2. Зөвлөгөө авах */}
           <div>
-            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6">Холбоо барих</h4>
-            <ul className="space-y-5">
-              <li>
-                <a href="https://www.facebook.com/h.vsg.l.zam.hhk" target="_blank" rel="noreferrer" className="group flex flex-col">
-                  <span className="flex items-center gap-2 text-xs font-bold text-primary uppercase tracking-widest">
-                    <Facebook className="w-4 h-4" /> Facebook
-                  </span>
-                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">Хөвсгөл Зам ХХК</span>
-                </a>
-              </li>
-              <li>
-                <a href="https://wa.me/97699110000" target="_blank" rel="noreferrer" className="group flex flex-col">
-                  <span className="flex items-center gap-2 text-xs font-bold text-green-500 uppercase tracking-widest">
-                    <MessageCircle className="w-4 h-4" /> WhatsApp
-                  </span>
-                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">Чатлах</span>
-                </a>
-              </li>
-              <li>
-                <div
-                  className="group flex flex-col cursor-pointer"
-                  onClick={() => {
-                    navigator.clipboard.writeText("huvsgulzam_Admin");
-                    toast({ title: "WeChat ID хуулагдлаа", description: "huvsgulzam_Admin" });
-                  }}
-                >
-                  <span className="flex items-center gap-2 text-xs font-bold text-emerald-500 uppercase tracking-widest">
-                    <MessageSquare className="w-4 h-4" /> WeChat ID
-                  </span>
-                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">huvsgulzam_Admin</span>
-                </div>
-              </li>
-              <li>
-                <a href="viber://chat?number=97699110000" className="group flex flex-col">
-                  <span className="flex items-center gap-2 text-xs font-bold text-purple-500 uppercase tracking-widest">
-                    <PhoneCall className="w-4 h-4" /> Viber
-                  </span>
-                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">Viber чат</span>
-                </a>
-              </li>
-              <li>
-                <a href="mailto:huvsgulzamllc@gmail.com" className="group flex flex-col">
-                  <span className="flex items-center gap-2 text-xs font-bold text-amber-500 uppercase tracking-widest">
-                    <Mail className="w-4 h-4" /> И-мэйл
-                  </span>
-                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm mt-1">huvsgulzamllc@gmail.com</span>
-                </a>
-              </li>
-            </ul>
+            <h4 className="font-display font-bold text-foreground uppercase tracking-wider mb-6 flex items-center gap-2">
+              <Mail className="w-4 h-4 text-primary" /> Зөвлөгөө авах
+            </h4>
+            <p className="text-muted-foreground text-[13px] mb-4 leading-relaxed">
+              Манай компанийн мэргэшсэн инженер, туршлагатай хүмүүсээс зөвлөгөө авахыг хүсвэл и-мэйл хаягаа илгээнэ үү.
+            </p>
+            <div className="space-y-2">
+              <input
+                type="email"
+                value={adviceEmail}
+                onChange={(e) => setAdviceEmail(e.target.value)}
+                placeholder="И-Мэйл хаяг"
+                className="w-full bg-card border border-border px-4 py-2.5 rounded-sm text-sm focus:outline-none focus:border-primary transition-colors"
+              />
+              <button
+                onClick={() => handleSubscribe(adviceEmail, "Зөвлөгөө авах", setAdviceLoading, setAdviceEmail)}
+                disabled={adviceLoading}
+                className="w-full bg-card border border-primary/50 text-primary font-bold uppercase tracking-widest py-2.5 rounded-sm text-[10px] hover:bg-primary hover:text-white transition-all disabled:opacity-50"
+              >
+                {adviceLoading ? "Илгээж байна..." : "Илгээх"}
+              </button>
+            </div>
           </div>
 
           {/* 3. Ажлын байр */}
