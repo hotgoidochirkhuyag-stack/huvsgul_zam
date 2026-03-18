@@ -30,11 +30,12 @@ async function startServer() {
     await setupVite(httpServer, app);
   } else {
     // Production (Render) дээр вэб сайтаа үзүүлэх тохиргоо
-    app.use(express.static(path.join(__dirname, "public")));
+    const distPublic = path.join(process.cwd(), "dist", "public");
+    app.use(express.static(distPublic));
 
     app.use((req, res, next) => {
       if (req.path.startsWith("/api")) return next();
-      res.sendFile(path.join(__dirname, "public", "index.html"));
+      res.sendFile(path.join(distPublic, "index.html"));
     });
   }
 

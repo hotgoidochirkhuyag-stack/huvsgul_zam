@@ -1,0 +1,78 @@
+Downloading cache...
+==> Cloning from https://github.com/hotgoidochirkhuyag-stack/huvsgul_zam
+==> Checking out commit c2ca5486134b0d42e1399cbb2a35d592e8924a66 in branch main
+==> Downloaded 210MB in 3s. Extraction took 5s.
+==> Using Node.js version 22.22.0 via environment variable NODE_VERSION
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Running build command 'npm install --include=dev && npm run build && npm run db:push'...
+up to date, audited 501 packages in 3s
+78 packages are looking for funding
+  run `npm fund` for details
+4 vulnerabilities (1 low, 1 moderate, 2 high)
+To address all issues, run:
+  npm audit fix
+Run `npm audit` for details.
+> rest-express@1.0.0 build
+> tsx script/build.ts
+building client...
+vite v7.3.0 building client environment for production...
+transforming...
+✓ 2791 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/public/index.html                     0.93 kB │ gzip:   0.55 kB
+../dist/public/assets/index-B0Zfw24j.css    104.49 kB │ gzip:  16.82 kB
+../dist/public/assets/index-HqIpLWgz.js   1,378.74 kB │ gzip: 370.92 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 7.78s
+building server...
+▲ [WARNING] "import.meta" is not available with the "cjs" output format and will be empty [empty-import-meta]
+    server/index.ts:9:45:
+      9 │ const __dirname = path.dirname(fileURLToPath(import.meta.url));
+        ╵                                              ~~~~~~~~~~~
+  You need to set the output format to "esm" for "import.meta" to work correctly.
+1 warning
+  dist/index.cjs  1.3mb ⚠️
+⚡ Done in 166ms
+> rest-express@1.0.0 db:push
+> drizzle-kit push
+No config path provided, using default 'drizzle.config.ts'
+Reading config file '/opt/render/project/src/drizzle.config.ts'
+Using 'pg' driver for database querying
+[⣷] Pulling schema from database...
+Error: getaddrinfo ENOTFOUND base
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async Object.query (/opt/render/project/src/node_modules/drizzle-kit/bin.cjs:80622:26)
+    at async fromDatabase2 (/opt/render/project/src/node_modules/drizzle-kit/bin.cjs:19276:25) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'base'
+}
+==> Uploading build...
+==> Uploaded in 7.5s. Compression took 6.3s
+==> Build successful 🎉
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'npx tsx server/index.ts'
+[express] сервер 5000 порт дээр ажиллаж байна.
+Error: getaddrinfo ENOTFOUND base
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (/opt/render/project/src/node_modules/src/node-postgres/session.ts:104:19)
+    at async seedDefaultKpiConfigs (/opt/render/project/src/server/kpiEngine.ts:150:22) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'base'
+}
+Error: ENOENT: no such file or directory, stat '/opt/render/project/src/server/public/index.html'
+==> Your service is live 🎉
+==> 
+==> ///////////////////////////////////////////////////////////
+==> 
+==> Available at your primary URL https://huvsgul-zam.onrender.com
