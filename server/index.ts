@@ -1,12 +1,8 @@
 import express from "express";
 import { createServer } from "http";
-import { registerRoutes } from "./routes.js"; // .js өргөтгөл нэмсэн
+import { registerRoutes } from "./routes.js";
 import path from "path";
-import { fileURLToPath } from "url";
 import fs from "fs";
-
-// ES Module-д __dirname үүсгэх
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 async function startServer() {
   const app = express();
