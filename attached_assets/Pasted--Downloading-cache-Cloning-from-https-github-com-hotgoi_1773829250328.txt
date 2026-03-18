@@ -1,0 +1,72 @@
+==> Downloading cache...
+==> Cloning from https://github.com/hotgoidochirkhuyag-stack/huvsgul_zam
+Menu
+==> Checking out commit 1087ef3aa8f5ae0c7949d8aa7f1865a778e903f2 in branch main
+==> Downloaded 177MB in 4s. Extraction took 3s.
+==> Using Node.js version 22.22.0 via environment variable NODE_VERSION
+==> Docs on specifying a Node.js version: https://render.com/docs/node-version
+==> Running build command 'npm install --include=dev && npm run build'...
+added 95 packages, and audited 501 packages in 2s
+78 packages are looking for funding
+  run `npm fund` for details
+4 vulnerabilities (1 low, 1 moderate, 2 high)
+To address all issues, run:
+  npm audit fix
+Run `npm audit` for details.
+> rest-express@1.0.0 build
+> tsx script/build.ts
+building client...
+vite v7.3.0 building client environment for production...
+transforming...
+✓ 2791 modules transformed.
+rendering chunks...
+computing gzip size...
+../dist/public/index.html                     0.93 kB │ gzip:   0.55 kB
+../dist/public/assets/index-B0Zfw24j.css    104.49 kB │ gzip:  16.82 kB
+../dist/public/assets/index-HqIpLWgz.js   1,378.74 kB │ gzip: 370.92 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-manualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+✓ built in 7.00s
+building server...
+▲ [WARNING] "import.meta" is not available with the "cjs" output format and will be empty [empty-import-meta]
+    server/index.ts:9:45:
+      9 │ const __dirname = path.dirname(fileURLToPath(import.meta.url));
+        ╵                                              ~~~~~~~~~~~
+  You need to set the output format to "esm" for "import.meta" to work correctly.
+1 warning
+  dist/index.cjs  1.3mb ⚠️
+⚡ Done in 182ms
+==> Uploading build...
+==> Uploaded in 7.7s. Compression took 3.3s
+==> Build successful 🎉
+==> Deploying...
+==> Setting WEB_CONCURRENCY=1 by default, based on available CPUs in the instance
+==> Running 'npx tsx server/index.ts'
+Сервер эхлүүлэхэд алдаа гарлаа: PathError [TypeError]: Missing parameter name at index 1: *; visit https://git.new/pathToRegexpError for info
+    at name (/opt/render/project/src/node_modules/path-to-regexp/src/index.ts:225:13)
+    at parse (/opt/render/project/src/node_modules/path-to-regexp/src/index.ts:242:62)
+    at pathToRegexp (/opt/render/project/src/node_modules/path-to-regexp/src/index.ts:480:54)
+    at Object.match (/opt/render/project/src/node_modules/path-to-regexp/src/index.ts:438:28)
+    at matcher (/opt/render/project/src/node_modules/router/lib/layer.js:86:23)
+    at new Layer (/opt/render/project/src/node_modules/router/lib/layer.js:93:62)
+    at Function.route (/opt/render/project/src/node_modules/router/index.js:428:17)
+    at Function.route (/opt/render/project/src/node_modules/express/lib/application.js:257:22)
+    at app.<computed> [as get] (/opt/render/project/src/node_modules/express/lib/application.js:478:22)
+    at startServer (/opt/render/project/src/server/index.ts:35:9) {
+  originalPath: '*'
+}
+Password check: Олдлоо
+Error: getaddrinfo ENOTFOUND base
+    at /opt/render/project/src/node_modules/pg-pool/index.js:45:11
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async <anonymous> (/opt/render/project/src/node_modules/src/node-postgres/session.ts:104:19)
+    at async seedDefaultKpiConfigs (/opt/render/project/src/server/kpiEngine.ts:150:22) {
+  errno: -3008,
+  code: 'ENOTFOUND',
+  syscall: 'getaddrinfo',
+  hostname: 'base'
+}
+==> Application exited early
+==> Common ways to troubleshoot your deploy: https://render.com/docs/troubleshooting-deploys
