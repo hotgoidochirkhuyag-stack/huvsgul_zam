@@ -97,7 +97,7 @@ const AdminLogin = () => {
             </div>
           </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
+          <form onSubmit={handleLogin} className="space-y-5" autoComplete="off">
             <div className="space-y-2">
               <label className="text-xs font-medium text-slate-400 uppercase tracking-widest">Хэрэглэгч</label>
               <input
@@ -106,6 +106,7 @@ const AdminLogin = () => {
                 onChange={(e) => setUsername(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-blue-500/50 outline-none transition-all"
                 placeholder="Username"
+                autoComplete="off"
                 required
               />
             </div>
@@ -117,6 +118,7 @@ const AdminLogin = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-2xl px-5 py-4 text-white focus:border-blue-500/50 outline-none transition-all"
                 placeholder="••••••••"
+                autoComplete="new-password"
                 required
               />
             </div>
