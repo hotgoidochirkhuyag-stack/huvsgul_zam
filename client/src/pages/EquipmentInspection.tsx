@@ -26,11 +26,14 @@ type Step = "plate" | "employee" | "checklist" | "done";
 export default function EquipmentInspection() {
   const { toast } = useToast();
 
+  // URL-ийн ?emp= параметрээс ажилтны нэрийг урьдчилан авна
+  const prefilledEmp = new URLSearchParams(window.location.search).get("emp") ?? "";
+
   const [step, setStep] = useState<Step>("plate");
   const [plate, setPlate] = useState("");
   const [vehicle, setVehicle] = useState<any>(null);
   const [plateError, setPlateError] = useState("");
-  const [employeeName, setEmployeeName] = useState("");
+  const [employeeName, setEmployeeName] = useState(prefilledEmp);
   const [checks, setChecks] = useState<Record<string, CheckState>>({});
   const [notes, setNotes] = useState("");
   const [lookingUp, setLookingUp] = useState(false);
@@ -53,7 +56,8 @@ export default function EquipmentInspection() {
       }
       const v = await res.json();
       setVehicle(v);
-      setStep("employee");
+      // URL-аас ажилтны нэр ирсэн бол employee алхамыг алгасна
+      setStep(prefilledEmp ? "checklist" : "employee");
     } catch {
       setPlateError("Сервертэй холбогдоход алдаа гарлаа");
     }
@@ -120,6 +124,12 @@ export default function EquipmentInspection() {
               </div>
             </div>
 
+            {prefilledEmp && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-xl mb-4">
+                <Truck className="w-3.5 h-3.5 text-green-400" />
+                <span className="text-green-400 text-xs font-semibold">Ажилтан: {prefilledEmp}</span>
+              </div>
+            )}
             <label className="text-sm text-slate-400 mb-2 block font-medium">Техникийн улсын дугаар</label>
             <div className="flex gap-2 mb-2">
               <input

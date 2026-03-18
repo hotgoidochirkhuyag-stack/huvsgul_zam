@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search, ShieldCheck, ClipboardList, CheckSquare, Square,
   ChevronRight, Clock, MapPin, Wrench, AlertTriangle,
-  CheckCircle2, Loader2, Building2, HardHat, Factory, FileText, Plus
+  CheckCircle2, Loader2, Building2, HardHat, Factory, FileText, Plus, Truck
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
@@ -307,24 +307,35 @@ export default function CheckIn() {
                         {t.notes && <div className="flex items-center gap-2"><AlertTriangle className="w-3.5 h-3.5 text-amber-500" />{t.notes}</div>}
                         {t.assignedBy && <div className="text-slate-500">Тавьсан: {t.assignedBy}</div>}
                       </div>
-                      <div className="flex gap-2 mt-3">
-                        {t.status === "pending" && (
-                          <button
-                            onClick={() => acceptTask.mutate(t.id)}
-                            data-testid={`button-accept-task-${t.id}`}
-                            className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                      <div className="flex flex-col gap-2 mt-3">
+                        <div className="flex gap-2">
+                          {t.status === "pending" && (
+                            <button
+                              onClick={() => acceptTask.mutate(t.id)}
+                              data-testid={`button-accept-task-${t.id}`}
+                              className="flex-1 py-2 bg-blue-600 hover:bg-blue-500 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" /> Хүлээн авах
+                            </button>
+                          )}
+                          {(t.status === "accepted" || t.status === "completed") && (
+                            <button
+                              onClick={() => { setActiveTaskId(t.id); setStep("report"); }}
+                              data-testid={`button-report-task-${t.id}`}
+                              className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                            >
+                              <FileText className="w-3.5 h-3.5" /> Тайлан оруулах
+                            </button>
+                          )}
+                        </div>
+                        {t.equipment && (
+                          <a
+                            href={`/vehicle-inspection?emp=${encodeURIComponent(employee.name)}`}
+                            data-testid={`button-vehicle-inspection-${t.id}`}
+                            className="w-full py-2 bg-amber-500/10 border border-amber-500/30 hover:bg-amber-500/20 text-amber-400 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
                           >
-                            <CheckCircle2 className="w-3.5 h-3.5" /> Хүлээн авах
-                          </button>
-                        )}
-                        {(t.status === "accepted" || t.status === "completed") && (
-                          <button
-                            onClick={() => { setActiveTaskId(t.id); setStep("report"); }}
-                            data-testid={`button-report-task-${t.id}`}
-                            className="flex-1 py-2 bg-amber-600 hover:bg-amber-500 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5"
-                          >
-                            <FileText className="w-3.5 h-3.5" /> Тайлан оруулах
-                          </button>
+                            <Truck className="w-3.5 h-3.5" /> Техникийн үзлэг хийх
+                          </a>
                         )}
                       </div>
                     </div>
