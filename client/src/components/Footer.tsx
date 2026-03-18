@@ -161,10 +161,6 @@ export default function Footer() {
           <p className="text-muted-foreground text-sm">
             © {new Date().getFullYear()} Хөвсгөл Зам ХХК. Бүх эрх хуулиар хамгаалагдсан.
           </p>
-          <div className="flex items-center gap-6">
-            <a href="/admin" className="text-muted-foreground hover:text-foreground text-xs uppercase tracking-wider font-semibold transition-colors">Удирдах самбар</a>
-            <button className="text-muted-foreground hover:text-foreground text-xs uppercase tracking-wider font-semibold transition-colors">Нууцлалын бодлого</button>
-          </div>
         </div>
       </div>
     </footer>
