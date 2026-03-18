@@ -4,7 +4,7 @@ import { queryClient } from "@/lib/queryClient";
 import { motion } from "framer-motion";
 import {
   MessageSquare, Trash2, Users, Mail, Filter, Layers,
-  Phone, Calendar, ChevronDown, ChevronUp
+  Phone, Calendar, ChevronDown, ChevronUp, HelpCircle
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import LogoutButton from "@/components/LogoutButton";
@@ -17,13 +17,14 @@ function getHeaders() {
 }
 
 const TYPE_STYLE: Record<string, { bg: string; text: string; border: string }> = {
-  "Холбоо барих": { bg: "bg-green-600/20", text: "text-green-400", border: "border-green-500/30" },
+  "Холбоо барих": { bg: "bg-green-600/20",  text: "text-green-400",  border: "border-green-500/30"  },
   "Үнийн санал":  { bg: "bg-amber-600/20",  text: "text-amber-400",  border: "border-amber-500/30"  },
   "Ажлын байр":   { bg: "bg-purple-600/20", text: "text-purple-400", border: "border-purple-500/30" },
   "Төслийн мэдээ":{ bg: "bg-blue-600/20",   text: "text-blue-400",   border: "border-blue-500/30"   },
+  "Зөвлөгөө авах":{ bg: "bg-cyan-600/20",   text: "text-cyan-400",   border: "border-cyan-500/30"   },
 };
 
-const FILTER_ITEMS = ["Бүгд", "Холбоо барих", "Үнийн санал", "Ажлын байр", "Төслийн мэдээ"];
+const FILTER_ITEMS = ["Бүгд", "Холбоо барих", "Үнийн санал", "Ажлын байр", "Төслийн мэдээ", "Зөвлөгөө авах"];
 
 export default function ProjectDashboard() {
   const { toast } = useToast();
@@ -77,15 +78,16 @@ export default function ProjectDashboard() {
   const filtered = filter === "Бүгд" ? allRows : allRows.filter(r => r.type === filter);
 
   const countOf = (t: string) =>
-    t === "Ажлын байр" || t === "Төслийн мэдээ"
+    t === "Ажлын байр" || t === "Төслийн мэдээ" || t === "Зөвлөгөө авах"
       ? subscriptions.filter((s: any) => s.type === t).length
       : contacts.filter((c: any) => c.type === t).length;
 
   const stats = [
-    { label: "Холбоо барих", icon: MessageSquare, key: "Холбоо барих" },
-    { label: "Үнийн санал",  icon: Layers,        key: "Үнийн санал"  },
-    { label: "Ажлын байр",   icon: Users,          key: "Ажлын байр"   },
-    { label: "Төслийн мэдээ",icon: Mail,           key: "Төслийн мэдээ"},
+    { label: "Холбоо барих",  icon: MessageSquare, key: "Холбоо барих"  },
+    { label: "Үнийн санал",   icon: Layers,        key: "Үнийн санал"   },
+    { label: "Ажлын байр",    icon: Users,          key: "Ажлын байр"    },
+    { label: "Төслийн мэдээ", icon: Mail,           key: "Төслийн мэдээ" },
+    { label: "Зөвлөгөө авах", icon: HelpCircle,    key: "Зөвлөгөө авах" },
   ];
 
   return (
