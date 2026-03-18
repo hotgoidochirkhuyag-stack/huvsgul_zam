@@ -69,7 +69,7 @@ export default function Hero() {
           <div className="flex flex-col sm:flex-row gap-4">
             <button 
               onClick={() => {
-                const el = document.getElementById("projects");
+                const el = document.getElementById("videos");
                 if (el) window.scrollTo({ top: el.offsetTop - 80, behavior: "smooth" });
               }}
               className="px-8 py-4 bg-primary text-primary-foreground font-display font-bold uppercase tracking-wider rounded-sm flex items-center justify-center gap-3 hover:bg-primary/90 hover:gap-5 transition-all duration-300 box-glow"
