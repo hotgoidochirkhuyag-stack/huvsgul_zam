@@ -102,7 +102,7 @@ export default function ProjectDashboard() {
       </header>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
         {stats.map(s => {
           const style = TYPE_STYLE[s.key];
           const count = countOf(s.key);
