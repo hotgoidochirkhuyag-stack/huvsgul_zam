@@ -344,7 +344,7 @@ export default function CheckIn() {
               </div>
             )}
 
-            {/* Даалгавааргүй ч тайлан оруулах боломж */}
+            {/* Даалгаваргүй ч тайлан оруулах боломж */}
             <button
               onClick={() => { setActiveTaskId(null); setStep("report"); }}
               data-testid="button-free-report"

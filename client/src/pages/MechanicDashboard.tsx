@@ -13,7 +13,7 @@ function getHeaders() {
   return { "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" };
 }
 
-const VEHICLE_TYPES = ["Экскаватор", "Бульдозер", "Автомашин", "Кран", "Грейдер", "Думпер", "Асфальт тавигч", "Өрмийн машин", "Кран", "Цементэн миксер", "Өөр"];
+const VEHICLE_TYPES = ["Экскаватор", "Бульдозер", "Автомашин", "Кран", "Грейдер", "Думпер", "Асфальт тавигч", "Индүү", "Автопомп", "Миксер", "Өөр"];
 
 const TODAY = new Date().toISOString().slice(0, 10);
 

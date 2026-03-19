@@ -29,7 +29,7 @@ const TEST_TYPES: Record<string, {
     ],
   },
   compressive: {
-    label: "Бетоны Даралтын Бат Бэх",
+    label: "Бетоны шахалтын бат бэх",
     unit: "МПа", standard: 25, standardLabel: "C25/30: ≥ 25 МПа (28 хоног)",
     fields: [
       { key: "value",  label: "Даралтын бат бэх (МПа)", placeholder: "≥ 25"  },
