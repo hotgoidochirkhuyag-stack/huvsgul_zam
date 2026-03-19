@@ -675,18 +675,32 @@ const PLANT_BADGE: Record<string, string> = {
 
 // ─── Inline татан авалт / зарлага ────────────────────────────────────────────
 function InlineAdjust({ item, type, token, onDone }: {
-  item: WarehouseItem; type: "in" | "out"; token: string; onDone: () => void;
+  item: WarehouseItem; type: "in" | "out" | "edit"; token: string; onDone: () => void;
 }) {
-  const [qty, setQty] = useState("");
+  const [qty, setQty] = useState(type === "edit" ? String(item.currentStock ?? "") : "");
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
   const hdrs = { "x-admin-token": token };
   const isIn = type === "in";
+  const isEdit = type === "edit";
 
   const mut = useMutation({
     mutationFn: async () => {
       const q = parseFloat(qty);
-      if (!q || q <= 0) throw new Error("Хэмжээ оруулна уу");
+      if (isNaN(q) || q < 0) throw new Error("Хэмжээ оруулна уу");
+
+      if (isEdit) {
+        // Шууд утга засах — PATCH stock endpoint
+        const res = await fetch(`/api/warehouse/items/${item.id}/stock`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json", ...hdrs },
+          body: JSON.stringify({ currentStock: q, notes: notes || "Шууд засварласан" }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        return;
+      }
+
+      if (q <= 0) throw new Error("Хэмжээ 0-ээс их байх ёстой");
       const res = await fetch("/api/warehouse/logs", {
         method: "POST",
         headers: { "Content-Type": "application/json", ...hdrs },
@@ -700,7 +714,9 @@ function InlineAdjust({ item, type, token, onDone }: {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/warehouse/items"] });
-      toast({ title: `${item.name}: ${isIn ? "Татан авалт" : "Зарлага"} ${qty} ${item.unit} ✓` });
+      toast({ title: isEdit
+        ? `${item.name}: нөөц ${qty} ${item.unit} болж тохируулагдлаа ✓`
+        : `${item.name}: ${isIn ? "Татан авалт" : "Зарлага"} ${qty} ${item.unit} ✓` });
       onDone();
     },
     onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
@@ -710,6 +726,39 @@ function InlineAdjust({ item, type, token, onDone }: {
     if (e.key === "Enter") mut.mutate();
     if (e.key === "Escape") onDone();
   };
+
+  if (isEdit) {
+    return (
+      <div className="flex flex-col gap-2 p-3 rounded-xl border border-blue-500/30 bg-blue-500/8">
+        <div className="text-xs font-semibold text-blue-400">✏ Одоогийн нөөц шууд засах</div>
+        <div className="flex items-center gap-2">
+          <input
+            data-testid={`input-inline-edit-${item.id}`}
+            type="number" min="0" value={qty} onChange={e => setQty(e.target.value)}
+            onKeyDown={handleKey} autoFocus
+            placeholder={`Шинэ утга (${item.unit})`}
+            className="w-32 bg-white/5 border border-blue-500/30 text-blue-200 rounded-lg px-3 py-1.5 text-sm font-bold focus:outline-none focus:border-blue-400"
+          />
+          <span className="text-xs text-white/30">{item.unit}</span>
+          <button data-testid={`btn-inline-confirm-${item.id}`}
+            onClick={() => mut.mutate()} disabled={mut.isPending || qty === ""}
+            className="px-3 py-1.5 rounded-lg text-white text-xs font-bold bg-blue-600 hover:bg-blue-500 transition-all disabled:opacity-30">
+            {mut.isPending ? "…" : "Хадгалах"}
+          </button>
+          <button onClick={onDone}
+            className="px-2 py-1.5 rounded-lg text-white/30 hover:text-white/60 border border-white/10 text-xs transition-colors">
+            Болих
+          </button>
+        </div>
+        {qty !== "" && (
+          <div className="text-xs text-white/30">
+            Өмнөх: <span className="text-white/50">{fmt(item.currentStock ?? 0)} {item.unit}</span>
+            {" → "}Шинэ: <span className="font-bold text-blue-400">{fmt(parseFloat(qty) || 0)} {item.unit}</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className={`flex flex-col gap-2 p-3 rounded-xl border ${
@@ -995,7 +1044,7 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
   const [showNew, setShowNew] = useState(false);
   const [confirmDel, setConfirmDel] = useState<WarehouseItem | null>(null);
   const [editItem, setEditItem] = useState<WarehouseItem | null>(null);
-  const [inline, setInline] = useState<{ id: number; type: "in" | "out" } | null>(null);
+  const [inline, setInline] = useState<{ id: number; type: "in" | "out" | "edit" } | null>(null);
   const { toast } = useToast();
   const hdrs = { "x-admin-token": token };
 
@@ -1063,8 +1112,8 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
           <div className="grid grid-cols-[2fr_1fr_1fr_auto] gap-2 px-4 py-2.5 bg-white/3 border-b border-white/8 text-xs text-white/30 font-medium">
             <span>Материал</span>
             <span className="text-right">Одоогийн нөөц</span>
-            <span className="text-right">Доод / Аюулт</span>
-            <span className="text-center pr-2">Үйлдэл</span>
+            <span className="text-right">Үйлдвэр зогсох аюулт</span>
+            <span className="text-right pr-1">Үйлдэл</span>
           </div>
 
           <div className="divide-y divide-white/5">
@@ -1120,7 +1169,8 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
                             <Minus className="w-3 h-3" /> Зарлага
                           </button>
                           <button data-testid={`btn-edit-${item.id}`}
-                            onClick={() => setEditItem(item)}
+                            onClick={() => setInline({ id: item.id, type: "edit" })}
+                            title="Одоогийн нөөцийг засах"
                             className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/8 text-white/20 hover:text-blue-400 hover:border-blue-500/30 transition-all">
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>

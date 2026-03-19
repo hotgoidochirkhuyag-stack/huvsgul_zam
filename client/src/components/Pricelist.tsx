@@ -17,16 +17,22 @@ const priceRequestSchema = insertContactSchema.extend({
 });
 type PriceRequestData = z.infer<typeof priceRequestSchema>;
 
-type PriceResult = {
-  product: string;
-  quantity: number;
+type PriceItem = {
+  name: string;
   unit: string;
   pricePerUnit: { min: number; max: number; avg: number };
   totalPrice: { min: number; max: number; avg: number };
-  description: string;
+  note?: string;
+};
+
+type PriceResult = {
+  product: string;
+  quantity: number;
+  items: PriceItem[];
   marketFactors: string[];
-  note: string;
+  generalNote: string;
   discount: string;
+  aiPowered: boolean;
 };
 
 function fmtMNT(n: number) {
@@ -58,6 +64,11 @@ function AiEstimator({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ product, quantity: qty }),
       });
+      if (res.status === 429) {
+        const data = await res.json();
+        setError(data.error || "Хэт олон хайлт. Түр хүлээгээд дахин оролдоно уу.");
+        return;
+      }
       if (!res.ok) throw new Error("Server error");
       setResult(await res.json());
     } catch {
@@ -142,57 +153,83 @@ function AiEstimator({
               transition={{ duration: 0.4 }}
               className="space-y-4"
             >
-              {/* Нийт дүн — гол мэдээлэл */}
-              <div className="bg-primary/8 border border-primary/20 rounded-sm p-4 text-center">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-primary mb-1">
-                  {result.product} · {result.quantity} {result.unit}
-                </p>
-                <div className="flex items-baseline justify-center gap-2 mb-1">
-                  <span className="text-2xl font-black text-foreground">{fmtMNT(result.totalPrice.min)}</span>
-                  <span className="text-muted-foreground text-sm font-bold">–</span>
-                  <span className="text-2xl font-black text-foreground">{fmtMNT(result.totalPrice.max)}</span>
+              {/* Гарчиг мөр */}
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-foreground">{result.product}</p>
+                  <p className="text-[10px] text-muted-foreground">{result.quantity} нэгжийн үнийн судалгаа · {result.items.length} ангилал</p>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Нэгж үнэ: {fmtMNT(result.pricePerUnit.min)} – {fmtMNT(result.pricePerUnit.max)} / {result.unit}
-                </p>
-                <div className="mt-3 h-2 bg-border rounded-full overflow-hidden">
-                  <motion.div
-                    initial={{ width: 0 }}
-                    animate={{ width: "100%" }}
-                    transition={{ duration: 1, ease: "easeOut" }}
-                    className="h-full bg-gradient-to-r from-primary/60 to-primary rounded-full"
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
-                  <span>Хамгийн бага</span>
-                  <span className="text-primary font-bold">Дундаж: {fmtMNT(result.totalPrice.avg)}</span>
-                  <span>Хамгийн өндөр</span>
-                </div>
+                {result.aiPowered && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-sm px-2 py-0.5">
+                    <Sparkles className="w-2.5 h-2.5" /> AI
+                  </span>
+                )}
               </div>
 
-              {/* Материалын тайлбар */}
-              <p className="text-xs text-muted-foreground leading-relaxed">{result.description}</p>
+              {/* Ангиллуудын жагсаалт */}
+              <div className="space-y-2">
+                {result.items.map((item, i) => (
+                  <motion.div
+                    key={i}
+                    initial={{ opacity: 0, x: -8 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: i * 0.06, duration: 0.3 }}
+                    className="border border-border/50 rounded-sm p-3 bg-background/60 hover:border-primary/30 transition-colors"
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <p className="text-xs font-bold text-foreground leading-tight">{item.name}</p>
+                      <p className="text-xs font-black text-primary whitespace-nowrap shrink-0">
+                        {fmtMNT(item.totalPrice.avg)}
+                      </p>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <p className="text-[10px] text-muted-foreground">
+                        {fmtMNT(item.pricePerUnit.min)}–{fmtMNT(item.pricePerUnit.max)} / {item.unit}
+                      </p>
+                      <p className="text-[10px] text-muted-foreground">
+                        Нийт: {fmtMNT(item.totalPrice.min)}–{fmtMNT(item.totalPrice.max)}
+                      </p>
+                    </div>
+                    {/* Хамрах хүрээний мөр */}
+                    <div className="mt-2 h-1 bg-border rounded-full overflow-hidden">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${Math.min(100, 30 + i * 10)}%` }}
+                        transition={{ duration: 0.7, delay: i * 0.08 }}
+                        className="h-full bg-gradient-to-r from-primary/50 to-primary rounded-full"
+                      />
+                    </div>
+                    {item.note && (
+                      <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">{item.note}</p>
+                    )}
+                  </motion.div>
+                ))}
+              </div>
 
               {/* Үнэд нөлөөлөх хүчин зүйлс */}
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                  <TrendingUp className="w-3 h-3" /> Үнэд нөлөөлөх хүчин зүйлс
-                </p>
-                <div className="grid grid-cols-2 gap-1.5">
-                  {result.marketFactors.map((f, i) => (
-                    <div key={i} className="flex items-start gap-1.5 text-xs text-foreground/70">
-                      <span className="text-primary mt-0.5">▸</span> {f}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              {/* Анхаарал болон хямдрал */}
-              {result.note && (
-                <div className="bg-amber-500/8 border border-amber-500/20 rounded-sm px-3 py-2 text-xs text-amber-400/90 leading-relaxed">
-                  ℹ {result.note}
+              {result.marketFactors?.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
+                    <TrendingUp className="w-3 h-3" /> Үнэд нөлөөлөх хүчин зүйлс
+                  </p>
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {result.marketFactors.map((f, i) => (
+                      <div key={i} className="flex items-start gap-1.5 text-xs text-foreground/70">
+                        <span className="text-primary mt-0.5">▸</span> {f}
+                      </div>
+                    ))}
+                  </div>
                 </div>
               )}
+
+              {/* Нийтлэг тэмдэглэл */}
+              {result.generalNote && (
+                <div className="bg-amber-500/8 border border-amber-500/20 rounded-sm px-3 py-2 text-xs text-amber-400/90 leading-relaxed">
+                  ℹ {result.generalNote}
+                </div>
+              )}
+
+              {/* Хямдрал */}
               {result.discount && (
                 <div className="flex items-start gap-2 bg-green-500/8 border border-green-500/20 rounded-sm px-3 py-2 text-xs text-green-400 leading-relaxed">
                   <BadgePercent className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {result.discount}

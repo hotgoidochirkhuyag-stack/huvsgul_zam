@@ -141,11 +141,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
-  // ============ AI ҮНИЙН САНАЛ ============
-  app.post("/api/ai/price-estimate", async (req, res) => {
-    const { product, quantity, unit } = req.body;
-    if (!product || !quantity) return res.status(400).json({ error: "Бүтээгдэхүүн, тоо хэмжээ шаардлагатай" });
+  // ============ AI ҮНИЙН САНАЛ (rate-limited, multi-variant) ============
+  // 1 минутанд 12-оос дээш хайлт хийж болохгүй
+  const aiRateMap = new Map<string, number[]>();
+  const AI_RATE_LIMIT = 12;
+  const AI_WINDOW_MS = 60_000;
 
+  app.post("/api/ai/price-estimate", async (req, res) => {
+    const ip = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "unknown").split(",")[0].trim();
+    const now = Date.now();
+    const timestamps = (aiRateMap.get(ip) || []).filter(t => now - t < AI_WINDOW_MS);
+    if (timestamps.length >= AI_RATE_LIMIT) {
+      const retryAfter = Math.ceil((timestamps[0] + AI_WINDOW_MS - now) / 1000);
+      return res.status(429).json({ error: `Хэт олон хайлт. ${retryAfter} секундийн дараа дахин оролдоно уу.`, retryAfter });
+    }
+    timestamps.push(now);
+    aiRateMap.set(ip, timestamps);
+
+    const { product, quantity } = req.body;
+    if (!product || !quantity) return res.status(400).json({ error: "Бүтээгдэхүүн, тоо хэмжээ шаардлагатай" });
     const qty = parseFloat(quantity) || 1;
     const apiKey = process.env.GEMINI_API_KEY;
 
@@ -153,25 +167,31 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({
-          model: "gemini-1.5-flash",
+          model: "gemini-2.0-flash",
           tools: [{ googleSearch: {} } as any],
         });
 
-        const prompt = `Чи бол Монголын барилгын материалын зах зээлийн шинжээч.
+        const prompt = `Чи бол Монголын барилга, дэд бүтцийн материалын зах зээлийн шинжээч.
 Хэрэглэгч: "${product}" бүтээгдэхүүний ${qty} нэгж захиалахыг хүсэж байна.
-2025-2026 оны Монголын (Улаанбаатар, Хөвсгөл аймаг) зах зээлийн бодит үнийг (unegui.mn, нийлүүлэгчдийн сайт гэх мэт эх сурвалжаас) үндэслэн дараах JSON форматаар хариул:
+
+2025-2026 оны Монголын зах зээлийн бодит үнийг үндэслэн энэ материалын БҮХИЙ Л ангилал, марк, зэрэглэлийг (жишээ нь бетон зуурмагийн хувьд М100, М150, М200, М250, М300, М350, М400 гэх мэт) дараах JSON форматаар гаргаж өг:
 
 {
-  "unit": "хэмжих нэгж (м³/тн/кг гэх мэт)",
-  "pricePerUnit": { "min": тоо, "max": тоо, "avg": тоо },
-  "totalPrice": { "min": тоо, "max": тоо, "avg": тоо },
-  "description": "бүтээгдэхүүний товч тайлбар монголоор",
+  "items": [
+    {
+      "name": "Бүтээгдэхүүний бүрэн нэр (марк/ангилалтай)",
+      "unit": "м³ эсвэл тн эсвэл бусад",
+      "pricePerUnit": { "min": тоо, "max": тоо, "avg": тоо },
+      "totalPrice": { "min": тоо, "max": тоо, "avg": тоо },
+      "note": "энэ ангиллын онцлог, хэрэглэх газар (монголоор)"
+    }
+  ],
   "marketFactors": ["үнэд нөлөөлөх хүчин зүйл 1", "хүчин зүйл 2", "хүчин зүйл 3"],
-  "note": "чухал тэмдэглэл монголоор",
-  "discount": "том захиалгын хямдралын мэдээлэл монголоор (хэрэв байгаа бол)"
+  "generalNote": "нийтлэг чухал тэмдэглэл монголоор",
+  "discount": "том захиалгын хямдрал (${qty} нэгжийн хувьд)"
 }
 
-Зөвхөн цэвэр JSON буцаа. Үнийг Монгол төгрөгөөр бич.`;
+Зөвхөн цэвэр JSON буцаа. Үнийг Монгол төгрөгөөр бич. Нийт дүнг quantity=${qty}-р үржүүлж тооцоол.`;
 
         const result = await model.generateContent(prompt);
         const text = result.response.text().trim();
@@ -179,21 +199,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (!jsonMatch) throw new Error("JSON parse failed");
         const parsed = JSON.parse(jsonMatch[0]);
 
-        const fmtNum = (n: number) => n.toLocaleString("mn-MN");
         return res.json({
-          product,
-          quantity: qty,
-          unit: parsed.unit || unit || "нэгж",
-          pricePerUnit: parsed.pricePerUnit,
-          totalPrice: parsed.totalPrice,
-          description: parsed.description,
+          product, quantity: qty,
+          items: parsed.items || [],
           marketFactors: parsed.marketFactors || [],
-          note: parsed.note || "",
+          generalNote: parsed.generalNote || "",
           discount: parsed.discount || "",
-          summary: `**${product}** ${qty} ${parsed.unit} захиалгын AI тооцоолол:\n\n` +
-            `• Нэгж үнэ: ₮${fmtNum(parsed.pricePerUnit?.min)} – ₮${fmtNum(parsed.pricePerUnit?.max)}\n` +
-            `• Нийт дүн: **₮${fmtNum(parsed.totalPrice?.min)} – ₮${fmtNum(parsed.totalPrice?.max)}**\n` +
-            `• Дундаж: ₮${fmtNum(parsed.totalPrice?.avg)}`,
           generatedAt: new Date().toISOString(),
           aiPowered: true,
         });
@@ -202,27 +213,70 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       }
     }
 
-    // Fallback: hardcoded Монголын зах зээлийн үнэ
-    const priceData: Record<string, { unit: string; min: number; max: number; avg: number; desc: string; factors: string[]; note: string; }> = {
-      "Бетон зуурмаг": { unit: "м³", min: 185000, max: 230000, avg: 207000, desc: "М200–М300 класс бетон зуурмаг", factors: ["Цемент хэрэглэлт", "Хийцийн класс", "Тээврийн зай", "Улирал"], note: "Өвлийн улиралд +8–12% нэмэгддэг." },
-      "Хайрга / Дайрга": { unit: "м³", min: 22000, max: 42000, avg: 31000, desc: "Байгалийн хайрга болон дайрга", factors: ["Ширхэглэл", "Олборлох зай", "Тээвэр", "Чулуужсан байдал"], note: "1000+ м³ захиалгад 10–15% хямдралтай." },
-      "Элс / Угаасан элс": { unit: "м³", min: 14000, max: 26000, avg: 19000, desc: "Барилгын элс болон угааж боловсруулсан элс", factors: ["Угаалт", "Ширхэглэл", "Тээвэр", "Чийглэг"], note: "Угаасан элс 20–30% өндөр үнэтэй." },
-      "Цемент": { unit: "тн", min: 420000, max: 560000, avg: 485000, desc: "Портланд цемент ПЦ 400–500", factors: ["Марк/класс", "Савлалт", "Импортын татвар", "Улирал"], note: "Хятад импортын цемент 8–12% хямд." },
-      "Бусад": { unit: "нэгж", min: 50000, max: 200000, avg: 120000, desc: "Барилга, дэд бүтцийн материал", factors: ["Материалын төрөл", "Нийлүүлэлт", "Тээвэр", "Захиалгын хэмжээ"], note: "Дэлгэрэнгүй тооцооллын тулд борлуулалтын алба руу холбогдоно уу." },
+    // Fallback: hardcoded ангиллуудаар
+    const fallbacks: Record<string, { unit: string; grades: { name: string; min: number; max: number; note: string }[] }> = {
+      "бетон": { unit: "м³", grades: [
+        { name: "Бетон зуурмаг М100", min: 140000, max: 165000, note: "Суурь дүүргэх, бага ачааллын" },
+        { name: "Бетон зуурмаг М150", min: 158000, max: 185000, note: "Хавтан, жижиг суурь" },
+        { name: "Бетон зуурмаг М200", min: 178000, max: 210000, note: "Ерөнхий хэрэглээний хамгийн өргөн" },
+        { name: "Бетон зуурмаг М250", min: 198000, max: 235000, note: "Цардмал дамар, гүүрийн суурь" },
+        { name: "Бетон зуурмаг М300", min: 215000, max: 255000, note: "Хүчтэй ачаалалтай байгууламж" },
+        { name: "Бетон зуурмаг М350", min: 235000, max: 278000, note: "Хүчлэг, ус тэсвэрт" },
+        { name: "Бетон зуурмаг М400", min: 258000, max: 305000, note: "Онцгой хүчтэй байгууламж" },
+      ]},
+      "цемент": { unit: "тн", grades: [
+        { name: "Цемент ПЦ 400", min: 390000, max: 450000, note: "Ерөнхий барилгын" },
+        { name: "Цемент ПЦ 500", min: 420000, max: 490000, note: "Бетоны марк өндөр шаардлагатай" },
+        { name: "Цемент ПЦ 500 Д0 (сульфатад тэсвэртэй)", min: 460000, max: 540000, note: "Усны байгууламж, суваг" },
+        { name: "Цемент Хятад импорт", min: 360000, max: 420000, note: "Хямдхан, нийлүүлэлт тогтвортой" },
+      ]},
+      "хайрга": { unit: "м³", grades: [
+        { name: "Хайрга 0–5 мм (элсэнцэр)", min: 20000, max: 35000, note: "Нийлмэл холимог, цутгалт" },
+        { name: "Хайрга 5–10 мм", min: 22000, max: 38000, note: "Бетоны нарийн нэмэлт" },
+        { name: "Хайрга 10–20 мм", min: 24000, max: 42000, note: "Хамгийн өргөн хэрэглээ" },
+        { name: "Хайрга 20–40 мм", min: 26000, max: 44000, note: "Том суурь, дүүргэлт" },
+        { name: "Хайрга 40–70 мм (дайрга)", min: 28000, max: 48000, note: "Замын суурь давхарга" },
+      ]},
+      "элс": { unit: "м³", grades: [
+        { name: "Барилгын элс (боловсруулаагүй)", min: 12000, max: 20000, note: "Ерөнхий барилгын" },
+        { name: "Угаасан элс (М2.0–М2.5)", min: 16000, max: 26000, note: "Бетон, зуурмагт" },
+        { name: "Маш нарийн элс (М1.5)", min: 14000, max: 22000, note: "Ханын зуурмаг" },
+        { name: "Элс М3.0 (бүдүүн)", min: 18000, max: 28000, note: "Асфальт, дренаж" },
+      ]},
+      "битум": { unit: "тн", grades: [
+        { name: "Битум БНД 40/60", min: 1500000, max: 1900000, note: "Халуун уур амьсгалын хатуу битум" },
+        { name: "Битум БНД 60/90", min: 1400000, max: 1800000, note: "Монголд хамгийн өргөн хэрэглэх" },
+        { name: "Битум БНД 90/130", min: 1300000, max: 1700000, note: "Хүйтэн уур амьсгалын зөөлөн битум" },
+        { name: "Битум эмульс", min: 800000, max: 1200000, note: "Хүйтэн засварын" },
+      ]},
     };
 
-    const info = priceData[product] || priceData["Бусад"];
-    const fmtNum = (n: number) => n.toLocaleString("mn-MN");
-    let discount = "";
-    if (qty >= 500) discount = "500+ нэгжийн захиалгад 12–18% хямдралтай нөхцөлөөр яриа хэлэлцэх боломжтой.";
-    else if (qty >= 100) discount = "100+ нэгжийн захиалгад 5–10% хямдрал боломжтой.";
+    const key = Object.keys(fallbacks).find(k => product.toLowerCase().includes(k)) || "";
+    const fb = fallbacks[key];
+
+    if (fb) {
+      return res.json({
+        product, quantity: qty,
+        items: fb.grades.map(g => ({
+          name: g.name, unit: fb.unit,
+          pricePerUnit: { min: g.min, max: g.max, avg: Math.round((g.min + g.max) / 2) },
+          totalPrice: { min: Math.round(g.min * qty), max: Math.round(g.max * qty), avg: Math.round((g.min + g.max) / 2 * qty) },
+          note: g.note,
+        })),
+        marketFactors: ["Тээврийн зардал", "Улирлын хэлбэлзэл", "Захиалгын хэмжээ", "Нийлүүлэгчийн байршил"],
+        generalNote: `${product} бүтээгдэхүүний ${qty} нэгжийн жишиг үнэ. Яг үнийг нийлүүлэгчтэй шууд тохирно уу.`,
+        discount: qty >= 500 ? "500+ нэгжид 12–18% хямдрал боломжтой" : qty >= 100 ? "100+ нэгжид 5–10% хямдрал боломжтой" : "",
+        generatedAt: new Date().toISOString(),
+        aiPowered: false,
+      });
+    }
 
     res.json({
-      product, quantity: qty, unit: info.unit,
-      pricePerUnit: { min: info.min, max: info.max, avg: info.avg },
-      totalPrice: { min: Math.round(info.min * qty), max: Math.round(info.max * qty), avg: Math.round(info.avg * qty) },
-      description: info.desc, marketFactors: info.factors, note: info.note, discount,
-      summary: `**${product}** ${qty} ${info.unit}:\n• Нэгж үнэ: ₮${fmtNum(info.min)} – ₮${fmtNum(info.max)}\n• Нийт: ₮${fmtNum(Math.round(info.min * qty))} – ₮${fmtNum(Math.round(info.max * qty))}`,
+      product, quantity: qty,
+      items: [{ name: product, unit: "нэгж", pricePerUnit: { min: 50000, max: 200000, avg: 120000 }, totalPrice: { min: Math.round(50000*qty), max: Math.round(200000*qty), avg: Math.round(120000*qty) }, note: "Дэлгэрэнгүй тооцооллын тулд борлуулалтын алба руу холбогдоно уу." }],
+      marketFactors: ["Материалын төрөл", "Нийлүүлэлт", "Тээвэр", "Захиалгын хэмжээ"],
+      generalNote: "Барилга, дэд бүтцийн материал. Яг үнийг нийлүүлэгчтэй тохирно уу.",
+      discount: "",
       generatedAt: new Date().toISOString(),
       aiPowered: false,
     });
