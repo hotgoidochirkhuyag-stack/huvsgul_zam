@@ -1,7 +1,134 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { MapPin, X, Calendar, Ruler, Building2, TrendingUp, DollarSign, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, X, Calendar, Ruler, Building2, TrendingUp, DollarSign, ChevronLeft, ChevronRight, FileText, Download, FolderOpen } from "lucide-react";
 import { useGallery } from "@/hooks/use-gallery";
+import { useQuery } from "@tanstack/react-query";
+
+type ProjectDocument = {
+  id: number;
+  title: string;
+  category: string;
+  description?: string;
+  fileUrl: string;
+  fileSize?: string;
+  uploadedAt?: string;
+};
+
+const DOC_CATEGORIES: Record<string, string> = {
+  general:  "Нийтлэг",
+  design:   "Зураг төсөл",
+  contract: "Гэрээ",
+  report:   "Тайлан",
+  norm:     "Норм стандарт",
+};
+
+function PdfDownloadModal({ onClose }: { onClose: () => void }) {
+  const [activeCategory, setActiveCategory] = useState("all");
+  const { data: docs = [], isLoading } = useQuery<ProjectDocument[]>({
+    queryKey: ["/api/project-documents"],
+  });
+
+  const categories = ["all", ...Array.from(new Set(docs.map(d => d.category)))];
+  const filtered = activeCategory === "all" ? docs : docs.filter(d => d.category === activeCategory);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-[100] flex items-center justify-center px-4"
+      onClick={e => e.target === e.currentTarget && onClose()}
+    >
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        transition={{ duration: 0.25 }}
+        className="relative bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl"
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-500/15 flex items-center justify-center">
+              <FileText className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h3 className="text-white font-bold text-base leading-tight">PDF Баримтууд</h3>
+              <p className="text-white/40 text-xs">Татаж авах боломжтой файлууд</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-xl border border-white/10 text-white/40 hover:text-white hover:border-white/30 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Category filter */}
+        {categories.length > 1 && (
+          <div className="flex gap-2 px-6 py-3 border-b border-white/8 overflow-x-auto">
+            {categories.map(cat => (
+              <button key={cat} onClick={() => setActiveCategory(cat)}
+                className={`px-3 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                  activeCategory === cat
+                    ? "bg-amber-500 text-[#0f172a]"
+                    : "bg-white/5 text-white/40 hover:text-white/70 border border-white/10"
+                }`}>
+                {cat === "all" ? `Бүгд (${docs.length})` : `${DOC_CATEGORIES[cat] ?? cat} (${docs.filter(d => d.category === cat).length})`}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Document list */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 space-y-2">
+          {isLoading && (
+            <div className="py-12 flex flex-col items-center gap-3 text-white/30">
+              <div className="w-8 h-8 border-2 border-amber-500/30 border-t-amber-400 rounded-full animate-spin" />
+              <span className="text-sm">Ачааллаж байна...</span>
+            </div>
+          )}
+          {!isLoading && filtered.length === 0 && (
+            <div className="py-12 flex flex-col items-center gap-3 text-white/30">
+              <FolderOpen className="w-10 h-10 opacity-40" />
+              <span className="text-sm">Баримт хоосон байна</span>
+              <span className="text-xs text-white/20">Удирдлагын самбараас PDF файл нэмнэ үү</span>
+            </div>
+          )}
+          {filtered.map((doc, i) => (
+            <motion.a
+              key={doc.id}
+              href={doc.fileUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: i * 0.05 }}
+              className="flex items-center gap-4 p-4 rounded-xl border border-white/8 bg-white/3 hover:bg-white/6 hover:border-amber-500/30 transition-all group cursor-pointer"
+            >
+              <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5 text-red-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold text-sm truncate leading-tight">{doc.title}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] text-amber-400/70 font-medium">
+                    {DOC_CATEGORIES[doc.category] ?? doc.category}
+                  </span>
+                  {doc.fileSize && <span className="text-[10px] text-white/30">· {doc.fileSize}</span>}
+                  {doc.description && <span className="text-[10px] text-white/30 truncate">· {doc.description}</span>}
+                </div>
+              </div>
+              <Download className="w-4 h-4 text-white/20 group-hover:text-amber-400 transition-colors shrink-0" />
+            </motion.a>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 py-3 border-t border-white/8 text-[11px] text-white/25 text-center">
+          Нийт {filtered.length} файл · PDF, DOC, XLSX форматтай баримтуудыг татаж авах боломжтой
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
 
 type Project = {
   id: number;
@@ -270,6 +397,7 @@ function AutoRotatingSlot({
 
 /* ─── Үндсэн компонент ──────────────────────────────────────── */
 export default function ProjectsCloudinary() {
+  const [showPdfModal, setShowPdfModal] = useState(false);
   const { data: allProjects } = useGallery("/api/projects");
   const [modalProject, setModalProject] = useState<Project | null>(null);
   const [modalCategory, setModalCategory] = useState<Project[]>([]);
@@ -309,9 +437,20 @@ export default function ProjectsCloudinary() {
           <span className="w-12 h-0.5 bg-primary" />
           Манай амжилт
         </h2>
-        <h3 className="text-4xl md:text-5xl font-display font-black text-foreground uppercase">
-          ОНЦЛОХ <span className="text-transparent border-text">ТӨСЛҮҮД</span>
-        </h3>
+        <div className="flex items-end justify-between gap-4 flex-wrap">
+          <h3 className="text-4xl md:text-5xl font-display font-black text-foreground uppercase">
+            ОНЦЛОХ <span className="text-transparent border-text">ТӨСЛҮҮД</span>
+          </h3>
+          <button
+            onClick={() => setShowPdfModal(true)}
+            data-testid="btn-open-pdf-modal"
+            className="inline-flex items-center gap-2 px-5 py-2.5 bg-white/5 hover:bg-amber-500/15 border border-white/10 hover:border-amber-500/40 rounded-xl text-sm font-semibold text-white/70 hover:text-amber-400 transition-all group mb-1"
+          >
+            <FileText className="w-4 h-4 text-red-400 group-hover:text-red-300 transition-colors" />
+            PDF баримтууд
+            <Download className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 transition-opacity" />
+          </button>
+        </div>
         <div className="h-16" />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <AutoRotatingSlot title="АВТО ЗАМ"           images={roadProjects}   onOpenModal={p => openModal(p, roadProjects)} />
@@ -320,7 +459,7 @@ export default function ProjectsCloudinary() {
         </div>
       </div>
 
-      {/* Modal */}
+      {/* Project Modal */}
       <AnimatePresence>
         {modalProject && (
           <ProjectModal
@@ -332,6 +471,11 @@ export default function ProjectsCloudinary() {
             hasNext={modalIdx < modalCategory.length - 1}
           />
         )}
+      </AnimatePresence>
+
+      {/* PDF Download Modal */}
+      <AnimatePresence>
+        {showPdfModal && <PdfDownloadModal onClose={() => setShowPdfModal(false)} />}
       </AnimatePresence>
     </section>
   );

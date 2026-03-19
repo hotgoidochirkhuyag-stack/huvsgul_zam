@@ -10,9 +10,11 @@ import {
   AlertTriangle, CheckCircle2, Clock, Gauge, Bot, RefreshCw,
   Sparkles, FileText, ChevronRight, Video, Loader2, Globe,
   MapPin, Ruler, Calendar, Building2, DollarSign, Pencil, Save, X, ImageIcon,
+  Plus, Trash2, Download, FolderOpen,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
+import { useToast } from "@/hooks/use-toast";
 
 type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "website";
 
@@ -1022,6 +1024,9 @@ function WebsiteTab() {
         </div>
       )}
 
+      {/* ── PDF Баримтууд ── */}
+      <PdfDocumentsManager />
+
       {/* ── Stats зургийн тайлбар ── */}
       <StatsImageDescriptions />
     </div>
@@ -1124,6 +1129,152 @@ function StatsImageDescriptions() {
               <p>Stats зураг бүртгэгдээгүй байна</p>
             </div>
           )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DOC_CATEGORIES = [
+  { value: "general",  label: "Нийтлэг" },
+  { value: "design",   label: "Зураг төсөл" },
+  { value: "contract", label: "Гэрээ" },
+  { value: "report",   label: "Тайлан" },
+  { value: "norm",     label: "Норм стандарт" },
+];
+
+function PdfDocumentsManager() {
+  const [form, setForm] = useState({ title: "", category: "general", description: "", fileUrl: "", fileSize: "" });
+  const [showForm, setShowForm] = useState(false);
+  const { toast } = useToast();
+
+  const { data: docs = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/project-documents"],
+    queryFn: () => fetch("/api/project-documents").then(r => r.json()),
+  });
+
+  const addDoc = useMutation({
+    mutationFn: () => fetch("/api/project-documents", {
+      method: "POST", headers: hdrs(), body: JSON.stringify(form),
+    }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/project-documents"] });
+      setForm({ title: "", category: "general", description: "", fileUrl: "", fileSize: "" });
+      setShowForm(false);
+      toast({ title: "PDF баримт нэмэгдлээ ✓" });
+    },
+    onError: () => toast({ title: "Хадгалахад алдаа гарлаа", variant: "destructive" }),
+  });
+
+  const delDoc = useMutation({
+    mutationFn: (id: number) => fetch(`/api/project-documents/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/project-documents"] });
+      toast({ title: "Устгагдлаа" });
+    },
+  });
+
+  return (
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="bg-gradient-to-br from-slate-900/80 to-slate-900/40 rounded-2xl border border-white/10 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-red-600/20 rounded-xl border border-red-500/20">
+              <FileText className="w-6 h-6 text-red-400" />
+            </div>
+            <div>
+              <h2 className="font-black text-white text-lg">PDF Баримтууд</h2>
+              <p className="text-slate-400 text-xs mt-0.5">Нүүр хуудасны "Онцлох төслүүд" хэсгийн татах боломжтой баримтууд</p>
+            </div>
+          </div>
+          <button onClick={() => setShowForm(s => !s)}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-sm transition-all">
+            <Plus className="w-4 h-4" /> Баримт нэмэх
+          </button>
+        </div>
+      </div>
+
+      {/* Add form */}
+      {showForm && (
+        <div className="bg-slate-900/60 border border-amber-500/20 rounded-2xl p-5 space-y-3">
+          <p className="text-amber-400 font-bold text-sm flex items-center gap-2"><Plus className="w-4 h-4" /> Шинэ PDF баримт</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Гарчиг *</label>
+              <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))}
+                placeholder="Гэрээний баримт #01" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Ангилал</label>
+              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full bg-[#0f172a] border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500">
+                {DOC_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 block mb-1">PDF / файлын URL (Google Drive, Cloudinary гэх мэт) *</label>
+            <input value={form.fileUrl} onChange={e => setForm(f => ({ ...f, fileUrl: e.target.value }))}
+              placeholder="https://drive.google.com/..." className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Хэмжээ (заавал биш)</label>
+              <input value={form.fileSize} onChange={e => setForm(f => ({ ...f, fileSize: e.target.value }))}
+                placeholder="2.3 MB" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 block mb-1">Тайлбар (заавал биш)</label>
+              <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Товч тайлбар..." className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500" />
+            </div>
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => addDoc.mutate()} disabled={addDoc.isPending || !form.title || !form.fileUrl}
+              className="flex items-center gap-2 px-5 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-40 text-white font-bold rounded-xl text-sm transition-all">
+              {addDoc.isPending ? <><RefreshCw className="w-4 h-4 animate-spin" /> Хадгалж байна...</> : <><Save className="w-4 h-4" /> Хадгалах</>}
+            </button>
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-800 text-slate-400 hover:bg-slate-700 rounded-xl text-sm">Болих</button>
+          </div>
+        </div>
+      )}
+
+      {/* Document list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12 text-slate-400 gap-2"><Loader2 className="w-5 h-5 animate-spin" /> Ачааллаж байна...</div>
+      ) : docs.length === 0 ? (
+        <div className="text-center py-12 text-slate-500 flex flex-col items-center gap-3">
+          <FolderOpen className="w-10 h-10 opacity-30" />
+          <p>Баримт бүртгэгдээгүй байна</p>
+          <p className="text-xs text-slate-600">Дээрх "Баримт нэмэх" товч дарж PDF URL нэмнэ үү</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {docs.map((doc: any) => (
+            <div key={doc.id} className="flex items-center gap-4 p-4 bg-slate-900/60 border border-white/10 rounded-2xl group">
+              <div className="w-10 h-10 rounded-xl bg-red-500/15 flex items-center justify-center shrink-0">
+                <FileText className="w-5 h-5 text-red-400" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-white font-semibold text-sm truncate">{doc.title}</p>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="text-[10px] text-amber-400/70">{DOC_CATEGORIES.find(c => c.value === doc.category)?.label ?? doc.category}</span>
+                  {doc.fileSize && <span className="text-[10px] text-slate-600">· {doc.fileSize}</span>}
+                  {doc.description && <span className="text-[10px] text-slate-600 truncate">· {doc.description}</span>}
+                </div>
+              </div>
+              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-blue-600/15 text-blue-400 hover:bg-blue-600/25 border border-blue-500/20 rounded-xl text-xs font-semibold transition-all">
+                <Download className="w-3.5 h-3.5" /> Нээх
+              </a>
+              <button onClick={() => { if (confirm("Устгах уу?")) delDoc.mutate(doc.id); }}
+                disabled={delDoc.isPending}
+                className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-red-600/10 text-red-400 hover:bg-red-600/20 border border-red-500/20 rounded-xl text-xs font-semibold transition-all">
+                <Trash2 className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
     </div>

@@ -522,6 +522,20 @@ export const insertBreakdownSchema = createInsertSchema(breakdownRequests).omit(
 export type BreakdownRequest = typeof breakdownRequests.$inferSelect;
 export type InsertBreakdown = z.infer<typeof insertBreakdownSchema>;
 
+// ============ ТӨСЛИЙН PDF БАРИМТУУД ============
+export const projectDocuments = pgTable("project_documents", {
+  id:          serial("id").primaryKey(),
+  title:       text("title").notNull(),
+  category:    text("category").notNull().default("general"),
+  description: text("description"),
+  fileUrl:     text("file_url").notNull(),
+  fileSize:    text("file_size"),
+  uploadedAt:  timestamp("uploaded_at").defaultNow(),
+});
+export const insertProjectDocumentSchema = createInsertSchema(projectDocuments).omit({ id: true, uploadedAt: true });
+export type ProjectDocument = typeof projectDocuments.$inferSelect;
+export type InsertProjectDocument = z.infer<typeof insertProjectDocumentSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;

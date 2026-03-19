@@ -285,6 +285,33 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getFeaturedVideos());
   });
 
+  // ============ ТӨСЛИЙН PDF БАРИМТУУД ============
+  app.get("/api/project-documents", async (_req, res) => {
+    try {
+      const docs = await db.select().from(schema.projectDocuments).orderBy(desc(schema.projectDocuments.uploadedAt));
+      res.json(docs);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/project-documents", async (req, res) => {
+    const token = req.headers["x-admin-token"];
+    if (token !== "authenticated") return res.status(401).json({ error: "Unauthorized" });
+    try {
+      const data = schema.insertProjectDocumentSchema.parse(req.body);
+      const [doc] = await db.insert(schema.projectDocuments).values(data).returning();
+      res.json(doc);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/project-documents/:id", async (req, res) => {
+    const token = req.headers["x-admin-token"];
+    if (token !== "authenticated") return res.status(401).json({ error: "Unauthorized" });
+    try {
+      await db.delete(schema.projectDocuments).where(eq(schema.projectDocuments.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ============ ERP-ийн нийтийн статистик (нэвтрэх шаардлагагүй) ============
   app.get("/api/public/stats", async (_req, res) => {
     try {

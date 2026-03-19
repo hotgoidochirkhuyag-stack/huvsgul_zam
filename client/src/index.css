@@ -69,6 +69,23 @@
   }
 }
 
+/* ─── Dark Select Override ─────────────────────────────────────────────────── */
+/* Native <select> dropdown-ийг dark/navy өнгөтэй харагдуулах */
+select {
+  color-scheme: dark;
+  background-color: #0d1526;
+  color: #f1f5f9;
+}
+select option {
+  background-color: #0d1526;
+  color: #f1f5f9;
+}
+select option:checked,
+select option:hover {
+  background-color: #1e293b;
+  color: #d97706;
+}
+
 /* Custom Hero Pan Animation */
 @keyframes slowPan {
   0% { transform: scale(1.05) translate(0, 0); }
