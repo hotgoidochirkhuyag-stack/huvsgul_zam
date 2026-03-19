@@ -886,10 +886,121 @@ function NewItemModal({ token, onClose }: { token: string; onClose: () => void }
   );
 }
 
+// ─── Материал засах modal ─────────────────────────────────────────────────────
+function EditItemModal({ item, token, onClose }: { item: WarehouseItem; token: string; onClose: () => void }) {
+  const { toast } = useToast();
+  const hdrs = { "x-admin-token": token };
+  const [form, setForm] = useState({
+    name: item.name,
+    unit: item.unit || "тн",
+    plant: item.plant || "asphalt",
+    category: item.category || "other",
+    minStock: String(item.minStock ?? ""),
+    criticalStock: String(item.criticalStock ?? ""),
+  });
+  const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (!form.name.trim()) throw new Error("Нэр оруулна уу");
+      const res = await fetch(`/api/warehouse/items/${item.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...hdrs },
+        body: JSON.stringify({
+          name: form.name.trim(),
+          unit: form.unit,
+          plant: form.plant,
+          category: form.category,
+          minStock: parseFloat(form.minStock) || 0,
+          criticalStock: parseFloat(form.criticalStock) || 0,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/items"] });
+      toast({ title: `${form.name} мэдээлэл шинэчлэгдлээ ✓` });
+      onClose();
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
+      <div className="bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-md mx-4 p-6 space-y-4">
+        <div className="flex items-center gap-2">
+          <Edit3 className="w-5 h-5 text-blue-400" />
+          <div className="font-bold text-lg">Материал засах</div>
+        </div>
+
+        <div>
+          <label className="text-xs text-white/40 mb-1.5 block">Материалын нэр *</label>
+          <input type="text" value={form.name} onChange={e => set("name", e.target.value)} autoFocus
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition-colors" />
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-white/40 mb-1.5 block">Хэмжих нэгж</label>
+            <select value={form.unit} onChange={e => set("unit", e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+              {["тн","м³","кг","л","ширхэг","м","м²"].map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-white/40 mb-1.5 block">Ангилал</label>
+            <select value={form.category} onChange={e => set("category", e.target.value)}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-blue-500 transition-colors">
+              {[["cement","Цемент"],["stone","Чулуу/Хайрга"],["sand","Элс"],["bitumen","Битум"],["mineral","Минерал"],["other","Бусад"]].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs text-white/40 mb-1.5 block">Аль үйлдвэрт хамааралтай</label>
+          <div className="grid grid-cols-3 gap-2">
+            {[["asphalt","Асфальт","amber"],["concrete","Бетон","blue"],["crushing","Бутлах","green"]].map(([v,l,c]) => (
+              <button key={v} onClick={() => set("plant", v)}
+                className={`py-2 rounded-xl text-xs font-medium border transition-all ${
+                  form.plant === v
+                    ? c === "amber" ? "bg-amber-600 border-amber-500 text-white" : c === "blue" ? "bg-blue-700 border-blue-500 text-white" : "bg-green-700 border-green-500 text-white"
+                    : "bg-white/5 border-white/10 text-white/40 hover:text-white/60"
+                }`}>{l}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          {[["minStock","Доод хязгаар"],["criticalStock","Аюулт хязгаар"]].map(([k,l]) => (
+            <div key={k}>
+              <label className="text-xs text-white/40 mb-1.5 block">{l}</label>
+              <input type="number" value={form[k as keyof typeof form]}
+                onChange={e => set(k, e.target.value)} placeholder="0"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors" />
+            </div>
+          ))}
+        </div>
+
+        <div className="flex gap-2 pt-1">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm border border-white/10 text-white/40 hover:text-white/60 transition-colors">
+            Болих
+          </button>
+          <button onClick={() => mut.mutate()} disabled={mut.isPending || !form.name}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-blue-600 hover:bg-blue-500 text-white transition-all disabled:opacity-40">
+            {mut.isPending ? "…" : "Хадгалах"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Stock Overview tab ───────────────────────────────────────────────────────
 function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: string }) {
   const [showNew, setShowNew] = useState(false);
   const [confirmDel, setConfirmDel] = useState<WarehouseItem | null>(null);
+  const [editItem, setEditItem] = useState<WarehouseItem | null>(null);
   const [inline, setInline] = useState<{ id: number; type: "in" | "out" } | null>(null);
   const { toast } = useToast();
   const hdrs = { "x-admin-token": token };
@@ -912,6 +1023,7 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
   return (
     <>
       {showNew && <NewItemModal token={token} onClose={() => setShowNew(false)} />}
+      {editItem && <EditItemModal item={editItem} token={token} onClose={() => setEditItem(null)} />}
 
       {/* Устгах баталгаажуулалт */}
       {confirmDel && (
@@ -1013,6 +1125,11 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
                             onClick={() => setInline({ id: item.id, type: "out" })}
                             className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-orange-500/30 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20 text-xs font-semibold transition-all whitespace-nowrap">
                             <Minus className="w-3 h-3" /> Зарлага
+                          </button>
+                          <button data-testid={`btn-edit-${item.id}`}
+                            onClick={() => setEditItem(item)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg border border-white/8 text-white/20 hover:text-blue-400 hover:border-blue-500/30 transition-all">
+                            <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button data-testid={`btn-delete-${item.id}`}
                             onClick={() => setConfirmDel(item)}

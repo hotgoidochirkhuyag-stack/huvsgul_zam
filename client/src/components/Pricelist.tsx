@@ -73,8 +73,7 @@ function AiEstimator({
       <div className="flex items-center gap-3 px-5 py-3 bg-primary/10 border-b border-border/40">
         <Sparkles className="w-4 h-4 text-primary shrink-0" />
         <span className="text-xs font-bold uppercase tracking-widest text-primary">
-          AI Зах зээлийн үнийн тооцоолол
-        </span>
+          Зах зээл дээрх үнийн судалгаа   </span>
       </div>
 
       <div className="p-5 bg-background/40">
@@ -82,7 +81,7 @@ function AiEstimator({
         {!result && !loading && (
           <div className="text-center">
             <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
-              Материал болон тоо хэмжээг <span className="text-foreground font-black tracking-wide">ФОРМ</span>-д оруулаад <span className="text-primary font-bold">"AI-ээр тооцоолох"</span> товч дарвал зах зээл дээрх үнийн судалгаа хийгдэнэ.
+              Материал болон тоо хэмжээг <span className="text-foreground font-black tracking-wide">ФОРМ</span>-д оруулаад <span className="text-primary font-bold">"AI-ээр хайлгах "</span> товч дарвал зах зээл дээрх үнийн судалгаа хийгдэнэ.
             </p>
             {error && (
               <div className="flex items-center gap-2 text-destructive text-xs mb-3 justify-center">
@@ -95,7 +94,7 @@ function AiEstimator({
               className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-bold text-sm uppercase tracking-widest rounded-sm hover:bg-primary/90 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Sparkles className="w-4 h-4" />
-              AI-ээр тооцоолох
+              AI-ээр хайлгах
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
@@ -112,7 +111,7 @@ function AiEstimator({
             </div>
             <div className="text-center">
               <p className="text-sm font-semibold text-foreground">Зах зээлийн мэдээлэл шинжилж байна...</p>
-              <p className="text-xs text-muted-foreground mt-1">2024–2025 оны үнийн мэдээлэл дүн шинжилгээ хийгдэж байна</p>
+              <p className="text-xs text-muted-foreground mt-1">Үнийн мэдээлэлд дүн шинжилгээ хийгдэж байна</p>
             </div>
             {/* Animated progress bars */}
             <div className="w-full space-y-2">
@@ -272,7 +271,7 @@ export default function Pricelist() {
               Бүтээн байгуулалтын түнш
             </h2>
             <h3 className="text-3xl md:text-4xl font-display font-black text-foreground uppercase mb-8">
-              Үнийн Санал <span className="text-primary">Авах</span>
+              Үнийн санал <span className="text-primary">Авах</span>
             </h3>
             <p className="text-muted-foreground text-lg mb-10 max-w-md leading-relaxed">
               Манай үйлдвэрлэж буй барилгын материалын үнийн саналыг авахыг хүсвэл баруун талд байх форм бөглөхөд л хангалттай. Бид таны хэрэгцээнд тохирсон хамгийн уян хатан нөхцөлийг санал болгоно.
@@ -309,7 +308,7 @@ export default function Pricelist() {
                 <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   <span className="text-foreground font-semibold">Материал</span> болон <span className="text-foreground font-semibold">тоо хэмжээ</span>-г оруулаад зүүн талын{" "}
-                  <span className="text-primary font-bold">"AI-ээр тооцоолох"</span> товч дарвал зах зээл дээрх үнийн судалгаа харагдана.
+                  <span className="text-primary font-bold">"AI-ээр хайлгах"</span> товч дарвал зах зээл дээрх үнийн судалгаа харагдана.
                 </p>
               </div>
 
