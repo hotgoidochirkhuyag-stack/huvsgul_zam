@@ -7,9 +7,10 @@ import {
   CheckCircle2, XCircle, AlertTriangle, ChevronDown, ChevronUp,
   Save, LogOut, Calendar, Factory, Layers, Hammer, Package,
   ArrowDown, Info, TrendingDown, Warehouse, Plus, Minus, Edit3,
-  Trash2, PackagePlus, TruckIcon
+  Trash2, PackagePlus, TruckIcon, ShoppingCart, ClipboardList,
+  CheckCheck, X, Clock, AlertCircle
 } from "lucide-react";
-import type { ProductionPlan, MaterialCheck, WarehouseItem } from "@shared/schema";
+import type { ProductionPlan, MaterialCheck, WarehouseItem, WarehouseOrder } from "@shared/schema";
 
 // ===================== БНбД НОРМУУД (ЗАССАН) — асфальтын рецептур, бетоны ангилал =====================
 
@@ -768,7 +769,7 @@ function NewItemModal({ token, onClose }: { token: string; onClose: () => void }
   const hdrs = { "x-admin-token": token };
   const [form, setForm] = useState({
     name: "", unit: "тн", plant: "asphalt", category: "other",
-    currentStock: "", minStock: "", criticalStock: "",
+    currentStock: "", criticalStock: "",
   });
 
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -785,7 +786,6 @@ function NewItemModal({ token, onClose }: { token: string; onClose: () => void }
           plant: form.plant,
           category: form.category,
           currentStock: parseFloat(form.currentStock) || 0,
-          minStock: parseFloat(form.minStock) || 0,
           criticalStock: parseFloat(form.criticalStock) || 0,
           normBasis: "",
         }),
@@ -856,19 +856,19 @@ function NewItemModal({ token, onClose }: { token: string; onClose: () => void }
         </div>
 
         {/* Нөөцийн тоо */}
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            ["currentStock","Одоогийн нөөц"],
-            ["minStock","Доод хязгаар"],
-            ["criticalStock","Аюулт хязгаар"],
-          ].map(([k,l]) => (
-            <div key={k}>
-              <label className="text-xs text-white/40 mb-1.5 block">{l}</label>
-              <input type="number" value={form[k as keyof typeof form]}
-                onChange={e => set(k, e.target.value)} placeholder="0"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500 transition-colors" />
-            </div>
-          ))}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="text-xs text-white/40 mb-1.5 block">Одоогийн нөөц</label>
+            <input type="number" value={form.currentStock}
+              onChange={e => set("currentStock", e.target.value)} placeholder="0"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500 transition-colors" />
+          </div>
+          <div>
+            <label className="text-xs text-white/40 mb-1.5 block">Аюулт хязгаар <span className="text-red-400/60">(3 үйлдвэр × 3 өдөр)</span></label>
+            <input type="number" value={form.criticalStock}
+              onChange={e => set("criticalStock", e.target.value)} placeholder="0"
+              className="w-full bg-white/5 border border-red-500/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-500 transition-colors" />
+          </div>
         </div>
 
         <div className="flex gap-2 pt-1">
@@ -895,7 +895,6 @@ function EditItemModal({ item, token, onClose }: { item: WarehouseItem; token: s
     unit: item.unit || "тн",
     plant: item.plant || "asphalt",
     category: item.category || "other",
-    minStock: String(item.minStock ?? ""),
     criticalStock: String(item.criticalStock ?? ""),
   });
   const set = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
@@ -911,7 +910,6 @@ function EditItemModal({ item, token, onClose }: { item: WarehouseItem; token: s
           unit: form.unit,
           plant: form.plant,
           category: form.category,
-          minStock: parseFloat(form.minStock) || 0,
           criticalStock: parseFloat(form.criticalStock) || 0,
         }),
       });
@@ -970,15 +968,11 @@ function EditItemModal({ item, token, onClose }: { item: WarehouseItem; token: s
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          {[["minStock","Доод хязгаар"],["criticalStock","Аюулт хязгаар"]].map(([k,l]) => (
-            <div key={k}>
-              <label className="text-xs text-white/40 mb-1.5 block">{l}</label>
-              <input type="number" value={form[k as keyof typeof form]}
-                onChange={e => set(k, e.target.value)} placeholder="0"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-blue-500 transition-colors" />
-            </div>
-          ))}
+        <div>
+          <label className="text-xs text-white/40 mb-1.5 block">Аюулт хязгаар <span className="text-red-400/60">(3 үйлдвэр × 3 өдрийн нөөц)</span></label>
+          <input type="number" value={form.criticalStock}
+            onChange={e => set("criticalStock", e.target.value)} placeholder="0"
+            className="w-full bg-white/5 border border-red-500/20 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-red-500 transition-colors" />
         </div>
 
         <div className="flex gap-2 pt-1">
@@ -1076,11 +1070,10 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
           <div className="divide-y divide-white/5">
             {sorted.map(item => {
               const stock = item.currentStock ?? 0;
-              const min   = item.minStock ?? 0;
               const crit  = item.criticalStock ?? 0;
-              const pct   = min > 0 ? Math.min(100, (stock / (min * 1.5)) * 100) : 50;
-              const statusColor = stock === 0 ? "text-white/25" : stock <= crit ? "text-red-400" : stock <= min ? "text-amber-400" : "text-green-400";
-              const barColor    = stock <= crit ? "bg-red-500" : stock <= min ? "bg-amber-500" : "bg-green-500";
+              const pct   = crit > 0 ? Math.min(100, (stock / (crit * 3)) * 100) : Math.min(100, stock > 0 ? 80 : 0);
+              const statusColor = stock === 0 ? "text-white/25" : stock <= crit ? "text-red-400" : stock <= crit * 1.5 ? "text-amber-400" : "text-green-400";
+              const barColor    = stock <= crit ? "bg-red-500" : stock <= crit * 1.5 ? "bg-amber-500" : "bg-green-500";
               const activeInline = inline?.id === item.id ? inline.type : null;
 
               return (
@@ -1106,10 +1099,10 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
                       <span className="text-xs text-white/25 ml-1">{item.unit}</span>
                     </div>
 
-                    {/* Min/Crit */}
-                    <div className="text-right text-xs text-white/25">
-                      <div>{fmt(min)} {item.unit}</div>
-                      <div className="text-red-400/50">{fmt(crit)} {item.unit}</div>
+                    {/* Critical threshold */}
+                    <div className="text-right">
+                      <div className="text-[10px] text-white/25">Аюулт хязгаар</div>
+                      <div className="text-xs text-red-400/60">{fmt(crit)} {item.unit}</div>
                     </div>
 
                     {/* Action buttons */}
@@ -1161,16 +1154,305 @@ function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: strin
   );
 }
 
+// ─── Orders Tab ───────────────────────────────────────────────────────────────
+function OrdersTab({ allItems, token }: { allItems: WarehouseItem[]; token: string }) {
+  const { toast } = useToast();
+  const hdrs = { "x-admin-token": token };
+  const today = new Date().toISOString().slice(0, 10);
+
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({
+    itemId: "", itemName: "", quantity: "", unit: "", expectedDate: today,
+    supplier: "", note: "",
+  });
+  const setF = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
+
+  const { data: orders = [], isLoading } = useQuery<WarehouseOrder[]>({
+    queryKey: ["/api/warehouse/orders"],
+    queryFn: () => fetch("/api/warehouse/orders", { headers: hdrs }).then(r => r.json()),
+    refetchInterval: 30000,
+  });
+
+  const createMut = useMutation({
+    mutationFn: async () => {
+      if (!form.itemName.trim() || !form.quantity || !form.expectedDate)
+        throw new Error("Нэр, хэмжээ, огноо заавал оруулна");
+      const res = await fetch("/api/warehouse/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...hdrs },
+        body: JSON.stringify({
+          itemId: form.itemId ? parseInt(form.itemId) : null,
+          itemName: form.itemName.trim(),
+          quantity: parseFloat(form.quantity),
+          unit: form.unit || "тн",
+          expectedDate: form.expectedDate,
+          supplier: form.supplier.trim() || null,
+          note: form.note.trim() || null,
+          status: "pending",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/orders"] });
+      toast({ title: "Захиалга бүртгэгдлээ ✓" });
+      setShowForm(false);
+      setForm({ itemId: "", itemName: "", quantity: "", unit: "", expectedDate: today, supplier: "", note: "" });
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const updateMut = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const res = await fetch(`/api/warehouse/orders/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...hdrs },
+        body: JSON.stringify({ status }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+    },
+    onSuccess: (_, { status }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/orders"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/items"] });
+      toast({ title: status === "received" ? "Захиалга хүлээж авлаа — нөөц нэмэгдлээ ✓" : "Захиалга цуцлагдлаа" });
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: number) => {
+      const res = await fetch(`/api/warehouse/orders/${id}`, { method: "DELETE", headers: hdrs });
+      if (!res.ok) throw new Error(await res.text());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/warehouse/orders"] });
+      toast({ title: "Захиалга устгагдлаа ✓" });
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
+  });
+
+  const pending  = orders.filter(o => o.status === "pending").sort((a,b) => a.expectedDate.localeCompare(b.expectedDate));
+  const received = orders.filter(o => o.status === "received").sort((a,b) => b.expectedDate.localeCompare(a.expectedDate)).slice(0, 10);
+  const cancelled = orders.filter(o => o.status === "cancelled").slice(0, 5);
+
+  const getItem = (itemId: number | null) => allItems.find(i => i.id === itemId);
+
+  const daysUntil = (dateStr: string) => {
+    const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86400000);
+    return diff;
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header row */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm text-white/50">
+          <ClipboardList className="w-4 h-4" />
+          <span>Хүлээгдэж буй захиалга: <strong className="text-amber-400">{pending.length}</strong></span>
+        </div>
+        <button data-testid="btn-new-order"
+          onClick={() => setShowForm(s => !s)}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium bg-amber-600 hover:bg-amber-500 text-white transition-all">
+          <Plus className="w-3.5 h-3.5" /> Шинэ захиалга
+        </button>
+      </div>
+
+      {/* New order form */}
+      {showForm && (
+        <div className="bg-[#0f172a] border border-amber-500/20 rounded-2xl p-5 space-y-3">
+          <div className="flex items-center gap-2 text-amber-400 font-semibold text-sm">
+            <ShoppingCart className="w-4 h-4" /> Захиалга бүртгэх
+          </div>
+
+          {/* Item selector */}
+          <div>
+            <label className="text-xs text-white/40 mb-1.5 block">Материал *</label>
+            <select value={form.itemId}
+              onChange={e => {
+                const item = allItems.find(i => i.id === parseInt(e.target.value));
+                setF("itemId", e.target.value);
+                setF("itemName", item?.name ?? "");
+                setF("unit", item?.unit ?? "тн");
+              }}
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500 transition-colors">
+              <option value="">— Агуулахын жагсаалтаас сонго —</option>
+              {allItems.map(i => <option key={i.id} value={i.id}>{i.name} ({i.unit})</option>)}
+              <option value="__custom">+ Бусад (гар аргаар оруулах)</option>
+            </select>
+            {form.itemId === "__custom" && (
+              <input type="text" placeholder="Материалын нэр" value={form.itemName}
+                onChange={e => setF("itemName", e.target.value)}
+                className="mt-2 w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500" />
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="text-xs text-white/40 mb-1.5 block">Захиалсан хэмжээ *</label>
+              <input type="number" value={form.quantity} onChange={e => setF("quantity", e.target.value)} placeholder="0"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="text-xs text-white/40 mb-1.5 block">Нэгж</label>
+              <select value={form.unit} onChange={e => setF("unit", e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-amber-500">
+                {["тн","м³","кг","л","ширхэг","м","м²"].map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-white/40 mb-1.5 block">Ирэх огноо *</label>
+              <input type="date" value={form.expectedDate} onChange={e => setF("expectedDate", e.target.value)}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-white/40 mb-1.5 block">Нийлүүлэгч</label>
+              <input type="text" value={form.supplier} onChange={e => setF("supplier", e.target.value)} placeholder="ХХК нэр, хэлцлийн №"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
+            </div>
+            <div>
+              <label className="text-xs text-white/40 mb-1.5 block">Тайлбар</label>
+              <input type="text" value={form.note} onChange={e => setF("note", e.target.value)} placeholder="нэмэлт мэдээлэл"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
+            </div>
+          </div>
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={() => setShowForm(false)}
+              className="flex-1 py-2.5 rounded-xl text-sm border border-white/10 text-white/40 hover:text-white/60">Болих</button>
+            <button onClick={() => createMut.mutate()} disabled={createMut.isPending}
+              className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-amber-600 hover:bg-amber-500 text-white disabled:opacity-40">
+              {createMut.isPending ? "…" : "Бүртгэх"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Pending orders */}
+      {pending.length > 0 && (
+        <div className="bg-[#0c1528] border border-white/5 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2 text-xs text-amber-400 font-semibold">
+            <Clock className="w-3.5 h-3.5" /> Хүлээгдэж буй ({pending.length})
+          </div>
+          <div className="divide-y divide-white/5">
+            {pending.map(order => {
+              const item = getItem(order.itemId);
+              const currentStock = item?.currentStock ?? null;
+              const criticalStock = item?.criticalStock ?? 0;
+              const days = daysUntil(order.expectedDate);
+              const willBeSufficient = currentStock !== null ? (currentStock + (order.quantity ?? 0)) > criticalStock : null;
+              const stockEnough = currentStock !== null ? currentStock > criticalStock : null;
+
+              return (
+                <div key={order.id} data-testid={`order-row-${order.id}`} className="px-4 py-3 hover:bg-white/2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-medium">{order.itemName}</span>
+                        {order.supplier && <span className="text-xs text-white/30">{order.supplier}</span>}
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 flex-wrap">
+                        <span className="text-base font-bold text-amber-400">{fmt(order.quantity ?? 0)} {order.unit}</span>
+                        <span className={`text-xs flex items-center gap-1 ${days < 0 ? "text-red-400" : days <= 3 ? "text-amber-400" : "text-white/40"}`}>
+                          <Calendar className="w-3 h-3" />
+                          {order.expectedDate} {days < 0 ? `(${Math.abs(days)} өдөр хоцорсон)` : days === 0 ? "(өнөөдөр)" : `(${days} өдрийн дараа)`}
+                        </span>
+                        {currentStock !== null && (
+                          <span className={`text-xs flex items-center gap-1 ${stockEnough ? "text-green-400/60" : "text-red-400/70"}`}>
+                            {stockEnough ? <CheckCircle2 className="w-3 h-3" /> : <AlertCircle className="w-3 h-3" />}
+                            Одоогийн нөөц: {fmt(currentStock)} {item?.unit}
+                          </span>
+                        )}
+                      </div>
+                      {order.note && <div className="text-xs text-white/25 mt-1">{order.note}</div>}
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button data-testid={`btn-receive-${order.id}`}
+                        onClick={() => updateMut.mutate({ id: order.id, status: "received" })}
+                        disabled={updateMut.isPending}
+                        title="Хүлээж авсан"
+                        className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-green-500/30 bg-green-500/10 text-green-400 hover:bg-green-500/20 text-xs font-semibold transition-all whitespace-nowrap disabled:opacity-40">
+                        <CheckCheck className="w-3 h-3" /> Ирлээ
+                      </button>
+                      <button data-testid={`btn-cancel-${order.id}`}
+                        onClick={() => updateMut.mutate({ id: order.id, status: "cancelled" })}
+                        disabled={updateMut.isPending}
+                        title="Цуцлах"
+                        className="p-1.5 rounded-lg border border-white/10 text-white/30 hover:text-red-400 hover:border-red-500/30 transition-all disabled:opacity-40">
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {pending.length === 0 && !showForm && (
+        <div className="text-center py-12 text-white/20">
+          <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-30" />
+          <div className="text-sm">Хүлээгдэж буй захиалга байхгүй</div>
+          <div className="text-xs mt-1">«Шинэ захиалга» товч дарж нэмнэ үү</div>
+        </div>
+      )}
+
+      {/* Recent received */}
+      {received.length > 0 && (
+        <div className="bg-[#0c1528] border border-white/5 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2 text-xs text-green-400 font-semibold">
+            <CheckCheck className="w-3.5 h-3.5" /> Хүлээж авсан (сүүлийн {received.length})
+          </div>
+          <div className="divide-y divide-white/5">
+            {received.map(order => (
+              <div key={order.id} className="px-4 py-2.5 flex items-center justify-between gap-3 hover:bg-white/2">
+                <div className="min-w-0">
+                  <div className="text-sm text-white/60">{order.itemName}</div>
+                  <div className="text-xs text-white/30">{order.expectedDate} · {order.supplier || "—"}</div>
+                </div>
+                <div className="text-sm font-semibold text-green-400 shrink-0">+{fmt(order.quantity ?? 0)} {order.unit}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Cancelled */}
+      {cancelled.length > 0 && (
+        <div className="bg-[#0c1528] border border-white/5 rounded-2xl overflow-hidden opacity-50">
+          <div className="px-4 py-3 border-b border-white/5 flex items-center gap-2 text-xs text-white/30 font-semibold">
+            <X className="w-3.5 h-3.5" /> Цуцлагдсан ({cancelled.length})
+          </div>
+          <div className="divide-y divide-white/5">
+            {cancelled.map(order => (
+              <div key={order.id} className="px-4 py-2.5 flex items-center justify-between gap-3">
+                <div className="text-sm text-white/30">{order.itemName}</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-white/20">{fmt(order.quantity ?? 0)} {order.unit} · {order.expectedDate}</span>
+                  <button onClick={() => deleteMut.mutate(order.id)}
+                    className="p-1 rounded text-white/15 hover:text-red-400 transition-colors">
+                    <Trash2 className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function WarehouseDashboard() {
   const [, setLocation] = useLocation();
-  const today = new Date().toISOString().slice(0, 10);
-  const [date, setDate] = useState(today);
   const [activeTab, setActiveTab] = useState<"plan"|"stock">("plan");
   const token  = localStorage.getItem("adminToken") ?? "";
   const hdrs   = { "x-admin-token": token };
 
-  // Бүх агуулахын нөөц — PlantBlock-уудад дамжуулна
   const { data: itemsRaw } = useQuery({
     queryKey: ["/api/warehouse/items"],
     queryFn: async () => {
@@ -1179,15 +1461,6 @@ export default function WarehouseDashboard() {
     },
   });
   const allItems: WarehouseItem[] = Array.isArray(itemsRaw) ? itemsRaw : [];
-
-  const { data: plansRaw } = useQuery({
-    queryKey: ["/api/warehouse/plans", date],
-    queryFn: async () => {
-      const r = await fetch(`/api/warehouse/plans?date=${date}`, { headers: hdrs });
-      return r.json();
-    },
-  });
-  const plans: ProductionPlan[] = Array.isArray(plansRaw) ? plansRaw : [];
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
@@ -1208,21 +1481,13 @@ export default function WarehouseDashboard() {
             <div className="flex border border-white/10 rounded-xl overflow-hidden">
               <button data-testid="tab-plan" onClick={() => setActiveTab("plan")}
                 className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${activeTab === "plan" ? "bg-amber-600 text-white" : "text-white/40 hover:text-white/60"}`}>
-                <Layers className="w-3.5 h-3.5" /> Төлөвлөгөө
+                <Layers className="w-3.5 h-3.5" /> Захиалга
               </button>
               <button data-testid="tab-stock" onClick={() => setActiveTab("stock")}
                 className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${activeTab === "stock" ? "bg-amber-600 text-white" : "text-white/40 hover:text-white/60"}`}>
                 <Warehouse className="w-3.5 h-3.5" /> Нөөц
               </button>
             </div>
-            {activeTab === "plan" && (
-              <div className="flex items-center gap-2 border border-white/10 rounded-xl px-3 py-2">
-                <Calendar className="w-4 h-4 text-amber-400" />
-                <input data-testid="input-date" type="date" value={date}
-                  onChange={e => setDate(e.target.value)}
-                  className="bg-transparent text-sm text-white focus:outline-none" />
-              </div>
-            )}
             <button data-testid="btn-logout"
               onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
               className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white/70 border border-white/10 rounded-xl px-3 py-2 transition-colors">
@@ -1234,43 +1499,7 @@ export default function WarehouseDashboard() {
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
 
-        {activeTab === "plan" && <>
-          {/* Info */}
-          <div className="flex items-start gap-3 bg-blue-500/5 border border-blue-500/15 rounded-xl px-4 py-3 text-sm text-blue-300/70">
-            <Info className="w-4 h-4 mt-0.5 shrink-0 text-blue-400" />
-            <span>
-              Гаргах хэмжээ → Норм тооцоо → <strong className="text-blue-300">Талбайд байгаа нөөц</strong> оруулна →
-              Агуулахаас татах хэмжээ автоматаар гарна → <strong className="text-orange-300">Агуулахаас татах</strong> товч дарахад нөөц хасагдана.
-            </span>
-          </div>
-
-          {/* Daily plan summary */}
-          {plans.length > 0 && (
-            <div className="grid grid-cols-3 gap-3">
-              {(["asphalt","concrete","crushing"] as PlantKey[]).map(pk => {
-                const p = plans.find(x => x.plant === pk);
-                const n = PLANT_NORMS[pk];
-                const c = COLOR[n.color];
-                const I = n.icon;
-                return (
-                  <div key={pk} className={`flex items-center gap-2 rounded-xl border ${c.border} ${c.bg} px-3 py-2.5`}>
-                    <I className={`w-4 h-4 ${c.text} shrink-0`} />
-                    <div className="min-w-0">
-                      <div className="text-xs text-white/35 truncate">{n.outputLabel}</div>
-                      <div className={`font-bold ${c.text}`}>{p ? `${fmt(p.targetQty)} ${n.unit}` : <span className="text-white/20 text-xs font-normal">—</span>}</div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* Plant blocks */}
-          {(["asphalt","concrete","crushing"] as PlantKey[]).map(pk => (
-            <PlantBlock key={`${pk}-${date}`} plantKey={pk} date={date} token={token} allItems={allItems} />
-          ))}
-
-        </>}
+        {activeTab === "plan" && <OrdersTab allItems={allItems} token={token} />}
 
         {activeTab === "stock" && <StockTab allItems={allItems} token={token} />}
       </div>

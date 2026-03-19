@@ -914,6 +914,64 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
+  // ===================== ЗАХИАЛГА API =====================
+
+  app.get("/api/warehouse/orders", requireToken, async (req, res) => {
+    try {
+      const orders = await db.select().from(schema.warehouseOrders)
+        .orderBy(schema.warehouseOrders.expectedDate);
+      res.json(orders);
+    } catch { res.status(500).json({ error: "DB error" }); }
+  });
+
+  app.post("/api/warehouse/orders", requireToken, async (req, res) => {
+    try {
+      const data = schema.insertWarehouseOrderSchema.parse(req.body);
+      const [order] = await db.insert(schema.warehouseOrders).values(data).returning();
+      res.json(order);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/warehouse/orders/:id", requireToken, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, note, supplier, quantity, expectedDate } = req.body;
+      const [updated] = await db.update(schema.warehouseOrders)
+        .set({
+          ...(status !== undefined && { status }),
+          ...(note !== undefined && { note }),
+          ...(supplier !== undefined && { supplier }),
+          ...(quantity !== undefined && { quantity: parseFloat(quantity) }),
+          ...(expectedDate !== undefined && { expectedDate }),
+        })
+        .where(eq(schema.warehouseOrders.id, id))
+        .returning();
+      // Хэрэв "received" болгосон бол нөөцийг автоматаар нэмэх
+      if (status === "received" && updated) {
+        const item = await db.select().from(schema.warehouseItems)
+          .where(eq(schema.warehouseItems.id, updated.itemId!)).then(r => r[0]);
+        if (item) {
+          await db.update(schema.warehouseItems)
+            .set({ currentStock: (item.currentStock ?? 0) + (updated.quantity ?? 0), updatedAt: new Date() })
+            .where(eq(schema.warehouseItems.id, item.id));
+          await db.insert(schema.warehouseLogs).values({
+            itemId: item.id, date: new Date().toISOString().slice(0, 10),
+            quantity: updated.quantity ?? 0, type: "in",
+            notes: `Захиалга #${updated.id} хүлээж авсан`, recordedBy: "system",
+          });
+        }
+      }
+      res.json(updated);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/warehouse/orders/:id", requireToken, async (req, res) => {
+    try {
+      await db.delete(schema.warehouseOrders).where(eq(schema.warehouseOrders.id, parseInt(req.params.id)));
+      res.json({ success: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
   // ===================== ҮЙЛДВЭРЛЭЛИЙН ТӨЛӨВЛӨГӨӨ API =====================
 
   // Өдрийн план авах (date query param)

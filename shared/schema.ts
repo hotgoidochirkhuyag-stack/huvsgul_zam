@@ -243,6 +243,20 @@ export const warehouseLogs = pgTable("warehouse_logs", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Материалын захиалга (ирж буй ачаа)
+export const warehouseOrders = pgTable("warehouse_orders", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").references(() => warehouseItems.id),
+  itemName: text("item_name").notNull(),        // Материалын нэр (denormalized)
+  quantity: real("quantity").notNull(),          // Захиалсан хэмжээ
+  unit: text("unit").notNull(),
+  expectedDate: text("expected_date").notNull(), // YYYY-MM-DD
+  supplier: text("supplier"),                    // Нийлүүлэгч
+  note: text("note"),
+  status: text("status").notNull().default("pending"), // pending | received | cancelled
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Өдрийн үйлдвэрлэлийн төлөвлөгөө
 export const productionPlans = pgTable("production_plans", {
   id: serial("id").primaryKey(),
@@ -390,6 +404,7 @@ export const insertVehicleSchema = createInsertSchema(vehicles).omit({ id: true,
 export const insertVehicleInspectionSchema = createInsertSchema(vehicleInspections).omit({ id: true, createdAt: true });
 export const insertWarehouseItemSchema = createInsertSchema(warehouseItems).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertWarehouseLogSchema = createInsertSchema(warehouseLogs).omit({ id: true, createdAt: true });
+export const insertWarehouseOrderSchema = createInsertSchema(warehouseOrders).omit({ id: true, createdAt: true });
 export const insertProductionPlanSchema = createInsertSchema(productionPlans).omit({ id: true, createdAt: true, updatedAt: true });
 export const insertMaterialCheckSchema = createInsertSchema(materialChecks).omit({ id: true, createdAt: true });
 export const insertLabResultSchema = createInsertSchema(labResults).omit({ id: true, createdAt: true });
@@ -437,6 +452,8 @@ export type WarehouseItem = typeof warehouseItems.$inferSelect;
 export type InsertWarehouseItem = z.infer<typeof insertWarehouseItemSchema>;
 export type WarehouseLog = typeof warehouseLogs.$inferSelect;
 export type InsertWarehouseLog = z.infer<typeof insertWarehouseLogSchema>;
+export type WarehouseOrder = typeof warehouseOrders.$inferSelect;
+export type InsertWarehouseOrder = z.infer<typeof insertWarehouseOrderSchema>;
 export type ProductionPlan = typeof productionPlans.$inferSelect;
 export type InsertProductionPlan = z.infer<typeof insertProductionPlanSchema>;
 export type MaterialCheck = typeof materialChecks.$inferSelect;
