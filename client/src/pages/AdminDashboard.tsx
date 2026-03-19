@@ -1154,16 +1154,23 @@ function PdfDocumentsManager() {
   });
 
   const addDoc = useMutation({
-    mutationFn: () => fetch("/api/project-documents", {
-      method: "POST", headers: hdrs(), body: JSON.stringify(form),
-    }).then(r => { if (!r.ok) throw new Error(); return r.json(); }),
+    mutationFn: async () => {
+      const r = await fetch("/api/project-documents", {
+        method: "POST", headers: hdrs(), body: JSON.stringify(form),
+      });
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+        throw new Error(body?.error || `HTTP ${r.status}`);
+      }
+      return r.json();
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/project-documents"] });
       setForm({ title: "", category: "general", description: "", fileUrl: "", fileSize: "" });
       setShowForm(false);
       toast({ title: "PDF баримт нэмэгдлээ ✓" });
     },
-    onError: () => toast({ title: "Хадгалахад алдаа гарлаа", variant: "destructive" }),
+    onError: (e: any) => toast({ title: e.message || "Хадгалахад алдаа гарлаа", variant: "destructive" }),
   });
 
   const delDoc = useMutation({
