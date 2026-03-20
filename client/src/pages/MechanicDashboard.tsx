@@ -1095,10 +1095,26 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-bold text-white flex items-center gap-2"><Wrench className="w-5 h-5 text-orange-400" />ТО Урьдчилсан засварын хуваарь</h2>
+        <h2 className="font-bold text-white flex items-center gap-2"><Wrench className="w-5 h-5 text-orange-400" />ТО — Техникийн Оношлогоо (Урьдчилсан засвар)</h2>
         <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-all">
           <Plus className="w-4 h-4" /> Хуваарь нэмэх
         </button>
+      </div>
+
+      {/* ТО тайлбар */}
+      <div className="bg-slate-800/50 border border-white/10 rounded-xl px-4 py-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
+        <div className="flex items-start gap-2">
+          <span className="px-1.5 py-0.5 rounded font-black bg-blue-500/20 text-blue-300 shrink-0">TO-1</span>
+          <span className="text-white/50">Жижиг засвар — тос, шүүрүүл солих, тосолгоо. Ихэвчлэн 250 мото/цаг тутамд.</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="px-1.5 py-0.5 rounded font-black bg-yellow-500/20 text-yellow-300 shrink-0">TO-2</span>
+          <span className="text-white/50">Дунд засвар — TO-1 + аккумулятор, хөргөлтийн систем, ремень шалгах. ~500 мото/цаг.</span>
+        </div>
+        <div className="flex items-start gap-2">
+          <span className="px-1.5 py-0.5 rounded font-black bg-orange-500/20 text-orange-300 shrink-0">TO-3</span>
+          <span className="text-white/50">Том засвар — TO-2 + гидравлик тос, трансмисс, хөдөлгүүрийн гүн шалгалт. ~1000 мото/цаг.</span>
+        </div>
       </div>
 
       {/* Summary */}
@@ -1137,7 +1153,7 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
           <input value={form.technicianName} onChange={e => setForm(p => ({ ...p, technicianName: e.target.value }))}
             placeholder="Техникч (хэн хийх)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
           <input type="number" value={form.hoursAtService} onChange={e => setForm(p => ({ ...p, hoursAtService: e.target.value }))}
-            placeholder="Моточас (үед хийх)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+            placeholder="Мото/цаг (үед хийх)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
           <input type="number" value={form.cost} onChange={e => setForm(p => ({ ...p, cost: e.target.value }))}
             placeholder="Зардал (₮)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
           <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
