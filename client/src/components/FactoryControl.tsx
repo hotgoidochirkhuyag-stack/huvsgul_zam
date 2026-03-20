@@ -1,110 +1,77 @@
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Video, VideoOff, Loader2, Search, Users, CheckSquare, Square, X, Copy, Check, MessageCircle, Smartphone, Link2 } from "lucide-react";
+import { Video, VideoOff, Loader2, Search, Users, CheckSquare, Square, X, Copy, Check, MessageCircle, Smartphone, Link2, RefreshCw } from "lucide-react";
 import type { Employee } from "@shared/schema";
 
 export type MeetingMode = "CONFERENCE_HALL" | "BOARD_DIRECTOR";
 
-const MODE_CONFIG: Record<MeetingMode, {
-  roomName: string;
-  departments: string[];
-  color: "blue" | "amber";
-}> = {
-  CONFERENCE_HALL: {
-    roomName:    "KhuvsgulZam_HurlynZaal",
-    departments: ["field", "plant"],
-    color:       "blue",
-  },
-  BOARD_DIRECTOR: {
-    roomName:    "KhuvsgulZam_TUZ_Zahiral",
-    departments: ["office"],
-    color:       "amber",
-  },
+const MODE_BASE: Record<MeetingMode, { base: string; departments: string[]; color: "blue" | "amber" }> = {
+  CONFERENCE_HALL: { base: "KhuvsgulZam_HurlynZaal", departments: ["field", "plant"], color: "blue" },
+  BOARD_DIRECTOR:  { base: "KhuvsgulZam_TUZ_Zahiral", departments: ["office"],          color: "amber" },
 };
 
-const DEPT_LABEL: Record<string, string> = {
-  office: "Оффис",
-  field:  "Талбай",
-  plant:  "Үйлдвэр",
-};
-
+const DEPT_LABEL: Record<string, string> = { office: "Оффис", field: "Талбай", plant: "Үйлдвэр" };
 const DEPT_COLOR: Record<string, string> = {
   office: "bg-amber-600/20 text-amber-400",
   field:  "bg-blue-600/20 text-blue-400",
   plant:  "bg-green-600/20 text-green-400",
 };
 
+function genRoomName(base: string) {
+  const d   = new Date();
+  const ymd = `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, "0")}${String(d.getDate()).padStart(2, "0")}`;
+  const rnd = Math.random().toString(36).slice(2, 6).toUpperCase();
+  return `${base}_${ymd}_${rnd}`;
+}
+
 export function FactoryControl({ mode }: { mode: MeetingMode }) {
   const meetRef  = useRef<HTMLDivElement>(null);
   const apiRef   = useRef<any>(null);
+
+  const cfg     = MODE_BASE[mode];
+  const isAmber = cfg.color === "amber";
 
   const [isCalling,  setIsCalling]  = useState(false);
   const [checked,    setChecked]    = useState<Set<number>>(new Set());
   const [search,     setSearch]     = useState("");
   const [jitsiReady, setJitsiReady] = useState(false);
   const [copied,     setCopied]     = useState(false);
-
-  const cfg     = MODE_CONFIG[mode];
-  const isAmber = cfg.color === "amber";
+  const [roomName,   setRoomName]   = useState(() => genRoomName(cfg.base));
 
   const token = localStorage.getItem("adminToken") ?? "";
 
   const { data: allEmployees = [], isLoading } = useQuery<Employee[]>({
     queryKey: ["/api/erp/employees"],
-    queryFn: () =>
-      fetch("/api/erp/employees", {
-        headers: { "Content-Type": "application/json", "x-admin-token": token },
-      }).then(r => r.json()),
+    queryFn:  () => fetch("/api/erp/employees", { headers: { "Content-Type": "application/json", "x-admin-token": token } }).then(r => r.json()),
   });
 
-  const employees = useMemo(
-    () => allEmployees.filter(e => cfg.departments.includes(e.department)),
-    [allEmployees, mode]
-  );
-
-  const filtered = useMemo(() => {
+  const employees = useMemo(() => allEmployees.filter(e => cfg.departments.includes(e.department)), [allEmployees, mode]);
+  const filtered  = useMemo(() => {
     const q = search.toLowerCase();
-    return q
-      ? employees.filter(e => e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q))
-      : employees;
+    return q ? employees.filter(e => e.name.toLowerCase().includes(q) || e.role.toLowerCase().includes(q)) : employees;
   }, [employees, search]);
 
-  const selectedEmps = useMemo(
-    () => employees.filter(e => checked.has(e.id)),
-    [employees, checked]
-  );
+  const selectedEmps = useMemo(() => employees.filter(e => checked.has(e.id)), [employees, checked]);
 
   useEffect(() => {
     if (isCalling) endCall();
     setChecked(new Set());
     setSearch("");
+    setRoomName(genRoomName(cfg.base));
   }, [mode]);
 
   useEffect(() => {
     if ((window as any).JitsiMeetExternalAPI) { setJitsiReady(true); return; }
-    const script   = document.createElement("script");
-    script.src     = "https://meet.jit.si/external_api.js";
-    script.async   = true;
-    script.onload  = () => setJitsiReady(true);
+    const script  = document.createElement("script");
+    script.src    = "https://meet.jit.si/external_api.js";
+    script.async  = true;
+    script.onload = () => setJitsiReady(true);
     document.body.appendChild(script);
     return () => { script.remove(); };
   }, []);
 
-  const toggleOne = (id: number) => {
-    setChecked(prev => {
-      const next = new Set(prev);
-      next.has(id) ? next.delete(id) : next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    if (checked.size === employees.length) {
-      setChecked(new Set());
-    } else {
-      setChecked(new Set(employees.map(e => e.id)));
-    }
-  };
+  const toggleOne = (id: number) => setChecked(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  const toggleAll = () => checked.size === employees.length ? setChecked(new Set()) : setChecked(new Set(employees.map(e => e.id)));
 
   const endCall = () => {
     if (apiRef.current) { apiRef.current.dispose(); apiRef.current = null; }
@@ -114,25 +81,76 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
   const startCall = () => {
     if (!jitsiReady || !meetRef.current || checked.size === 0) return;
     apiRef.current = new (window as any).JitsiMeetExternalAPI("meet.jit.si", {
-      roomName:   cfg.roomName,
-      width:      "100%",
-      height:     480,
-      parentNode: meetRef.current,
-      userInfo:   { displayName: "Зохион байгуулагч" },
+      roomName:                 roomName,
+      width:                    "100%",
+      height:                   480,
+      parentNode:               meetRef.current,
+      userInfo:                 { displayName: "Зохион байгуулагч" },
       configOverwrite:          { startWithAudioMuted: false, startWithVideoMuted: false },
-      interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ["microphone","camera","chat","hangup","tileview","fullscreen"] },
+      interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ["microphone", "camera", "chat", "hangup", "tileview", "fullscreen"] },
     });
     apiRef.current.addEventListener("videoConferenceLeft", () => endCall());
     setIsCalling(true);
   };
 
-  const allChecked    = employees.length > 0 && checked.size === employees.length;
-  const someChecked   = checked.size > 0 && !allChecked;
+  const refreshRoom = useCallback(() => {
+    if (isCalling) return;
+    setRoomName(genRoomName(cfg.base));
+    setCopied(false);
+  }, [isCalling, cfg.base]);
+
+  const meetingUrl  = `https://meet.jit.si/${roomName}`;
+  const allChecked  = employees.length > 0 && checked.size === employees.length;
+  const someChecked = checked.size > 0 && !allChecked;
+
+  const cleanPhone = (raw: string) => {
+    const d = raw.replace(/\D/g, "");
+    if (d.startsWith("976")) return d;
+    if (d.startsWith("0")) return "976" + d.slice(1);
+    return "976" + d;
+  };
 
   return (
     <div className="flex flex-col gap-4">
       {!isCalling && (
         <>
+          {/* Хурлын линк хэсэг — үргэлж харагдана */}
+          <div className="bg-slate-900/80 border border-white/10 rounded-2xl overflow-hidden">
+            <div className="px-4 py-3 border-b border-white/10 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <Link2 className={`w-4 h-4 ${isAmber ? "text-amber-400" : "text-blue-400"}`} />
+                <span className="text-sm font-bold text-white">Энэ хурлын линк</span>
+              </div>
+              <button
+                onClick={refreshRoom}
+                title="Шинэ линк үүсгэх"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-bold bg-slate-700 hover:bg-slate-600 text-slate-300 transition-all"
+              >
+                <RefreshCw className="w-3.5 h-3.5" /> Шинэ линк
+              </button>
+            </div>
+            <div className="px-4 py-3 flex items-center gap-2">
+              <code className="flex-1 text-xs text-slate-400 font-mono bg-slate-800/60 px-3 py-1.5 rounded-lg truncate">
+                {meetingUrl}
+              </code>
+              <button
+                onClick={() => { navigator.clipboard.writeText(meetingUrl); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  copied ? "bg-green-600/20 text-green-400" : "bg-slate-700 hover:bg-slate-600 text-slate-300"
+                }`}
+              >
+                {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                {copied ? "Хуулсан!" : "Хуулах"}
+              </button>
+            </div>
+            <div className="px-4 pb-3">
+              <p className="text-[11px] text-slate-600">
+                Энэ линкийг Facebook, WhatsApp, Viber-д хуваалцаад оролцогчид шууд нэвтэрнэ.
+                "Шинэ линк" дарахад хурал болгонд өвөрмөц линк үүснэ.
+              </p>
+            </div>
+          </div>
+
           {/* Search + select all */}
           <div className="flex gap-2 items-center">
             <div className="relative flex-1">
@@ -165,9 +183,7 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
               <span className="text-sm">Ажилтнуудын жагсаалт татаж байна...</span>
             </div>
           ) : employees.length === 0 ? (
-            <div className="text-slate-500 text-sm py-6 text-center">
-              Энэ горимд харгалзах ажилтан олдсонгүй
-            </div>
+            <div className="text-slate-500 text-sm py-6 text-center">Энэ горимд харгалзах ажилтан олдсонгүй</div>
           ) : (
             <div className="border border-white/10 rounded-2xl overflow-hidden">
               <div className="max-h-64 overflow-y-auto">
@@ -183,34 +199,24 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
                         data-testid={`emp-row-${emp.id}`}
                         className={`w-full flex items-center gap-3 px-4 py-3 text-left transition-all ${
                           i !== 0 ? "border-t border-white/5" : ""
-                        } ${isChecked
-                          ? isAmber ? "bg-amber-600/10" : "bg-blue-600/10"
-                          : "hover:bg-white/[0.03]"
-                        }`}
+                        } ${isChecked ? isAmber ? "bg-amber-600/10" : "bg-blue-600/10" : "hover:bg-white/[0.03]"}`}
                       >
                         <div className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 transition-all ${
                           isChecked
-                            ? isAmber
-                              ? "bg-amber-600 border-amber-500"
-                              : "bg-blue-600 border-blue-500"
+                            ? isAmber ? "bg-amber-600 border-amber-500" : "bg-blue-600 border-blue-500"
                             : "border-slate-600"
                         }`}>
                           {isChecked && <svg className="w-3 h-3 text-white" viewBox="0 0 12 12" fill="none"><path d="M2 6l3 3 5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </div>
-
                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${
-                          isChecked
-                            ? isAmber ? "bg-amber-600 text-white" : "bg-blue-600 text-white"
-                            : "bg-slate-700 text-slate-400"
+                          isChecked ? isAmber ? "bg-amber-600 text-white" : "bg-blue-600 text-white" : "bg-slate-700 text-slate-400"
                         }`}>
                           {emp.name.charAt(0)}
                         </div>
-
                         <div className="flex-1 min-w-0">
                           <p className="text-white text-sm font-semibold truncate">{emp.name}</p>
                           <p className="text-slate-500 text-xs truncate">{emp.role}</p>
                         </div>
-
                         <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded ${DEPT_COLOR[emp.department] ?? "bg-slate-700 text-slate-400"}`}>
                           {DEPT_LABEL[emp.department] ?? emp.department}
                         </span>
@@ -222,108 +228,74 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
             </div>
           )}
 
-          {/* Selected chips */}
+          {/* Selected chips + viber/sms */}
           {selectedEmps.length > 0 && (
-            <div className="bg-slate-800/40 rounded-xl border border-white/10 p-3">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className={`w-4 h-4 ${isAmber ? "text-amber-400" : "text-blue-400"}`} />
-                <span className="text-xs font-bold text-white">Сонгосон оролцогчид ({selectedEmps.length})</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {selectedEmps.map(emp => (
-                  <span
-                    key={emp.id}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold ${
-                      isAmber ? "bg-amber-600/20 text-amber-300" : "bg-blue-600/20 text-blue-300"
-                    }`}
-                  >
-                    {emp.name}
-                    <button onClick={() => toggleOne(emp.id)} className="opacity-60 hover:opacity-100 ml-0.5">
-                      <X className="w-3 h-3" />
-                    </button>
-                  </span>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Link sharing panel */}
-          {selectedEmps.length > 0 && (() => {
-            const meetingUrl = `https://meet.jit.si/${cfg.roomName}`;
-            const msg = encodeURIComponent(`🎥 Онлайн хурлын урилга\n\nТа дараах линкээр нэвтэрнэ үү:\n${meetingUrl}\n\n— Хөвсгөл Зам ХХК`);
-
-            const cleanPhone = (raw: string) => {
-              const d = raw.replace(/\D/g, "");
-              if (d.startsWith("976")) return d;
-              if (d.startsWith("0")) return "976" + d.slice(1);
-              return "976" + d;
-            };
-
-            return (
-              <div className="bg-slate-900/80 border border-white/10 rounded-2xl overflow-hidden">
-                {/* Header */}
-                <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
-                  <Link2 className={`w-4 h-4 ${isAmber ? "text-amber-400" : "text-blue-400"}`} />
-                  <span className="text-sm font-bold text-white">Хурлын линк илгээх</span>
+            <>
+              <div className="bg-slate-800/40 rounded-xl border border-white/10 p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Users className={`w-4 h-4 ${isAmber ? "text-amber-400" : "text-blue-400"}`} />
+                  <span className="text-xs font-bold text-white">Сонгосон оролцогчид ({selectedEmps.length})</span>
                 </div>
-
-                {/* Copy link row */}
-                <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
-                  <code className="flex-1 text-xs text-slate-400 font-mono bg-slate-800/60 px-3 py-1.5 rounded-lg truncate">
-                    {meetingUrl}
-                  </code>
-                  <button
-                    onClick={() => {
-                      navigator.clipboard.writeText(meetingUrl);
-                      setCopied(true);
-                      setTimeout(() => setCopied(false), 2000);
-                    }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                      copied
-                        ? "bg-green-600/20 text-green-400"
-                        : "bg-slate-700 hover:bg-slate-600 text-slate-300"
-                    }`}
-                  >
-                    {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? "Хуулсан!" : "Хуулах"}
-                  </button>
-                </div>
-
-                {/* Per-participant share */}
-                <div className="divide-y divide-white/5">
+                <div className="flex flex-wrap gap-1.5">
                   {selectedEmps.map(emp => (
-                    <div key={emp.id} className="px-4 py-2.5 flex items-center gap-3">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${isAmber ? "bg-amber-600/20 text-amber-400" : "bg-blue-600/20 text-blue-400"}`}>
-                        {emp.name.charAt(0)}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-white text-sm font-semibold truncate">{emp.name}</p>
-                        <p className="text-slate-500 text-xs">{emp.phone ?? "Утас бүртгэгдээгүй"}</p>
-                      </div>
-                      {emp.phone ? (
-                        <div className="flex gap-1.5 shrink-0">
-                          <a
-                            href={`viber://chat?number=%2B${cleanPhone(emp.phone)}&text=${msg}`}
-                            className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 rounded-lg text-xs font-bold transition-all"
-                          >
-                            <MessageCircle className="w-3.5 h-3.5" /> Viber
-                          </a>
-                          <a
-                            href={`sms:${emp.phone}?body=${msg}`}
-                            className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-bold transition-all"
-                          >
-                            <Smartphone className="w-3.5 h-3.5" /> SMS
-                          </a>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-slate-600 italic">Илгээх боломжгүй</span>
-                      )}
-                    </div>
+                    <span
+                      key={emp.id}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                        isAmber ? "bg-amber-600/20 text-amber-300" : "bg-blue-600/20 text-blue-300"
+                      }`}
+                    >
+                      {emp.name}
+                      <button onClick={() => toggleOne(emp.id)} className="opacity-60 hover:opacity-100 ml-0.5">
+                        <X className="w-3 h-3" />
+                      </button>
+                    </span>
                   ))}
                 </div>
               </div>
-            );
-          })()}
+
+              {/* Per-participant share */}
+              <div className="bg-slate-900/80 border border-white/10 rounded-2xl overflow-hidden">
+                <div className="px-4 py-3 border-b border-white/10 flex items-center gap-2">
+                  <MessageCircle className={`w-4 h-4 ${isAmber ? "text-amber-400" : "text-blue-400"}`} />
+                  <span className="text-sm font-bold text-white">Оролцогчдод урилга илгээх</span>
+                </div>
+                <div className="divide-y divide-white/5">
+                  {selectedEmps.map(emp => {
+                    const msg = encodeURIComponent(`🎥 Онлайн хурлын урилга\n\nТа дараах линкээр нэвтэрнэ үү:\n${meetingUrl}\n\n— Хөвсгөл Зам ХХК`);
+                    return (
+                      <div key={emp.id} className="px-4 py-2.5 flex items-center gap-3">
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black shrink-0 ${isAmber ? "bg-amber-600/20 text-amber-400" : "bg-blue-600/20 text-blue-400"}`}>
+                          {emp.name.charAt(0)}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white text-sm font-semibold truncate">{emp.name}</p>
+                          <p className="text-slate-500 text-xs">{emp.phone ?? "Утас бүртгэгдээгүй"}</p>
+                        </div>
+                        {emp.phone ? (
+                          <div className="flex gap-1.5 shrink-0">
+                            <a
+                              href={`viber://chat?number=%2B${cleanPhone(emp.phone)}&text=${msg}`}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-violet-600/20 hover:bg-violet-600/30 text-violet-400 rounded-lg text-xs font-bold transition-all"
+                            >
+                              <MessageCircle className="w-3.5 h-3.5" /> Viber
+                            </a>
+                            <a
+                              href={`sms:${emp.phone}?body=${msg}`}
+                              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-lg text-xs font-bold transition-all"
+                            >
+                              <Smartphone className="w-3.5 h-3.5" /> SMS
+                            </a>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-slate-600 italic">Илгээх боломжгүй</span>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          )}
 
           {/* Start button */}
           <button
@@ -355,8 +327,7 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
             onClick={endCall}
             className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-white font-bold transition-all"
           >
-            <VideoOff className="w-4 h-4" />
-            Хурал дуусгах
+            <VideoOff className="w-4 h-4" /> Хурал дуусгах
           </button>
         </div>
       )}
