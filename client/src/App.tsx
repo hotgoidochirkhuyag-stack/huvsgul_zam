@@ -20,6 +20,7 @@ import WarehouseDashboard from "@/pages/WarehouseDashboard";
 import CheckIn from "@/pages/CheckIn";
 import EquipmentInspection from "@/pages/EquipmentInspection";
 import LabQCDashboard from "@/pages/LabQCDashboard";
+import TenderProjects from "@/pages/TenderProjects";
 
 const ProtectedRoute = ({ component: Component, role }: { component: React.ComponentType; role: string }) => {
   const userRole = localStorage.getItem("userRole");
@@ -58,6 +59,7 @@ function Router() {
       {/* Нийтийн хуудсууд (нэвтрэлт шаардахгүй) */}
       <Route path="/checkin" component={CheckIn} />
       <Route path="/vehicle-inspection" component={EquipmentInspection} />
+      <Route path="/tender-projects" component={TenderProjects} />
 
       {/* Удирдлагын самбарууд */}
       <Route path="/dashboard/board"      component={() => <ProtectedRoute component={BoardDashboard}      role="BOARD" />} />

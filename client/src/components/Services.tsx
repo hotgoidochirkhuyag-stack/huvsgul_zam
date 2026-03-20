@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, FileText, Wrench, Plus, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 
 const adminHdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") || "" });
 const isAdminSession = () => localStorage.getItem("adminToken") === "authenticated";
@@ -22,137 +23,6 @@ const PRODUCTS = [
 ];
 
 
-const getLevel = (p: number | null) => {
-  if (p === null || p === undefined) return { label: "Төлөвлөгдсөн", color: "text-slate-400", bg: "bg-slate-600" };
-  if (p >= 100) return { label: "Дууссан",             color: "text-green-400", bg: "bg-green-600" };
-  if (p >= 75)  return { label: "Дуусахдаа ойртсон",  color: "text-amber-400", bg: "bg-amber-500" };
-  if (p >= 25)  return { label: "Явагдаж байна",       color: "text-blue-400",  bg: "bg-blue-600"  };
-  return              { label: "Эхлэх шатанд",         color: "text-slate-400", bg: "bg-slate-600" };
-};
-const BLANK_PROJECT = { title: "", description: "", imageUrl: "/placeholder.jpg", category: "Авто зам", location: "", year: new Date().getFullYear().toString(), progress: 0 };
-
-// ===== Төслийн нэрс CRUD modal =====
-function ProjectsModal({ onClose }: { onClose: () => void }) {
-  const qc = useQueryClient();
-  const { toast } = useToast();
-  const isAdmin = isAdminSession();
-  const [editing, setEditing] = useState<any | null>(null);
-  const [adding, setAdding]   = useState(false);
-  const [form, setForm]       = useState<any>(BLANK_PROJECT);
-
-  const { data: projects = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/projects"] });
-
-  const save = useMutation({
-    mutationFn: () => {
-      const url  = editing ? `/api/projects/${editing.id}` : "/api/projects";
-      const meth = editing ? "PATCH" : "POST";
-      return fetch(url, { method: meth, headers: adminHdrs(), body: JSON.stringify({ ...form, progress: Number(form.progress) }) }).then(r => r.json());
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/projects"] }); setEditing(null); setAdding(false); toast({ title: editing ? "Засагдлаа" : "Нэмэгдлээ" }); },
-    onError:   () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
-  });
-
-  const del = useMutation({
-    mutationFn: (id: number) => fetch(`/api/projects/${id}`, { method: "DELETE", headers: adminHdrs() }),
-    onSuccess:  () => { qc.invalidateQueries({ queryKey: ["/api/projects"] }); toast({ title: "Устгагдлаа" }); },
-  });
-
-  const openAdd  = () => { setForm(BLANK_PROJECT); setAdding(true); setEditing(null); };
-  const openEdit = (p: any) => { setForm({ title: p.title, description: p.description || "", imageUrl: p.imageUrl || "/placeholder.jpg", category: p.category || "", location: p.location || "", year: p.year || "", progress: p.progress ?? 0 }); setEditing(p); setAdding(false); };
-  const f = (k: string) => (e: any) => setForm((prev: any) => ({ ...prev, [k]: e.target.value }));
-
-  const showForm = adding || !!editing;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        onClick={e => e.stopPropagation()} className="bg-[#0f172a] border border-amber-500/20 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center"><FileText className="w-5 h-5 text-amber-400" /></div>
-            <div><h2 className="font-black text-white text-base">Тендерт явуулсан төслүүд</h2><p className="text-slate-400 text-xs">Хэрэгжиж байгаа болон дууссан тендерийн төслүүд</p></div>
-          </div>
-          <div className="flex items-center gap-2">
-            {isAdmin && !showForm && <button onClick={openAdd} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition-all"><Plus className="w-3.5 h-3.5" />Нэмэх</button>}
-            <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 hover:bg-white/5 rounded-lg transition-all"><X className="w-5 h-5" /></button>
-          </div>
-        </div>
-
-        <div className="overflow-y-auto flex-1 p-5">
-          {/* Form */}
-          {showForm && (
-            <div className="bg-slate-800/60 border border-white/10 rounded-xl p-4 mb-4 space-y-3">
-              <p className="text-amber-400 text-sm font-bold">{editing ? "Засах" : "Шинэ төсөл нэмэх"}</p>
-              {[{ k: "title", label: "Нэр *" }, { k: "category", label: "Ангилал" }, { k: "location", label: "Байршил" }, { k: "year", label: "Он" }].map(({ k, label }) => (
-                <div key={k}><label className="text-slate-400 text-xs mb-1 block">{label}</label>
-                  <input value={form[k]} onChange={f(k)} className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
-                </div>
-              ))}
-              <div><label className="text-slate-400 text-xs mb-1 block">Гүйцэтгэл % (0–100)</label>
-                <input type="number" min={0} max={100} value={form.progress} onChange={f("progress")} className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
-              </div>
-              <div><label className="text-slate-400 text-xs mb-1 block">Тайлбар</label>
-                <textarea rows={2} value={form.description} onChange={f("description")} className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50 resize-none" />
-              </div>
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => { setAdding(false); setEditing(null); }} className="flex-1 py-2 rounded-lg bg-slate-700 text-slate-300 text-sm font-bold hover:bg-slate-600 transition-all">Болих</button>
-                <button onClick={() => save.mutate()} disabled={!form.title || save.isPending} className="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50 transition-all">{save.isPending ? "Хадгалж байна..." : "Хадгалах"}</button>
-              </div>
-            </div>
-          )}
-
-          {/* List */}
-          {isLoading && <div className="text-center py-10 text-slate-400 text-sm">Уншиж байна...</div>}
-          {!isLoading && projects.length === 0 && !showForm && (
-            <div className="text-center py-10 text-slate-400 text-sm">
-              <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p>Одоогоор тендерт явуулсан төсөл бүртгэлгүй байна.</p>
-              {isAdmin && <button onClick={openAdd} className="mt-3 text-amber-400 text-xs underline">+ Анхны тендерийн төсөл нэмэх</button>}
-            </div>
-          )}
-          <div className="space-y-3">
-            {projects.map((p: any) => {
-              const lvl = getLevel(p.progress);
-              return (
-                <div key={p.id} className="bg-white/5 border border-white/8 rounded-xl p-4">
-                  <div className="flex items-start justify-between gap-3 mb-2">
-                    <div className="flex-1 min-w-0">
-                      <h3 className="text-white font-semibold text-sm leading-snug">{p.title}</h3>
-                      <div className="flex items-center gap-2 mt-1 flex-wrap">
-                        {p.category && <span className="text-[11px] text-slate-400 bg-slate-700/50 rounded px-2 py-0.5">{p.category}</span>}
-                        {p.location && <span className="text-[11px] text-slate-500">{p.location}</span>}
-                        {p.year     && <span className="text-[11px] text-slate-500">{p.year}</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${lvl.color} bg-white/5 border border-current/20`}>{lvl.label}</span>
-                      {isAdmin && <>
-                        <button onClick={() => openEdit(p)} className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-lg transition-all"><Pencil className="w-3.5 h-3.5" /></button>
-                        <button onClick={() => del.mutate(p.id)} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
-                      </>}
-                    </div>
-                  </div>
-                  {p.progress !== null && p.progress !== undefined && (
-                    <div className="mt-2">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] text-slate-500">Гүйцэтгэл</span>
-                        <span className="text-[11px] font-bold text-amber-400">{p.progress}%</span>
-                      </div>
-                      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all ${lvl.bg}`} style={{ width: `${Math.min(p.progress, 100)}%` }} />
-                      </div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </motion.div>
-    </div>
-  );
-}
 
 // ===== Зам гүүрийн төсөв: Холбогдох хүмүүс CRUD modal =====
 const BLANK_CONTACT = { name: "", role: "", phone: "" };
@@ -542,8 +412,8 @@ const servicesData = [
 ];
 
 export default function Services() {
+  const [, setLocation]     = useLocation();
   const [showOrderModal,    setShowOrderModal]    = useState(false);
-  const [showProjectsModal, setShowProjectsModal] = useState(false);
   const [showVehiclesModal, setShowVehiclesModal] = useState(false);
   const [showBudgetModal,   setShowBudgetModal]   = useState(false);
 
@@ -617,10 +487,10 @@ export default function Services() {
                 {service.description}
               </p>
 
-              {/* Авто зам гүүр: Төслийн нэрс товч */}
+              {/* Авто зам гүүр: Тендерт явуулсан төслүүд → шинэ хуудас */}
               {service.id === 1 && (
                 <button
-                  onClick={() => setShowProjectsModal(true)}
+                  onClick={() => setLocation("/tender-projects")}
                   className="mt-auto w-full py-2.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
                 >
                   <FileText className="w-4 h-4" />
@@ -668,7 +538,6 @@ export default function Services() {
       </div>
 
       <AnimatePresence>
-        {showProjectsModal && <ProjectsModal         onClose={() => setShowProjectsModal(false)} />}
         {showVehiclesModal && <AvailableVehiclesModal onClose={() => setShowVehiclesModal(false)} />}
         {showBudgetModal   && <BudgetContactsModal   onClose={() => setShowBudgetModal(false)} />}
         {showOrderModal    && <FactoryOrderModal      onClose={() => setShowOrderModal(false)} />}
