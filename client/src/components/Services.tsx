@@ -3,7 +3,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, FileText, Wrench, Plus, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useLocation } from "wouter";
 
 const adminHdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") || "" });
 const isAdminSession = () => localStorage.getItem("adminToken") === "authenticated";
@@ -411,11 +410,95 @@ const servicesData = [
   }
 ];
 
+// ===== Тендерт явуулсан төслүүд modal =====
+const PROG_CLR = (p: number) =>
+  p === 100 ? "bg-green-500" : p >= 60 ? "bg-blue-500" : p >= 30 ? "bg-amber-500" : "bg-red-400";
+
+function TenderProjectsModal({ onClose }: { onClose: () => void }) {
+  const { data: tenders = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/tender-projects"],
+    queryFn: () => fetch("/api/tender-projects").then(r => r.json()),
+  });
+  const done   = tenders.filter((t: any) => t.progress === 100).length;
+  const active = tenders.filter((t: any) => t.progress > 0 && t.progress < 100).length;
+  return (
+    <motion.div
+      initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <motion.div
+        initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
+        className="bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <div>
+            <h2 className="text-lg font-bold text-white">Тендерт явуулсан төслүүд</h2>
+            <p className="text-slate-400 text-xs mt-0.5">Хөвсгөл Зам ХК-ийн оролцсон тендерүүд</p>
+          </div>
+          <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"><X className="w-5 h-5" /></button>
+        </div>
+        {/* Stats */}
+        {tenders.length > 0 && (
+          <div className="grid grid-cols-3 divide-x divide-white/10 border-b border-white/10">
+            {[
+              { label: "Нийт", val: tenders.length, color: "text-white" },
+              { label: "Дууссан", val: done,   color: "text-green-400" },
+              { label: "Явагдаж байна", val: active, color: "text-amber-400" },
+            ].map(s => (
+              <div key={s.label} className="py-3 text-center">
+                <p className={`text-xl font-black ${s.color}`}>{s.val}</p>
+                <p className="text-slate-500 text-xs">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* List */}
+        <div className="overflow-y-auto max-h-[60vh] p-4 space-y-3">
+          {isLoading ? (
+            <div className="py-12 text-center text-slate-400">Уншиж байна...</div>
+          ) : tenders.length === 0 ? (
+            <div className="py-12 text-center text-slate-500">
+              <FileText className="w-10 h-10 mx-auto mb-3 opacity-20" />
+              <p>Тендер байхгүй байна</p>
+            </div>
+          ) : tenders.map((t: any) => (
+            <div key={t.id} className="bg-slate-800/50 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-all">
+              <div className="flex items-start gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="px-2 py-0.5 bg-amber-500/15 text-amber-400 rounded-lg text-xs font-bold">{t.category || "Авто зам"}</span>
+                    {t.year && <span className="text-slate-500 text-xs">{t.year} он</span>}
+                    {t.location && <span className="text-slate-500 text-xs">· {t.location}</span>}
+                  </div>
+                  <p className="text-white font-bold text-sm">{t.title}</p>
+                  {t.description && <p className="text-slate-400 text-xs mt-1">{t.description}</p>}
+                  <div className="mt-2.5">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-500">Гүйцэтгэл</span>
+                      <span className={`font-bold ${t.progress === 100 ? "text-green-400" : t.progress > 0 ? "text-amber-400" : "text-slate-500"}`}>{t.progress}%</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full ${PROG_CLR(t.progress)}`} style={{ width: `${t.progress}%` }} />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </motion.div>
+  );
+}
+
 export default function Services() {
-  const [, setLocation]     = useLocation();
   const [showOrderModal,    setShowOrderModal]    = useState(false);
   const [showVehiclesModal, setShowVehiclesModal] = useState(false);
   const [showBudgetModal,   setShowBudgetModal]   = useState(false);
+  const [showTenderModal,   setShowTenderModal]   = useState(false);
 
   const scrollToContact = () => {
     const el = document.getElementById("contact");
@@ -487,10 +570,10 @@ export default function Services() {
                 {service.description}
               </p>
 
-              {/* Авто зам гүүр: Тендерт явуулсан төслүүд → шинэ хуудас */}
+              {/* Авто зам гүүр: Тендерт явуулсан төслүүд → modal */}
               {service.id === 1 && (
                 <button
-                  onClick={() => setLocation("/tender-projects")}
+                  onClick={() => setShowTenderModal(true)}
                   className="mt-auto w-full py-2.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
                 >
                   <FileText className="w-4 h-4" />
@@ -538,6 +621,7 @@ export default function Services() {
       </div>
 
       <AnimatePresence>
+        {showTenderModal   && <TenderProjectsModal   onClose={() => setShowTenderModal(false)} />}
         {showVehiclesModal && <AvailableVehiclesModal onClose={() => setShowVehiclesModal(false)} />}
         {showBudgetModal   && <BudgetContactsModal   onClose={() => setShowBudgetModal(false)} />}
         {showOrderModal    && <FactoryOrderModal      onClose={() => setShowOrderModal(false)} />}
