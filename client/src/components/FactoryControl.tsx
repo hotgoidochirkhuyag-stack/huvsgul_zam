@@ -37,6 +37,7 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
   const [jitsiReady, setJitsiReady] = useState(false);
   const [copied,     setCopied]     = useState(false);
   const [roomName,   setRoomName]   = useState(() => genRoomName(cfg.base));
+  const [confirmEnd, setConfirmEnd] = useState(false);
 
   const token = localStorage.getItem("adminToken") ?? "";
 
@@ -318,17 +319,35 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
       )}
 
       {isCalling && (
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
             <span className="text-sm text-green-400 font-semibold">Хурал явагдаж байна — {selectedEmps.length} оролцогч</span>
           </div>
-          <button
-            onClick={endCall}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-500 rounded-xl text-white font-bold transition-all"
-          >
-            <VideoOff className="w-4 h-4" /> Хурал дуусгах
-          </button>
+          {!confirmEnd ? (
+            <button
+              onClick={() => setConfirmEnd(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-red-600/30 border border-slate-600 hover:border-red-500/50 rounded-xl text-slate-300 hover:text-red-400 font-bold transition-all"
+            >
+              <VideoOff className="w-4 h-4" /> Хурал дуусгах
+            </button>
+          ) : (
+            <div className="flex items-center gap-2 bg-red-600/10 border border-red-500/30 rounded-xl px-3 py-2">
+              <span className="text-xs text-red-300 font-semibold">Итгэлтэй үү?</span>
+              <button
+                onClick={() => { endCall(); setConfirmEnd(false); }}
+                className="px-3 py-1 bg-red-600 hover:bg-red-500 rounded-lg text-white text-xs font-black transition-all"
+              >
+                Тийм, дуусгах
+              </button>
+              <button
+                onClick={() => setConfirmEnd(false)}
+                className="px-3 py-1 bg-slate-700 hover:bg-slate-600 rounded-lg text-slate-300 text-xs font-bold transition-all"
+              >
+                Үгүй
+              </button>
+            </div>
+          )}
         </div>
       )}
 
