@@ -36,7 +36,7 @@ const PRODUCTS = [
   { label: "Шигшсэн элс",        value: "Элс",            unit: "м³" },
 ];
 
-function FactoryOrderModal({ onClose }: { onClose: () => void }) {
+function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; initialProduct?: string }) {
   const { toast } = useToast();
   const [step, setStep] = useState<"form" | "success">("form");
   const [orderNum, setOrderNum] = useState("");
@@ -45,7 +45,7 @@ function FactoryOrderModal({ onClose }: { onClose: () => void }) {
     clientName:       "",
     clientPhone:      "",
     clientEmail:      "",
-    productType:      PRODUCTS[2].value,
+    productType:      initialProduct ?? PRODUCTS[2].value,
     quantity:         "",
     deliveryDate:     "",
     deliveryLocation: "",
@@ -247,7 +247,8 @@ const servicesData = [
 ];
 
 export default function Services() {
-  const [showOrderModal, setShowOrderModal] = useState(false);
+  const [showOrderModal, setShowOrderModal]   = useState(false);
+  const [selectedProduct, setSelectedProduct] = useState(PRODUCTS[2].value);
 
   const { data: idleVehicles = [] } = useQuery<any[]>({
     queryKey: ["/api/public/idle-vehicles"],
@@ -393,14 +394,29 @@ export default function Services() {
               )}
 
               {service.orderBtn && (
-                <button
-                  data-testid="btn-factory-order-open"
-                  onClick={() => setShowOrderModal(true)}
-                  className="mt-5 w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm rounded-lg transition-all flex items-center justify-center gap-2"
-                >
-                  <Warehouse className="w-4 h-4" />
-                  Үйлдвэрт захиалга өгөх
-                </button>
+                <div className="mt-5 space-y-2">
+                  <div className="relative">
+                    <select
+                      data-testid="select-product-card"
+                      value={selectedProduct}
+                      onChange={e => setSelectedProduct(e.target.value)}
+                      className="w-full appearance-none bg-slate-800/80 border border-amber-500/30 hover:border-amber-500/60 rounded-xl px-4 py-2.5 text-white text-sm font-medium focus:outline-none focus:border-amber-500 transition-colors cursor-pointer pr-9"
+                    >
+                      {PRODUCTS.map(p => (
+                        <option key={p.value} value={p.value}>{p.label} ({p.unit})</option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-amber-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                  <button
+                    data-testid="btn-factory-order-open"
+                    onClick={() => setShowOrderModal(true)}
+                    className="w-full py-3 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30"
+                  >
+                    <Warehouse className="w-4 h-4" />
+                    Үйлдвэрт захиалга өгөх
+                  </button>
+                </div>
               )}
 
               <div className="absolute bottom-0 left-0 h-0.5 bg-primary w-0 group-hover:w-full transition-all duration-500"></div>
@@ -410,7 +426,7 @@ export default function Services() {
       </div>
 
       <AnimatePresence>
-        {showOrderModal && <FactoryOrderModal onClose={() => setShowOrderModal(false)} />}
+        {showOrderModal && <FactoryOrderModal onClose={() => setShowOrderModal(false)} initialProduct={selectedProduct} />}
       </AnimatePresence>
     </section>
   );
