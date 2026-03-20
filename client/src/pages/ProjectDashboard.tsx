@@ -6,8 +6,9 @@ import {
   Phone, Calendar, ChevronDown, ChevronUp, HelpCircle,
   ShoppingCart, FileText, BarChart3, Plus, X, Edit2,
   CheckCircle2, Clock, AlertTriangle, TrendingUp, Banknote,
-  Package, FileSignature,
+  Package, FileSignature, Printer,
 } from "lucide-react";
+import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
 import LogoutButton from "@/components/LogoutButton";
 import {
@@ -744,8 +745,46 @@ function ReportTab() {
     гэрээ:    contracts.filter((c: any) => c.workType === wt).length,
   })).filter(d => d.захиалга > 0 || d.гэрээ > 0);
 
+  function handleProjectPrint() {
+    const oRows = orders.map((o: any) => {
+      const st = ORDER_STATUS[o.status as keyof typeof ORDER_STATUS] ?? { label: o.status };
+      return "<tr><td>" + o.title + "</td><td>" + (o.workType ?? "—") + "</td><td>" + (o.customer ?? "—") + "</td><td style='text-align:right'>" + Number(o.amount ?? 0).toLocaleString() + "₮</td><td><span class='badge gray'>" + st.label + "</span></td></tr>";
+    }).join("");
+    const cRows = contracts.map((c: any) => {
+      const st = CONTRACT_STATUS[c.status as keyof typeof CONTRACT_STATUS] ?? { label: c.status };
+      return "<tr><td>" + c.title + "</td><td>" + (c.workType ?? "—") + "</td><td>" + (c.party ?? "—") + "</td><td style='text-align:right'>" + Number(c.amount ?? 0).toLocaleString() + "₮</td><td><span class='badge gray'>" + st.label + "</span></td></tr>";
+    }).join("");
+    const statRow = [
+      "<div class='stat-row'>",
+      "<div class='stat-box'><div class='stat-val'>" + orders.length + "</div><div class='stat-lbl'>Нийт захиалга</div></div>",
+      "<div class='stat-box'><div class='stat-val'>" + contracts.length + "</div><div class='stat-lbl'>Нийт гэрээ</div></div>",
+      "<div class='stat-box'><div class='stat-val'>" + (totalOrderAmt / 1000000).toFixed(1) + " сая₮</div><div class='stat-lbl'>Захиалгын нийт дүн</div></div>",
+      "<div class='stat-box'><div class='stat-val'>" + (totalContractAmt / 1000000).toFixed(1) + " сая₮</div><div class='stat-lbl'>Гэрээний нийт дүн</div></div>",
+      "</div>",
+    ].join("");
+    const body = [
+      statRow,
+      "<div class='section-title'>Захиалгын жагсаалт</div>",
+      "<table><thead><tr><th>Захиалга</th><th>Ажлын төрөл</th><th>Харилцагч</th><th>Дүн</th><th>Статус</th></tr></thead><tbody>" + (oRows || "<tr><td colspan='5'>Захиалга байхгүй</td></tr>") + "</tbody></table>",
+      "<div class='section-title'>Гэрээний жагсаалт</div>",
+      "<table><thead><tr><th>Гэрээ</th><th>Ажлын төрөл</th><th>Тал</th><th>Дүн</th><th>Статус</th></tr></thead><tbody>" + (cRows || "<tr><td colspan='5'>Гэрээ байхгүй</td></tr>") + "</tbody></table>",
+    ].join("");
+    printReport("Төслийн санхүүгийн тайлан", body);
+  }
+
   return (
     <div className="space-y-6">
+      {/* Header with PDF button */}
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold text-lg text-white/80">Төслийн тайлан</h2>
+        <button
+          data-testid="btn-print-project-report"
+          onClick={handleProjectPrint}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-sm font-bold rounded-xl transition-all"
+        >
+          <Printer className="w-4 h-4" /> PDF тайлан
+        </button>
+      </div>
       {/* Summary cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <StatCard icon={Package}     label="Нийт захиалга"  value={orders.length}                               color="blue"  />

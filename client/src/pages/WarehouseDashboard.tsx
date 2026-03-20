@@ -8,8 +8,9 @@ import {
   Save, LogOut, Calendar, Factory, Layers, Hammer, Package,
   ArrowDown, Info, TrendingDown, Warehouse, Plus, Minus, Edit3,
   Trash2, PackagePlus, TruckIcon, ShoppingCart, ClipboardList,
-  CheckCheck, X, Clock, AlertCircle
+  CheckCheck, X, Clock, AlertCircle, BarChart3, Printer
 } from "lucide-react";
+import { printReport } from "@/lib/printReport";
 import type { ProductionPlan, MaterialCheck, WarehouseItem, WarehouseOrder } from "@shared/schema";
 
 // ===================== БНбД НОРМУУД (ЗАССАН) — асфальтын рецептур, бетоны ангилал =====================
@@ -1039,6 +1040,132 @@ function EditItemModal({ item, token, onClose }: { item: WarehouseItem; token: s
   );
 }
 
+// ─── Warehouse Report tab ─────────────────────────────────────────────────────
+function WarehouseReportTab({ allItems }: { allItems: WarehouseItem[] }) {
+  const totalItems   = allItems.length;
+  const lowStock     = allItems.filter(i => (i.currentStock ?? 0) < (i.minStock ?? 0));
+  const okStock      = allItems.filter(i => (i.currentStock ?? 0) >= (i.minStock ?? 0));
+  const categories   = Array.from(new Set(allItems.map(i => i.category).filter(Boolean)));
+
+  function handlePrint() {
+    const statRow = [
+      "<div class='stat-row'>",
+      "<div class='stat-box'><div class='stat-val'>" + totalItems + "</div><div class='stat-lbl'>Нийт материал</div></div>",
+      "<div class='stat-box'><div class='stat-val' style='color:#065f46'>" + okStock.length + "</div><div class='stat-lbl'>Хангалттай нөөц</div></div>",
+      "<div class='stat-box'><div class='stat-val' style='color:#991b1b'>" + lowStock.length + "</div><div class='stat-lbl'>Дутуу нөөц</div></div>",
+      "<div class='stat-box'><div class='stat-val'>" + categories.length + "</div><div class='stat-lbl'>Ангилал</div></div>",
+      "</div>",
+    ].join("");
+
+    const rows = allItems.map(i => {
+      const isLow = (i.currentStock ?? 0) < (i.minStock ?? 0);
+      const badge = isLow
+        ? "<span class='badge warn'>Дутуу</span>"
+        : "<span class='badge ok'>Хангалттай</span>";
+      return "<tr><td>" + i.name + "</td><td>" + (i.category ?? "—") + "</td><td>" + (i.unit ?? "—") + "</td><td style='text-align:right'>" + (i.currentStock ?? 0) + "</td><td style='text-align:right'>" + (i.minStock ?? 0) + "</td><td>" + badge + "</td></tr>";
+    }).join("");
+
+    const body = [
+      statRow,
+      "<div class='section-title'>Нөөцийн дэлгэрэнгүй жагсаалт</div>",
+      "<table><thead><tr><th>Материал</th><th>Ангилал</th><th>Нэгж</th><th>Одоогийн нөөц</th><th>Хамгийн бага нөөц</th><th>Статус</th></tr></thead><tbody>" + rows + "</tbody></table>",
+    ].join("");
+
+    printReport("Агуулахын нөөцийн тайлан", body);
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h2 className="font-bold text-lg">Агуулахын нөөцийн тайлан</h2>
+        <button
+          data-testid="btn-print-warehouse-report"
+          onClick={handlePrint}
+          className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-xl transition-all"
+        >
+          <Printer className="w-4 h-4" /> PDF тайлан
+        </button>
+      </div>
+
+      {/* Stat cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: "Нийт материал", value: totalItems, color: "text-white" },
+          { label: "Хангалттай нөөц", value: okStock.length, color: "text-green-400" },
+          { label: "Дутуу нөөц", value: lowStock.length, color: "text-red-400" },
+          { label: "Ангилал", value: categories.length, color: "text-amber-400" },
+        ].map(s => (
+          <div key={s.label} className="bg-slate-900/60 border border-white/10 rounded-2xl p-4">
+            <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+            <div className="text-xs text-white/40 mt-1">{s.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Дутуу нөөцүүд */}
+      {lowStock.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-4">
+          <h3 className="font-bold text-red-400 mb-3 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4" /> Дутуу нөөцтэй материалууд
+          </h3>
+          <div className="space-y-2">
+            {lowStock.map(i => (
+              <div key={i.id} className="flex items-center justify-between bg-slate-900/60 rounded-xl px-4 py-2">
+                <span className="text-sm font-medium">{i.name}</span>
+                <div className="flex items-center gap-3 text-sm">
+                  <span className="text-red-400 font-bold">{i.currentStock ?? 0} {i.unit}</span>
+                  <span className="text-white/30">/ хамгийн бага: {i.minStock ?? 0}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Бүх материалын хүснэгт */}
+      <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-white/10">
+          <h3 className="font-bold text-sm">Нийт нөөцийн жагсаалт</h3>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-white/5 text-white/50 text-xs uppercase">
+              <tr>
+                <th className="px-4 py-3 text-left">Материал</th>
+                <th className="px-4 py-3 text-left">Ангилал</th>
+                <th className="px-4 py-3 text-right">Нөөц</th>
+                <th className="px-4 py-3 text-right">Хамгийн бага</th>
+                <th className="px-4 py-3 text-left">Статус</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {allItems.map(i => {
+                const isLow = (i.currentStock ?? 0) < (i.minStock ?? 0);
+                return (
+                  <tr key={i.id} className="hover:bg-white/3 transition-colors">
+                    <td className="px-4 py-3 font-medium">{i.name}</td>
+                    <td className="px-4 py-3 text-white/50">{i.category ?? "—"}</td>
+                    <td className="px-4 py-3 text-right font-bold">{i.currentStock ?? 0} <span className="text-white/40 font-normal text-xs">{i.unit}</span></td>
+                    <td className="px-4 py-3 text-right text-white/50">{i.minStock ?? 0}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-0.5 rounded text-xs font-bold ${isLow ? "bg-red-500/15 text-red-400" : "bg-green-500/15 text-green-400"}`}>
+                        {isLow ? "Дутуу" : "Хангалттай"}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+              {allItems.length === 0 && (
+                <tr><td colSpan={5} className="px-4 py-10 text-center text-white/30">Материал бүртгэгдээгүй байна</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Stock Overview tab ───────────────────────────────────────────────────────
 function StockTab({ allItems, token }: { allItems: WarehouseItem[]; token: string }) {
   const [showNew, setShowNew] = useState(false);
@@ -1499,7 +1626,7 @@ function OrdersTab({ allItems, token }: { allItems: WarehouseItem[]; token: stri
 // ─── Main Dashboard ───────────────────────────────────────────────────────────
 export default function WarehouseDashboard() {
   const [, setLocation] = useLocation();
-  const [activeTab, setActiveTab] = useState<"plan"|"stock">("plan");
+  const [activeTab, setActiveTab] = useState<"plan"|"stock"|"report">("plan");
   const token  = localStorage.getItem("adminToken") ?? "";
   const hdrs   = { "x-admin-token": token };
 
@@ -1537,6 +1664,10 @@ export default function WarehouseDashboard() {
                 className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${activeTab === "stock" ? "bg-amber-600 text-white" : "text-white/40 hover:text-white/60"}`}>
                 <Warehouse className="w-3.5 h-3.5" /> Нөөц
               </button>
+              <button data-testid="tab-report" onClick={() => setActiveTab("report")}
+                className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${activeTab === "report" ? "bg-amber-600 text-white" : "text-white/40 hover:text-white/60"}`}>
+                <BarChart3 className="w-3.5 h-3.5" /> Тайлан
+              </button>
             </div>
             <button data-testid="btn-logout"
               onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
@@ -1549,9 +1680,9 @@ export default function WarehouseDashboard() {
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-4">
 
-        {activeTab === "plan" && <OrdersTab allItems={allItems} token={token} />}
-
-        {activeTab === "stock" && <StockTab allItems={allItems} token={token} />}
+        {activeTab === "plan"   && <OrdersTab allItems={allItems} token={token} />}
+        {activeTab === "stock"  && <StockTab allItems={allItems} token={token} />}
+        {activeTab === "report" && <WarehouseReportTab allItems={allItems} />}
       </div>
     </div>
   );

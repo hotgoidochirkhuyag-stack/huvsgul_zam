@@ -3,8 +3,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FlaskConical, Plus, Trash2, LogOut, RefreshCw, CheckCircle2,
   XCircle, Clock, FileText, AlertTriangle, ShieldCheck, History, Pencil,
-  BarChart3, TrendingUp, TrendingDown
+  BarChart3, TrendingUp, TrendingDown, Printer
 } from "lucide-react";
+import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 import type { NormConfig, NormAuditEntry } from "@shared/schema";
@@ -339,7 +340,7 @@ export default function LabQCDashboard() {
   // Норм засах — зөвхөн ENGINEER (технологич инженер)
   const canEditNorms = role === "ENGINEER";
 
-  const [tab, setTab] = useState<"overview" | "list" | "add" | "norms">("overview");
+  const [tab, setTab] = useState<"overview" | "list" | "add" | "norms" | "report">("overview");
   const [filterType,   setFilterType]   = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -408,11 +409,51 @@ export default function LabQCDashboard() {
   const monthFail    = monthResults.filter(r => r.status === "fail").length;
   const recent5      = results.slice(0, 5);
 
-  const TABS: { key: "overview"|"list"|"add"|"norms"; label: string; icon: any; show: boolean }[] = [
+  function handleLabPrint() {
+    const passCount2  = results.filter(r => r.status === "pass").length;
+    const failCount2  = results.filter(r => r.status === "fail").length;
+    const pendCount   = results.filter(r => r.status === "pending").length;
+    const passRate2   = results.filter(r => r.status !== "pending").length > 0
+      ? Math.round(passCount2 / results.filter(r => r.status !== "pending").length * 100)
+      : 0;
+
+    const TEST_LABEL: Record<string, string> = {
+      marshall: "Маршалл", concrete: "Бетон", compaction: "Нягтрал",
+      sieve: "Шигшүүр", soil: "Хөрс",
+    };
+    const STATUS_LABEL: Record<string, string> = { pass: "Тэнцсэн", fail: "Тэнцээгүй", pending: "Хүлээгдэж байна" };
+
+    const statRow = [
+      "<div class='stat-row'>",
+      "<div class='stat-box'><div class='stat-val'>" + results.length + "</div><div class='stat-lbl'>Нийт туршилт</div></div>",
+      "<div class='stat-box'><div class='stat-val' style='color:#065f46'>" + passCount2 + "</div><div class='stat-lbl'>Тэнцсэн</div></div>",
+      "<div class='stat-box'><div class='stat-val' style='color:#991b1b'>" + failCount2 + "</div><div class='stat-lbl'>Тэнцээгүй</div></div>",
+      "<div class='stat-box'><div class='stat-val'>" + pendCount + "</div><div class='stat-lbl'>Хүлээгдэж байна</div></div>",
+      "<div class='stat-box'><div class='stat-val'>" + passRate2 + "%</div><div class='stat-lbl'>Тэнцэлтийн хувь</div></div>",
+      "</div>",
+    ].join("");
+
+    const rows = results.map(r => {
+      const stClass = r.status === "pass" ? "ok" : r.status === "fail" ? "fail" : "gray";
+      const stLabel = STATUS_LABEL[r.status] ?? r.status;
+      return "<tr><td>" + r.date + "</td><td>" + (TEST_LABEL[r.testType] ?? r.testType) + "</td><td>" + (r.location ?? "—") + "</td><td>" + (r.sampleId ?? "—") + "</td><td>" + (r.value ?? "—") + (r.value2 ? " / " + r.value2 : "") + "</td><td><span class='badge " + stClass + "'>" + stLabel + "</span></td><td>" + (r.recordedBy ?? "—") + "</td></tr>";
+    }).join("");
+
+    const body = [
+      statRow,
+      "<div class='section-title'>Туршилтын дэлгэрэнгүй жагсаалт</div>",
+      "<table><thead><tr><th>Огноо</th><th>Туршилтын төрөл</th><th>Байршил</th><th>Дээж ID</th><th>Утга</th><th>Статус</th><th>Хариуцсан</th></tr></thead><tbody>" + rows + "</tbody></table>",
+    ].join("");
+
+    printReport("Лабораторийн чанарын хяналтын тайлан", body);
+  }
+
+  const TABS: { key: "overview"|"list"|"add"|"norms"|"report"; label: string; icon: any; show: boolean }[] = [
     { key: "overview", label: "Хяналтын самбар",    icon: BarChart3,    show: true          },
     { key: "list",     label: "Туршилтын дүн",      icon: FileText,     show: true          },
     { key: "add",      label: "Шинэ туршилт",       icon: FlaskConical, show: true          },
     { key: "norms",    label: "БНбД Норм",           icon: ShieldCheck,  show: canViewNorms  },
+    { key: "report",   label: "Тайлан (PDF)",         icon: Printer,      show: true          },
   ];
 
   return (
@@ -783,6 +824,88 @@ export default function LabQCDashboard() {
         {/* ─── NORMS TAB ────────────────────────────────────────────────────── */}
         {tab === "norms" && canViewNorms && (
           <NormEditorTab token={token} role={role} canEdit={canEditNorms} />
+        )}
+
+        {/* ── ТАЙЛАН TAB ── */}
+        {tab === "report" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg">Лабораторийн чанарын хяналтын тайлан</h2>
+              <button
+                data-testid="btn-print-lab-report"
+                onClick={handleLabPrint}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold rounded-xl transition-all"
+              >
+                <Printer className="w-4 h-4" /> PDF тайлан гаргах
+              </button>
+            </div>
+
+            {/* Нийт дүн */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+              {[
+                { label: "Нийт туршилт",      value: results.length,                        color: "text-white"    },
+                { label: "Тэнцсэн",           value: results.filter(r => r.status === "pass").length,  color: "text-green-400" },
+                { label: "Тэнцээгүй",         value: results.filter(r => r.status === "fail").length,  color: "text-red-400"   },
+                { label: "Хүлээгдэж байна",   value: results.filter(r => r.status === "pending").length, color: "text-amber-400" },
+                { label: "Тэнцэлт %",         value: passRate + "%",                        color: passRate >= 90 ? "text-green-400" : "text-amber-400" },
+              ].map(s => (
+                <div key={s.label} className="bg-slate-900/60 border border-white/10 rounded-2xl p-4">
+                  <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-xs text-white/40 mt-1">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Туршилтын дэлгэрэнгүй */}
+            <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/10">
+                <h3 className="font-bold text-sm">Бүх туршилтын жагсаалт</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-white/5 text-white/50 text-xs uppercase">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Огноо</th>
+                      <th className="px-4 py-3 text-left">Туршилт</th>
+                      <th className="px-4 py-3 text-left">Байршил</th>
+                      <th className="px-4 py-3 text-left">Дээж ID</th>
+                      <th className="px-4 py-3 text-right">Утга</th>
+                      <th className="px-4 py-3 text-left">Статус</th>
+                      <th className="px-4 py-3 text-left">Хариуцсан</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {results.map(r => {
+                      const TEST_LABEL: Record<string, string> = {
+                        marshall: "Маршалл", concrete: "Бетон", compaction: "Нягтрал", sieve: "Шигшүүр", soil: "Хөрс",
+                      };
+                      const statusCfg = {
+                        pass:    { cls: "bg-green-500/15 text-green-400",  label: "Тэнцсэн" },
+                        fail:    { cls: "bg-red-500/15 text-red-400",      label: "Тэнцээгүй" },
+                        pending: { cls: "bg-amber-500/15 text-amber-400",  label: "Хүлээгдэж байна" },
+                      }[r.status] ?? { cls: "bg-white/10 text-white/50", label: r.status };
+                      return (
+                        <tr key={r.id} className="hover:bg-white/3 transition-colors">
+                          <td className="px-4 py-3 text-white/60 text-xs">{r.date}</td>
+                          <td className="px-4 py-3 font-medium">{TEST_LABEL[r.testType] ?? r.testType}</td>
+                          <td className="px-4 py-3 text-white/50">{r.location ?? "—"}</td>
+                          <td className="px-4 py-3 text-white/50">{r.sampleId ?? "—"}</td>
+                          <td className="px-4 py-3 text-right font-bold">{r.value ?? "—"}{r.value2 ? ` / ${r.value2}` : ""}</td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusCfg.cls}`}>{statusCfg.label}</span>
+                          </td>
+                          <td className="px-4 py-3 text-white/50">{r.recordedBy ?? "—"}</td>
+                        </tr>
+                      );
+                    })}
+                    {results.length === 0 && (
+                      <tr><td colSpan={7} className="px-4 py-10 text-center text-white/30">Туршилтын дүн бүртгэгдээгүй байна</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

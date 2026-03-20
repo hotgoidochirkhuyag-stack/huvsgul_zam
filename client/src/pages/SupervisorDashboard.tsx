@@ -5,8 +5,9 @@ import {
   MapPin, Wrench, Users, FileText, ChevronDown,
   CheckCircle2, Clock, AlertCircle, Calendar,
   Navigation, ScrollText, Edit2, Save, X, Check,
-  Camera, Image as ImageIcon, Upload, ChevronUp
+  Camera, Image as ImageIcon, Upload, ChevronUp, Printer
 } from "lucide-react";
+import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -889,9 +890,30 @@ export default function SupervisorDashboard() {
           <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
               <h2 className="font-bold">{filterDate} — Ажлын тайлангууд</h2>
-              <button onClick={() => refetchReports()} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-                <RefreshCw className="w-4 h-4" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  data-testid="btn-print-supervisor-report"
+                  onClick={() => {
+                    if (reports.length === 0) return;
+                    const rows = reports.map((r: any) => {
+                      const emp = empMap.get(r.employeeId);
+                      return "<tr><td>" + (emp?.name ?? "ID:" + r.employeeId) + "</td><td>" + (r.description ?? "—") + "</td><td>" + (r.quantity ? r.quantity + " " + (r.unit ?? "") : "—") + "</td><td>" + (r.issues ?? "—") + "</td><td>" + new Date(r.createdAt).toLocaleTimeString("mn-MN", { hour: "2-digit", minute: "2-digit" }) + "</td></tr>";
+                    }).join("");
+                    const body = [
+                      "<div class='stat-row'><div class='stat-box'><div class='stat-val'>" + reports.length + "</div><div class='stat-lbl'>Нийт тайлан</div></div></div>",
+                      "<div class='section-title'>" + filterDate + " — Тайлангуудын дэлгэрэнгүй</div>",
+                      "<table><thead><tr><th>Ажилтан</th><th>Гүйцэтгэсэн ажил</th><th>Хэмжээ</th><th>Асуудал</th><th>Цаг</th></tr></thead><tbody>" + rows + "</tbody></table>",
+                    ].join("");
+                    printReport(filterDate + " — Ажлын тайлангууд", body);
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition-all"
+                >
+                  <Printer className="w-3.5 h-3.5" /> PDF
+                </button>
+                <button onClick={() => refetchReports()} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
+                  <RefreshCw className="w-4 h-4" />
+                </button>
+              </div>
             </div>
             {reportsLoading ? (
               <div className="p-12 text-center text-slate-400">Уншиж байна...</div>

@@ -4,8 +4,9 @@ import {
   Truck, Plus, Trash2, LogOut, RefreshCw, ChevronDown,
   CheckCircle2, AlertTriangle, Calendar, Zap, FileText,
   Search, Edit2, X, Clock, ShieldCheck, History,
-  Fuel, Timer, BarChart3, Save
+  Fuel, Timer, BarChart3, Save, Printer
 } from "lucide-react";
+import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -49,7 +50,7 @@ export default function MechanicDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
 
-  const [tab, setTab] = useState<"vehicles" | "inspections" | "hours" | "fuel">("vehicles");
+  const [tab, setTab] = useState<"vehicles" | "inspections" | "hours" | "fuel" | "report">("vehicles");
   const [search, setSearch] = useState("");
   const [filterReady, setFilterReady] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -149,6 +150,47 @@ export default function MechanicDashboard() {
   });
 
   const MONTHS_MN = ["1-р сар","2-р сар","3-р сар","4-р сар","5-р сар","6-р сар","7-р сар","8-р сар","9-р сар","10-р сар","11-р сар","12-р сар"];
+
+  const { data: allEqLogs = [] } = useQuery<any[]>({
+    queryKey: ["/api/equipment-logs/all"],
+    queryFn: () => fetch("/api/equipment-logs", { headers: getHeaders() }).then(r => r.json()),
+    enabled: tab === "report",
+  });
+  const { data: allBudgetsReport = [] } = useQuery<any[]>({
+    queryKey: ["/api/fuel-budgets/report"],
+    queryFn: () => fetch("/api/fuel-budgets", { headers: getHeaders() }).then(r => r.json()),
+    enabled: tab === "report",
+  });
+
+  function handleMechanicPrint() {
+    const readyCount   = vehicles.filter((v: any) => v.isReady).length;
+    const notReady     = vehicles.filter((v: any) => !v.isReady).length;
+    const totalH       = allEqLogs.reduce((s: number, l: any) => s + (l.hoursWorked ?? 0), 0);
+    const totalFuelAll = allEqLogs.reduce((s: number, l: any) => s + (l.fuelUsed ?? 0), 0);
+
+    const statRow = [
+      "<div class='stat-row'>",
+      "<div class='stat-box'><div class='stat-val'>" + vehicles.length + "</div><div class='stat-lbl'>Нийт техник</div></div>",
+      "<div class='stat-box'><div class='stat-val' style='color:#065f46'>" + readyCount + "</div><div class='stat-lbl'>Ажлын бэлэн</div></div>",
+      "<div class='stat-box'><div class='stat-val' style='color:#991b1b'>" + notReady + "</div><div class='stat-lbl'>Засварт / бэлэн биш</div></div>",
+      "<div class='stat-box'><div class='stat-val'>" + totalH.toFixed(1) + "ц</div><div class='stat-lbl'>Нийт ажлын цаг</div></div>",
+      "<div class='stat-box'><div class='stat-val'>" + totalFuelAll.toFixed(0) + "л</div><div class='stat-lbl'>Нийт шатахуун</div></div>",
+      "</div>",
+    ].join("");
+
+    const vRows = vehicles.map((v: any) => {
+      const badge = v.isReady ? "<span class='badge ok'>Бэлэн</span>" : "<span class='badge fail'>Бэлэн биш</span>";
+      return "<tr><td>" + v.plateNumber + "</td><td>" + v.name + "</td><td>" + (v.type ?? "—") + "</td><td>" + badge + "</td><td>" + (v.lastInspectionDate ?? "—") + "</td><td>" + (v.nextInspectionDate ?? "—") + "</td></tr>";
+    }).join("");
+
+    const body = [
+      statRow,
+      "<div class='section-title'>Техникийн жагсаалт</div>",
+      "<table><thead><tr><th>Дугаар</th><th>Нэр</th><th>Төрөл</th><th>Статус</th><th>Сүүлийн үзлэг</th><th>Дараагийн үзлэг</th></tr></thead><tbody>" + vRows + "</tbody></table>",
+    ].join("");
+
+    printReport("Механикийн техникийн тайлан", body);
+  }
 
   // Сарын зарцуулсан мөнгөн дүн тооцоолол
   function calcSpent(summary: any, budget: any): number {
@@ -276,6 +318,9 @@ export default function MechanicDashboard() {
           </button>
           <button onClick={() => setTab("fuel")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "fuel" ? "bg-amber-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
             <Fuel className="w-4 h-4" /> Шатахуун төсөв
+          </button>
+          <button data-testid="tab-report" onClick={() => setTab("report")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "report" ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+            <BarChart3 className="w-4 h-4" /> Тайлан
           </button>
         </div>
 
@@ -817,7 +862,106 @@ export default function MechanicDashboard() {
           </div>
         )}
 
-        {/* ── ӨМНӨХ ҮЗЛЭГҮҮД ── */}
+        {/* ── ТАЙЛАН ── */}
+        {tab === "report" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-lg">Механикийн нэгтгэл тайлан</h2>
+              <button
+                data-testid="btn-print-mechanic-report"
+                onClick={handleMechanicPrint}
+                className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-all"
+              >
+                <Printer className="w-4 h-4" /> PDF тайлан
+              </button>
+            </div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {[
+                { label: "Нийт техник",     value: vehicles.length,                                          color: "text-white"   },
+                { label: "Ажлын бэлэн",     value: vehicles.filter((v: any) => v.isReady).length,            color: "text-green-400" },
+                { label: "Засварт / бэлэн биш", value: vehicles.filter((v: any) => !v.isReady).length,       color: "text-red-400" },
+                { label: "Нийт ажлын цаг",  value: allEqLogs.reduce((s: number, l: any) => s + (l.hoursWorked ?? 0), 0).toFixed(1) + " ц", color: "text-amber-400" },
+              ].map(s => (
+                <div key={s.label} className="bg-slate-900/60 border border-white/10 rounded-2xl p-4">
+                  <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
+                  <div className="text-xs text-white/40 mt-1">{s.label}</div>
+                </div>
+              ))}
+            </div>
+            <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="px-5 py-3 border-b border-white/10">
+                <h3 className="font-bold text-sm">Техникийн жагсаалт</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-white/5 text-white/50 text-xs uppercase">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Дугаар</th>
+                      <th className="px-4 py-3 text-left">Нэр</th>
+                      <th className="px-4 py-3 text-left">Төрөл</th>
+                      <th className="px-4 py-3 text-left">Статус</th>
+                      <th className="px-4 py-3 text-left">Сүүлийн үзлэг</th>
+                      <th className="px-4 py-3 text-left">Дараагийн үзлэг</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {vehicles.map((v: any) => (
+                      <tr key={v.id} className="hover:bg-white/3 transition-colors">
+                        <td className="px-4 py-3 font-bold">{v.plateNumber}</td>
+                        <td className="px-4 py-3">{v.name}</td>
+                        <td className="px-4 py-3 text-white/50">{v.type ?? "—"}</td>
+                        <td className="px-4 py-3">
+                          <span className={`px-2 py-0.5 rounded text-xs font-bold ${v.isReady ? "bg-green-500/15 text-green-400" : "bg-red-500/15 text-red-400"}`}>
+                            {v.isReady ? "Бэлэн" : "Бэлэн биш"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-white/50 text-xs">{v.lastInspectionDate ?? "—"}</td>
+                        <td className="px-4 py-3 text-white/50 text-xs">{v.nextInspectionDate ?? "—"}</td>
+                      </tr>
+                    ))}
+                    {vehicles.length === 0 && (
+                      <tr><td colSpan={6} className="px-4 py-10 text-center text-white/30">Техник бүртгэгдээгүй байна</td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+            {allBudgetsReport.length > 0 && (
+              <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+                <div className="px-5 py-3 border-b border-white/10">
+                  <h3 className="font-bold text-sm">Шатахуун төсвийн тайлан</h3>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead className="bg-white/5 text-white/50 text-xs uppercase">
+                      <tr>
+                        <th className="px-4 py-3 text-left">Он</th>
+                        <th className="px-4 py-3 text-left">Сар</th>
+                        <th className="px-4 py-3 text-right">Төсөв (₮)</th>
+                        <th className="px-4 py-3 text-right">Дизель үнэ</th>
+                        <th className="px-4 py-3 text-right">Бензин үнэ</th>
+                        <th className="px-4 py-3 text-left">Батлагч</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/5">
+                      {allBudgetsReport.map((b: any) => (
+                        <tr key={b.id} className="hover:bg-white/3">
+                          <td className="px-4 py-3">{b.year}</td>
+                          <td className="px-4 py-3">{MONTHS_MN[(b.month ?? 1) - 1]}</td>
+                          <td className="px-4 py-3 text-right font-bold text-amber-400">{Number(b.budgetAmount).toLocaleString()}₮</td>
+                          <td className="px-4 py-3 text-right text-white/50">{b.dieselPrice}₮/л</td>
+                          <td className="px-4 py-3 text-right text-white/50">{b.petrolPrice}₮/л</td>
+                          <td className="px-4 py-3 text-white/50">{b.approvedBy ?? "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         {tab === "inspections" && (
           <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
             <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
