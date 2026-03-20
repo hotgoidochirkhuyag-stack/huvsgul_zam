@@ -285,7 +285,7 @@ export default function SupervisorDashboard() {
   });
 
   const ACTIVITIES: Record<string, string> = {
-    earthwork: "Шороон ажил", subbase: "Дэр давхарга", base: "Үндсэн давхарга",
+    earthwork: "Шороон ажил", subbase: "Дэд давхарга", base: "Үндсэн давхарга",
     asphalt: "Асфальт тавих", concrete: "Бетон цутгах", structure: "Барилга бүтэц", drainage: "Ус зайлуулах",
   };
   const FRONT_STATUS: Record<string, { label: string; color: string }> = {

@@ -312,10 +312,6 @@ function ProductionTab() {
 
 /* ══════════════════════ 4. НОРМ ══════════════════════ */
 function NormTab() {
-  const { data: norms = [], isLoading: ln } = useQuery<any[]>({
-    queryKey: ["/api/norm-configs"],
-    queryFn: () => fetch("/api/norm-configs", { headers: hdrs() }).then(r => r.json()),
-  });
   const { data: kpis = [], isLoading: lk } = useQuery<any[]>({
     queryKey: ["/api/erp/kpi-configs"],
     queryFn: () => fetch("/api/erp/kpi-configs").then(r => r.json()),
@@ -323,44 +319,6 @@ function NormTab() {
 
   return (
     <div className="space-y-6">
-      {/* ТУЗ-ын норм */}
-      <div className="bg-slate-900/60 rounded-2xl border border-amber-500/20 overflow-hidden">
-        <div className="p-4 border-b border-white/10 flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-amber-400" />
-          <h3 className="font-bold text-white text-sm">ТУЗ хурлаараа тогтоосон норм</h3>
-          <span className="ml-auto text-xs text-slate-500">{norms.length} норм</span>
-        </div>
-        {ln ? (
-          <div className="p-8 text-center text-slate-500">Уншиж байна...</div>
-        ) : norms.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">Норм бүртгэгдээгүй байна</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-slate-800/50">
-                <tr>
-                  {["Ажлын төрөл","Нэгж","Өдрийн норм","Урамшуулал","Эх сурвалж","Шинэчлэгдсэн"].map(h => (
-                    <th key={h} className="text-left p-3 text-slate-400 text-xs uppercase tracking-wider">{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {norms.map((n: any) => (
-                  <tr key={n.id} className="border-t border-white/5 hover:bg-white/[0.02]">
-                    <td className="p-3 text-white font-medium text-sm">{n.workType}</td>
-                    <td className="p-3 text-slate-300 text-sm">{n.unit}</td>
-                    <td className="p-3 text-amber-400 font-bold">{n.dailyNorm}</td>
-                    <td className="p-3 text-green-400 text-sm">{n.rewardPerUnit ? `${n.rewardPerUnit}₮` : "—"}</td>
-                    <td className="p-3 text-slate-400 text-sm">{n.source ?? "—"}</td>
-                    <td className="p-3 text-slate-500 text-xs">{n.updatedAt ? new Date(n.updatedAt).toLocaleDateString("mn-MN") : "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
       {/* KPI тохиргооны норм */}
       <div className="bg-slate-900/60 rounded-2xl border border-blue-500/20 overflow-hidden">
         <div className="p-4 border-b border-white/10 flex items-center gap-2">
@@ -746,7 +704,7 @@ function MeetingTab() {
   const MODES: { key: MeetingMode; label: string; sub: string; icon: any; bg: string; border: string; active: string }[] = [
     {
       key:    "CONFERENCE_HALL",
-      label:  "Хурлын заал",
+      label:  "Ажлын явцтай танилцах",
       sub:    "Инженер, оператор, механик, лаборатори болон бусад ажилтнуудтай хамтарсан хурал",
       icon:   Video,
       bg:     "bg-blue-600/20",
