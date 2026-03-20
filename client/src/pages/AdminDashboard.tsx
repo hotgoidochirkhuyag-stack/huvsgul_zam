@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import {
@@ -1260,6 +1261,7 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
 
 export default function AdminDashboard() {
   const [tab, setTab] = useState<Tab>("attendance");
+  const [, setLocation] = useLocation();
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
@@ -1269,7 +1271,17 @@ export default function AdminDashboard() {
           <h1 className="text-xl font-black text-white tracking-tight">ТУЗ-ын самбар</h1>
           <p className="text-slate-500 text-xs">Хөвсгөл Зам ХХК — Удирдлагын зөвлөлийн хяналт</p>
         </div>
-        <LogoutButton />
+        <div className="flex items-center gap-2">
+          <button
+            data-testid="btn-annual-report"
+            onClick={() => setLocation("/dashboard/annual-report")}
+            className="flex items-center gap-2 px-4 py-2 bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/40 text-amber-300 text-sm font-bold rounded-xl transition-all"
+          >
+            <FileText className="w-4 h-4" />
+            Оны тайлан
+          </button>
+          <LogoutButton />
+        </div>
       </header>
 
       {/* Tab nav */}

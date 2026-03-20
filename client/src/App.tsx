@@ -19,6 +19,7 @@ import WarehouseDashboard from "@/pages/WarehouseDashboard";
 import CheckIn from "@/pages/CheckIn";
 import EquipmentInspection from "@/pages/EquipmentInspection";
 import LabQCDashboard from "@/pages/LabQCDashboard";
+import AnnualReport from "@/pages/AnnualReport";
 
 const ProtectedRoute = ({ component: Component, role }: { component: React.ComponentType; role: string }) => {
   const userRole = localStorage.getItem("userRole");
@@ -69,6 +70,9 @@ function Router() {
       {/* ERP Систем */}
       <Route path="/erp" component={() => <ProtectedRoute component={ERPDashboard} role="ADMIN" />} />
       <Route path="/erp/report" component={ERPReport} />
+
+      {/* Оны эцсийн нэгтгэл тайлан */}
+      <Route path="/dashboard/annual-report" component={() => <ProtectedRoute component={AnnualReport} role="ADMIN" />} />
 
       {/* Лаборатори — LAB болон ENGINEER хандаж болно */}
       <Route path="/dashboard/lab-qc" component={() => {

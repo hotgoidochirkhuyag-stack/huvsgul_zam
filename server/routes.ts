@@ -1658,6 +1658,136 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ===================== ОНЫ НЭГТГЭЛ ТАЙЛАН =====================
+  app.get("/api/annual-report", requireAdmin, async (req, res) => {
+    try {
+      const year = String(req.query.year ?? new Date().getFullYear());
+      const prefix = year + "-%";
+
+      const [
+        employees, vehicles, warehouseItems,
+        eqLogs, labResults, workReps, fuelBudgets,
+        orders, contracts, workFronts,
+      ] = await Promise.all([
+        db.select().from(schema.employees),
+        db.select().from(schema.vehicles),
+        db.select().from(schema.warehouseItems),
+        db.select().from(schema.equipmentLogs).where(sql`${schema.equipmentLogs.date} LIKE ${prefix}`),
+        db.select().from(schema.labResults).where(sql`${schema.labResults.date} LIKE ${prefix}`),
+        db.select().from(schema.workReports).where(sql`${schema.workReports.date} LIKE ${prefix}`),
+        db.select().from(schema.fuelBudgets).where(eq(schema.fuelBudgets.year, parseInt(year))),
+        db.select().from(schema.projectOrders),
+        db.select().from(schema.projectContracts),
+        db.select().from(schema.workFronts),
+      ]);
+
+      // Боловсон хүчин
+      const deptMap: Record<string, number> = {};
+      employees.forEach((e: any) => { deptMap[e.department ?? "Бусад"] = (deptMap[e.department ?? "Бусад"] ?? 0) + 1; });
+
+      // Техник
+      const readyVehicles  = vehicles.filter((v: any) => v.isReady).length;
+      const vtypeMap: Record<string, number> = {};
+      vehicles.forEach((v: any) => { vtypeMap[v.type ?? "Бусад"] = (vtypeMap[v.type ?? "Бусад"] ?? 0) + 1; });
+
+      // Агуулах
+      const lowStock = warehouseItems.filter((i: any) => (i.currentStock ?? 0) < (i.minStock ?? 0)).length;
+
+      // Техникийн гүйцэтгэл
+      const totalHours = eqLogs.reduce((s: number, l: any) => s + (Number(l.hoursWorked) || 0), 0);
+      const totalFuelD = eqLogs.reduce((s: number, l: any) => s + (l.fuelType === "diesel" ? (Number(l.fuelUsed) || 0) : 0), 0);
+      const totalFuelP = eqLogs.reduce((s: number, l: any) => s + (l.fuelType === "petrol" ? (Number(l.fuelUsed) || 0) : 0), 0);
+      // By month
+      const hoursByMonth: Record<string, number> = {};
+      eqLogs.forEach((l: any) => {
+        const m = String(l.date ?? "").slice(0, 7);
+        if (m) hoursByMonth[m] = (hoursByMonth[m] ?? 0) + (Number(l.hoursWorked) || 0);
+      });
+
+      // Лабораторийн чанар
+      const labPass   = labResults.filter((r: any) => r.status === "pass").length;
+      const labFail   = labResults.filter((r: any) => r.status === "fail").length;
+      const labRate   = (labPass + labFail) > 0 ? Math.round(labPass / (labPass + labFail) * 100) : null;
+      const labByType: Record<string, { pass: number; fail: number }> = {};
+      labResults.forEach((r: any) => {
+        if (!labByType[r.testType]) labByType[r.testType] = { pass: 0, fail: 0 };
+        if (r.status === "pass") labByType[r.testType].pass++;
+        if (r.status === "fail") labByType[r.testType].fail++;
+      });
+
+      // Ажлын тайлан by dept
+      const workByDept: Record<string, number> = {};
+      const empDeptMap: Record<number, string> = {};
+      employees.forEach((e: any) => { empDeptMap[e.id] = e.department ?? "Бусад"; });
+      workReps.forEach((r: any) => {
+        const dept = empDeptMap[r.employeeId] ?? "Бусад";
+        workByDept[dept] = (workByDept[dept] ?? 0) + 1;
+      });
+
+      // Шатахуун төсөв
+      const totalBudget = fuelBudgets.reduce((s: number, b: any) => s + (Number(b.budgetAmount) || 0), 0);
+
+      // Санхүү
+      const totalOrderAmt    = orders.reduce((s: number, o: any) => s + (Number(o.amount) || 0), 0);
+      const totalContractAmt = contracts.reduce((s: number, c: any) => s + (Number(c.amount) || 0), 0);
+      const orderByStatus: Record<string, number> = {};
+      orders.forEach((o: any) => { orderByStatus[o.status ?? "other"] = (orderByStatus[o.status ?? "other"] ?? 0) + 1; });
+      const contractByStatus: Record<string, number> = {};
+      contracts.forEach((c: any) => { contractByStatus[c.status ?? "other"] = (contractByStatus[c.status ?? "other"] ?? 0) + 1; });
+
+      // Ажлын фронт (active/done)
+      const frontsActive = workFronts.filter((f: any) => f.status === "active").length;
+      const frontsDone   = workFronts.filter((f: any) => f.status === "done").length;
+
+      res.json({
+        year,
+        // Нөөц
+        resources: {
+          totalEmployees: employees.length,
+          employeesByDept: deptMap,
+          totalVehicles: vehicles.length,
+          readyVehicles,
+          vehiclesByType: vtypeMap,
+          totalWarehouseItems: warehouseItems.length,
+          lowStockItems: lowStock,
+        },
+        // Ажлын гүйцэтгэл
+        performance: {
+          totalWorkReports: workReps.length,
+          workReportsByDept: workByDept,
+          totalEquipmentHours: totalHours,
+          totalFuelDiesel: totalFuelD,
+          totalFuelPetrol: totalFuelP,
+          hoursByMonth,
+          totalWorkFronts: workFronts.length,
+          activeFronts: frontsActive,
+          doneFronts: frontsDone,
+        },
+        // Чанарын үр дүн
+        quality: {
+          totalLabTests: labResults.length,
+          passCount: labPass,
+          failCount: labFail,
+          passRate: labRate,
+          byTestType: labByType,
+        },
+        // Санхүүгийн үр дүн
+        finance: {
+          totalOrders: orders.length,
+          totalOrderAmount: totalOrderAmt,
+          ordersByStatus: orderByStatus,
+          totalContracts: contracts.length,
+          totalContractAmount: totalContractAmt,
+          contractsByStatus: contractByStatus,
+          totalFuelBudget: totalBudget,
+        },
+      });
+    } catch (e: any) {
+      console.error("annual-report error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // Seed data
   seedInitialContent().catch(console.error);
   seedDefaultKpiConfigs().catch(console.error);
