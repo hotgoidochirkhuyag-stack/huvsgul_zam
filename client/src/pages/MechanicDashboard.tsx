@@ -1105,7 +1105,7 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
       <div className="bg-slate-800/50 border border-white/10 rounded-xl px-4 py-3 grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
         <div className="flex items-start gap-2">
           <span className="px-1.5 py-0.5 rounded font-black bg-blue-500/20 text-blue-300 shrink-0">TO-1</span>
-          <span className="text-white/50">Жижиг засвар — тос, шүүрүүл солих, тосолгоо. Ихэвчлэн 250 мото/цаг тутамд.</span>
+          <span className="text-white/50">Жижиг засвар — тос, шүүр солих, тосолгоо. Ихэвчлэн 250 мото/цаг тутамд.</span>
         </div>
         <div className="flex items-start gap-2">
           <span className="px-1.5 py-0.5 rounded font-black bg-yellow-500/20 text-yellow-300 shrink-0">TO-2</span>
