@@ -322,7 +322,7 @@ export default function Pricelist() {
                 </div>
                 <div>
                   <h4 className="text-sm font-display font-bold text-foreground uppercase tracking-wide mb-1">Борлуулалтын алба</h4>
-                  <a href="tel:+97699112701" className="text-primary hover:underline text-2xl font-black tracking-tight">+976 9911 2701</a>
+                  <a href="tel:+97699112701" className="text-primary hover:underline text-2xl font-black tracking-tight"> (+976)  9966 0017 </a>
                   <p className="text-muted-foreground text-sm mt-1">Даваа — Баасан: 09:00 – 18:00</p>
                 </div>
               </div>

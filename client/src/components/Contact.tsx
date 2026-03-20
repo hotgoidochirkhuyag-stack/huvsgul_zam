@@ -112,7 +112,7 @@ export default function Contact() {
               {/* Сошиал сувгууд */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-6 gap-x-8 pt-6 border-t border-border/50">
                 {[
-                  { icon: Facebook,       title: "Facebook",   desc: "хөвсгөл зам ххк",  link: "https://www.facebook.com/h.vsg.l.zam.hhk" },
+                  { icon: Facebook,       title: "Facebook",   desc: "хөвсгөл зам ххк",  link: "https://www.facebook.com/profile.php?id=61579558389969" },
                   { icon: MessageCircle,  title: "WhatsApp",   desc: "чатлах",            link: "https://wa.me/97699112701" },
                   { icon: Send,           title: "WeChat ID",  desc: "huvsgulzam_Admin",  link: null },
                   { icon: Phone,          title: "Viber",      desc: "Viber чат",         link: "viber://chat?number=+97699112701" },
