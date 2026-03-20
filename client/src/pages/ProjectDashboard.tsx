@@ -45,12 +45,25 @@ const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
   expired:   { label: "Хугацаа дууссан", color: "text-red-400 bg-red-500/10" },
 };
 
-const WORK_TYPES = ["Замын ажил", "Гүүр барилга", "Замын засвар", "Хийцийн ажил", "Тусгай ажил", "Бусад"];
+const FACTORY_PRODUCTS = [
+  { label: "М100 Бетон зуурмаг",  value: "М100 бетон",   unit: "м³", price: 185000 },
+  { label: "М150 Бетон зуурмаг",  value: "М150 бетон",   unit: "м³", price: 210000 },
+  { label: "М200 Бетон зуурмаг",  value: "М200 бетон",   unit: "м³", price: 240000 },
+  { label: "М250 Бетон зуурмаг",  value: "М250 бетон",   unit: "м³", price: 265000 },
+  { label: "М300 Бетон зуурмаг",  value: "М300 бетон",   unit: "м³", price: 290000 },
+  { label: "М350 Бетон зуурмаг",  value: "М350 бетон",   unit: "м³", price: 320000 },
+  { label: "М400 Бетон зуурмаг",  value: "М400 бетон",   unit: "м³", price: 355000 },
+  { label: "Асфальт хольц (AC)",  value: "Асфальт хольц", unit: "тн", price: 520000 },
+  { label: "Хайрга (0-5мм)",      value: "Хайрга 0-5мм",  unit: "м³", price: 48000  },
+  { label: "Хайрга (5-20мм)",     value: "Хайрга 5-20мм", unit: "м³", price: 52000  },
+  { label: "Шигшсэн элс",        value: "Элс",            unit: "м³", price: 38000  },
+];
+const WORK_TYPES = FACTORY_PRODUCTS.map(p => p.value);
 const TABS = [
-  { key: "requests",  label: "Хүсэлт",   icon: MessageSquare },
-  { key: "orders",    label: "Захиалга",  icon: ShoppingCart  },
-  { key: "contracts", label: "Гэрээ",     icon: FileSignature },
-  { key: "report",    label: "Тайлан",    icon: BarChart3     },
+  { key: "requests",  label: "Хүсэлт",             icon: MessageSquare },
+  { key: "orders",    label: "Үйлдвэрийн захиалга", icon: ShoppingCart  },
+  { key: "contracts", label: "Гэрээ",               icon: FileSignature },
+  { key: "report",    label: "Тайлан",              icon: BarChart3     },
 ];
 
 // ─── STAT CARD ───────────────────────────────────────────────────
@@ -184,22 +197,32 @@ function OrderForm({ initial, onClose, onSaved }: { initial?: any; onClose: () =
   const { toast } = useToast();
   const isEdit = !!initial;
   const [form, setForm] = useState({
-    orderNumber: initial?.orderNumber ?? `ZAH-${Date.now().toString().slice(-5)}`,
-    clientName:  initial?.clientName  ?? "",
-    clientPhone: initial?.clientPhone ?? "",
-    clientEmail: initial?.clientEmail ?? "",
-    workType:    initial?.workType    ?? WORK_TYPES[0],
-    location:    initial?.location    ?? "",
-    amount:      initial?.amount      ?? "",
-    status:      initial?.status      ?? "pending",
-    notes:       initial?.notes       ?? "",
+    orderNumber:      initial?.orderNumber      ?? `ZAH-${Date.now().toString().slice(-5)}`,
+    clientName:       initial?.clientName       ?? "",
+    clientPhone:      initial?.clientPhone      ?? "",
+    clientEmail:      initial?.clientEmail      ?? "",
+    productType:      initial?.productType      ?? FACTORY_PRODUCTS[2].value,
+    quantity:         initial?.quantity         ?? "",
+    deliveryDate:     initial?.deliveryDate     ?? "",
+    deliveryLocation: initial?.deliveryLocation ?? "",
+    status:           initial?.status           ?? "pending",
+    notes:            initial?.notes            ?? "",
   });
+
+  const selected = FACTORY_PRODUCTS.find(p => p.value === form.productType) || FACTORY_PRODUCTS[2];
+  const totalAmt = selected.price * (parseFloat(String(form.quantity)) || 0);
 
   const save = useMutation({
     mutationFn: () => {
       const url  = isEdit ? `/api/project/orders/${initial.id}` : "/api/project/orders";
       const meth = isEdit ? "PATCH" : "POST";
-      return fetch(url, { method: meth, headers: hdrs(), body: JSON.stringify({ ...form, amount: form.amount ? parseFloat(String(form.amount)) : null }) }).then(r => { if (!r.ok) throw new Error(); return r.json(); });
+      return fetch(url, { method: meth, headers: hdrs(), body: JSON.stringify({
+        ...form,
+        quantity:     form.quantity ? parseFloat(String(form.quantity)) : null,
+        unit:         selected.unit,
+        pricePerUnit: selected.price,
+        amount:       totalAmt || null,
+      }) }).then(r => { if (!r.ok) throw new Error(); return r.json(); });
     },
     onSuccess: () => { toast({ title: isEdit ? "Шинэчлэгдлээ" : "Нэмэгдлээ" }); onSaved(); onClose(); },
     onError:   () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
@@ -215,24 +238,40 @@ function OrderForm({ initial, onClose, onSaved }: { initial?: any; onClose: () =
           <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
         </div>
         <div className="p-5 space-y-3">
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Захиалгын дугаар</label>
+            <input type="text" value={form.orderNumber} onChange={f("orderNumber")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+          </div>
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Бүтээгдэхүүн</label>
+            <select value={form.productType} onChange={f("productType")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
+              {FACTORY_PRODUCTS.map(p => <option key={p.value} value={p.value}>{p.label} — {p.price.toLocaleString()}₮/{p.unit}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">Тоо хэмжээ ({selected.unit})</label>
+              <input type="number" min="0" value={form.quantity} onChange={f("quantity")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">Нийт дүн</label>
+              <div className="w-full bg-slate-700/50 border border-white/5 rounded-xl px-3 py-2 text-green-400 font-bold text-sm">{totalAmt > 0 ? `${totalAmt.toLocaleString()}₮` : "—"}</div>
+            </div>
+          </div>
           {[
-            { label: "Захиалгын дугаар", key: "orderNumber" },
-            { label: "Захиалагч нэр",    key: "clientName"  },
-            { label: "Утас",             key: "clientPhone" },
-            { label: "И-мэйл",          key: "clientEmail" },
-            { label: "Байршил",         key: "location"    },
-            { label: "Дүн (₮)",         key: "amount", type: "number" },
-          ].map(({ label, key, type }) => (
+            { label: "Захиалагч нэр",    key: "clientName"       },
+            { label: "Утас",             key: "clientPhone"      },
+            { label: "И-мэйл",          key: "clientEmail"      },
+            { label: "Хүргэлтийн хаяг", key: "deliveryLocation" },
+          ].map(({ label, key }) => (
             <div key={key}>
               <label className="text-slate-400 text-xs mb-1 block">{label}</label>
-              <input type={type || "text"} value={(form as any)[key]} onChange={f(key)} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+              <input type="text" value={(form as any)[key]} onChange={f(key)} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
             </div>
           ))}
           <div>
-            <label className="text-slate-400 text-xs mb-1 block">Ажлын төрөл</label>
-            <select value={form.workType} onChange={f("workType")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
-              {WORK_TYPES.map(w => <option key={w} value={w}>{w}</option>)}
-            </select>
+            <label className="text-slate-400 text-xs mb-1 block">Хүргэлтийн огноо</label>
+            <input type="date" value={form.deliveryDate} onChange={f("deliveryDate")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
           </div>
           <div>
             <label className="text-slate-400 text-xs mb-1 block">Статус</label>
@@ -242,7 +281,7 @@ function OrderForm({ initial, onClose, onSaved }: { initial?: any; onClose: () =
           </div>
           <div>
             <label className="text-slate-400 text-xs mb-1 block">Тэмдэглэл</label>
-            <textarea value={form.notes} onChange={f("notes")} rows={3} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none resize-none" />
+            <textarea value={form.notes} onChange={f("notes")} rows={2} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none resize-none" />
           </div>
         </div>
         <div className="p-5 border-t border-white/10 flex gap-2 justify-end">
@@ -277,10 +316,10 @@ function OrdersTab() {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard icon={Package}     label="Нийт захиалга"   value={orders.length}                   color="blue"   />
-        <StatCard icon={Banknote}    label="Нийт дүн"        value={`${(totalAmt/1000000).toFixed(1)}сая₮`} color="amber"  />
+        <StatCard icon={Package}      label="Нийт захиалга"   value={orders.length}                              color="blue"   />
+        <StatCard icon={Banknote}     label="Нийт дүн"        value={`${(totalAmt/1000000).toFixed(1)}сая₮`}    color="amber"  />
         <StatCard icon={CheckCircle2} label="Гүйцэтгэгдсэн"  value={byStatus.find(s=>s.key==="completed")?.count??0} color="green"  />
-        <StatCard icon={Clock}       label="Хүлээгдэж байна" value={byStatus.find(s=>s.key==="pending")?.count??0}   color="purple" />
+        <StatCard icon={Clock}        label="Хүлээгдэж байна" value={byStatus.find(s=>s.key==="pending")?.count??0}   color="purple" />
       </div>
 
       <div className="flex justify-end">
@@ -298,7 +337,7 @@ function OrdersTab() {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-800/60 border-b border-white/10">
-                <tr>{["Дугаар","Захиалагч","Утас","Ажлын төрөл","Байршил","Дүн","Статус","Огноо",""].map(h => (
+                <tr>{["Дугаар","Захиалагч","Утас","Бүтээгдэхүүн","Тоо/нэгж","Нийт дүн","Хүргэлт","Статус",""].map(h => (
                   <th key={h} className="text-left p-4 text-slate-400 text-xs uppercase tracking-wider">{h}</th>
                 ))}</tr>
               </thead>
@@ -311,15 +350,15 @@ function OrdersTab() {
                       <td className="p-4 text-amber-400 font-mono text-sm font-bold">{o.orderNumber}</td>
                       <td className="p-4 text-white text-sm font-medium">{o.clientName}</td>
                       <td className="p-4 text-slate-400 text-sm">{o.clientPhone || "—"}</td>
-                      <td className="p-4 text-slate-300 text-sm">{o.workType}</td>
-                      <td className="p-4 text-slate-400 text-sm">{o.location || "—"}</td>
+                      <td className="p-4 text-slate-300 text-sm font-medium">{o.productType || o.workType || "—"}</td>
+                      <td className="p-4 text-blue-300 text-sm">{o.quantity ? `${o.quantity} ${o.unit || "м³"}` : "—"}</td>
                       <td className="p-4 text-green-400 font-bold text-sm">{o.amount ? `${Number(o.amount).toLocaleString()}₮` : "—"}</td>
+                      <td className="p-4 text-slate-400 text-sm">{o.deliveryDate || o.location || "—"}</td>
                       <td className="p-4">
                         <span className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold w-fit ${st.color}`}>
                           <Icon className="w-3 h-3" />{st.label}
                         </span>
                       </td>
-                      <td className="p-4 text-slate-500 text-xs whitespace-nowrap">{o.createdAt ? new Date(o.createdAt).toLocaleDateString("mn-MN") : "—"}</td>
                       <td className="p-4">
                         <div className="flex items-center gap-1">
                           <button data-testid={`btn-edit-order-${o.id}`} onClick={() => setModal(o)} className="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded-lg"><Edit2 className="w-3.5 h-3.5" /></button>
@@ -523,10 +562,10 @@ function ReportTab() {
     name: v.label, value: contracts.filter((c: any) => c.status === k).length,
   })).filter(d => d.value > 0);
 
-  const workTypeData = WORK_TYPES.map(wt => ({
-    name:     wt.length > 6 ? wt.slice(0, 6) + "…" : wt,
-    захиалга: orders.filter((o: any) => o.workType === wt).length,
-    гэрээ:    contracts.filter((c: any) => c.workType === wt).length,
+  const workTypeData = FACTORY_PRODUCTS.map(p => ({
+    name:     p.label.length > 8 ? p.label.slice(0, 8) + "…" : p.label,
+    захиалга: orders.filter((o: any) => (o.productType || o.workType) === p.value).length,
+    гэрээ:    contracts.filter((c: any) => c.workType === p.value).length,
   })).filter(d => d.захиалга > 0 || d.гэрээ > 0);
 
   return (

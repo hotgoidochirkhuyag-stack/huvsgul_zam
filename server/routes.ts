@@ -285,6 +285,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getFeaturedVideos());
   });
 
+  // ============ ҮЙЛДВЭРИЙН ЗАХИАЛГА (нийтийн — landing page) ============
+  app.post("/api/factory-order", async (req, res) => {
+    try {
+      const num = `ZAH-${Date.now().toString().slice(-6)}`;
+      const payload = { ...req.body, orderNumber: num, status: "pending" };
+      const data = schema.insertProjectOrderSchema.parse(payload);
+      const [row] = await db.insert(schema.projectOrders).values(data).returning();
+      res.json({ ok: true, id: row.id, orderNumber: row.orderNumber });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
   // ============ ТӨСЛИЙН ЗАХИАЛГА ============
   app.get("/api/project/orders", requireAdmin, async (_req, res) => {
     try {

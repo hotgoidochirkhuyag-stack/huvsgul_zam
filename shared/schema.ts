@@ -522,19 +522,23 @@ export const insertBreakdownSchema = createInsertSchema(breakdownRequests).omit(
 export type BreakdownRequest = typeof breakdownRequests.$inferSelect;
 export type InsertBreakdown = z.infer<typeof insertBreakdownSchema>;
 
-// ============ ТӨСЛИЙН ЗАХИАЛГА ============
+// ============ ҮЙЛДВЭРИЙН ЗАХИАЛГА ============
 export const projectOrders = pgTable("project_orders", {
-  id:           serial("id").primaryKey(),
-  orderNumber:  text("order_number").notNull(),
-  clientName:   text("client_name").notNull(),
-  clientPhone:  text("client_phone"),
-  clientEmail:  text("client_email"),
-  workType:     text("work_type").notNull(),
-  location:     text("location"),
-  amount:       real("amount"),
-  status:       text("status").notNull().default("pending"),
-  notes:        text("notes"),
-  createdAt:    timestamp("created_at").defaultNow(),
+  id:               serial("id").primaryKey(),
+  orderNumber:      text("order_number").notNull(),
+  clientName:       text("client_name").notNull(),
+  clientPhone:      text("client_phone"),
+  clientEmail:      text("client_email"),
+  productType:      text("product_type").notNull(),
+  quantity:         real("quantity"),
+  unit:             text("unit").default("м³"),
+  pricePerUnit:     real("price_per_unit"),
+  amount:           real("amount"),
+  deliveryDate:     text("delivery_date"),
+  deliveryLocation: text("delivery_location"),
+  status:           text("status").notNull().default("pending"),
+  notes:            text("notes"),
+  createdAt:        timestamp("created_at").defaultNow(),
 });
 export const insertProjectOrderSchema = createInsertSchema(projectOrders).omit({ id: true, createdAt: true });
 export type ProjectOrder = typeof projectOrders.$inferSelect;
