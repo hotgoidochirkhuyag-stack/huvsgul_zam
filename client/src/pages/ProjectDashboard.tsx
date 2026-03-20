@@ -60,11 +60,195 @@ const FACTORY_PRODUCTS = [
 ];
 const WORK_TYPES = FACTORY_PRODUCTS.map(p => p.value);
 const TABS = [
-  { key: "requests",  label: "Хүсэлт",             icon: MessageSquare },
-  { key: "orders",    label: "Үйлдвэрийн захиалга", icon: ShoppingCart  },
-  { key: "contracts", label: "Гэрээ",               icon: FileSignature },
-  { key: "report",    label: "Тайлан",              icon: BarChart3     },
+  { key: "requests",  label: "Хүсэлт",                  icon: MessageSquare },
+  { key: "orders",    label: "Үйлдвэрийн захиалга",      icon: ShoppingCart  },
+  { key: "contracts", label: "Гэрээ",                    icon: FileSignature },
+  { key: "tenders",   label: "Тендерт явуулсан төслүүд", icon: FileText      },
+  { key: "report",    label: "Тайлан",                   icon: BarChart3     },
 ];
+
+const CATEGORIES = ["Авто зам", "Гүүр", "Дэд бүтэц", "Барилга", "Бусад"];
+const PROGRESS_COLOR = (p: number) =>
+  p === 100 ? "bg-green-500" : p >= 60 ? "bg-blue-500" : p >= 30 ? "bg-amber-500" : "bg-red-500";
+
+// ─── TENDER FORM ──────────────────────────────────────────────────
+function TenderForm({ initial, onClose, onSaved }: { initial?: any; onClose: () => void; onSaved: () => void }) {
+  const { toast } = useToast();
+  const isEdit = !!initial;
+  const [form, setForm] = useState({
+    title:       initial?.title       ?? "",
+    description: initial?.description ?? "",
+    category:    initial?.category    ?? "Авто зам",
+    location:    initial?.location    ?? "",
+    year:        initial?.year        ?? new Date().getFullYear().toString(),
+    progress:    initial?.progress    ?? 0,
+  });
+  const f = (k: string) => (e: any) => setForm(p => ({ ...p, [k]: e.target.value }));
+  const save = useMutation({
+    mutationFn: () => {
+      const url  = isEdit ? `/api/tender-projects/${initial.id}` : "/api/tender-projects";
+      const meth = isEdit ? "PATCH" : "POST";
+      return fetch(url, { method: meth, headers: hdrs(), body: JSON.stringify({ ...form, progress: Number(form.progress) }) })
+        .then(r => { if (!r.ok) throw new Error(); return r.json(); });
+    },
+    onSuccess: () => { toast({ title: isEdit ? "Засагдлаа ✅" : "Нэмэгдлээ ✅" }); onSaved(); onClose(); },
+    onError:   () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
+  });
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <h2 className="font-bold text-white">{isEdit ? "Тендер засах" : "Шинэ тендер нэмэх"}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Тендерийн нэр *</label>
+            <input value={form.title} onChange={f("title")} placeholder="Жишээ: МӨРӨН ХОТЫН ЗАМЫН ЗАСВАР" className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">Ангилал</label>
+              <select value={form.category} onChange={f("category")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none">
+                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-slate-400 text-xs mb-1 block">Он</label>
+              <input value={form.year} onChange={f("year")} placeholder="2025" className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+            </div>
+          </div>
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Байршил</label>
+            <input value={form.location} onChange={f("location")} placeholder="Мөрөн хот" className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+          </div>
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Гүйцэтгэлийн хувь: <span className="text-amber-400 font-bold">{form.progress}%</span></label>
+            <input type="range" min="0" max="100" step="5" value={form.progress} onChange={f("progress")} className="w-full accent-amber-500" />
+            <div className="flex justify-between text-xs text-slate-500 mt-1"><span>0%</span><span>50%</span><span>100%</span></div>
+          </div>
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Тайлбар</label>
+            <textarea value={form.description} onChange={f("description")} rows={2} placeholder="Ажлын товч тодорхойлолт..." className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none resize-none" />
+          </div>
+        </div>
+        <div className="p-5 border-t border-white/10 flex gap-2 justify-end">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm hover:bg-slate-700">Болих</button>
+          <button onClick={() => save.mutate()} disabled={save.isPending || !form.title.trim()} className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50">
+            {save.isPending ? "Хадгалж байна..." : "Хадгалах"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── TENDERS TAB ──────────────────────────────────────────────────
+function TendersTab() {
+  const { toast } = useToast();
+  const [modal, setModal] = useState<null | "new" | any>(null);
+  const [delId, setDelId] = useState<number | null>(null);
+
+  const { data: tenders = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["/api/tender-projects"],
+    queryFn: () => fetch("/api/tender-projects").then(r => r.json()),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: number) => fetch(`/api/tender-projects/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/tender-projects"] }); toast({ title: "Устгагдлаа" }); setDelId(null); },
+  });
+
+  const done    = tenders.filter((t: any) => t.progress === 100).length;
+  const active  = tenders.filter((t: any) => t.progress > 0 && t.progress < 100).length;
+  const waiting = tenders.filter((t: any) => t.progress === 0).length;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={FileText}     label="Нийт тендер"    value={tenders.length} color="blue"   />
+        <StatCard icon={CheckCircle2} label="Дууссан"        value={done}           color="green"  />
+        <StatCard icon={TrendingUp}   label="Явагдаж байна"  value={active}         color="amber"  />
+        <StatCard icon={Clock}        label="Эхлээгүй"       value={waiting}        color="purple" />
+      </div>
+
+      <div className="flex justify-end">
+        <button onClick={() => setModal("new")} className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-sm transition-all">
+          <Plus className="w-4 h-4" /> Тендер нэмэх
+        </button>
+      </div>
+
+      {isLoading ? (
+        <div className="p-16 text-center text-slate-400">Уншиж байна...</div>
+      ) : tenders.length === 0 ? (
+        <div className="bg-slate-900/60 rounded-2xl border border-white/10 p-16 text-center text-slate-500">
+          <FileText className="w-12 h-12 mx-auto mb-4 opacity-20" />
+          <p className="mb-4">Тендер байхгүй байна</p>
+          <button onClick={() => setModal("new")} className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-sm font-bold">
+            + Анхны тендер нэмэх
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {tenders.map((t: any) => (
+            <div key={t.id} className="bg-slate-900/60 border border-white/10 rounded-2xl p-5 hover:border-white/20 transition-all">
+              <div className="flex items-start justify-between gap-4">
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap mb-1">
+                    <span className="px-2 py-0.5 bg-amber-500/15 text-amber-400 rounded-lg text-xs font-bold">{t.category}</span>
+                    {t.year && <span className="text-slate-500 text-xs">{t.year} он</span>}
+                    {t.location && <span className="text-slate-500 text-xs">· {t.location}</span>}
+                  </div>
+                  <h3 className="text-white font-bold text-sm leading-snug">{t.title}</h3>
+                  {t.description && <p className="text-slate-400 text-xs mt-1 line-clamp-2">{t.description}</p>}
+                  <div className="mt-3">
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-slate-400">Гүйцэтгэл</span>
+                      <span className={`font-bold ${t.progress === 100 ? "text-green-400" : t.progress > 0 ? "text-amber-400" : "text-slate-500"}`}>{t.progress}%</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                      <div className={`h-full rounded-full transition-all ${PROGRESS_COLOR(t.progress)}`} style={{ width: `${t.progress}%` }} />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button onClick={() => setModal(t)} className="p-2 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-all" title="Засах"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => setDelId(t.id)} className="p-2 text-red-400 hover:bg-red-500/20 rounded-xl transition-all" title="Устгах"><Trash2 className="w-4 h-4" /></button>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {modal && (
+        <TenderForm
+          initial={modal === "new" ? undefined : modal}
+          onClose={() => setModal(null)}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/tender-projects"] })}
+        />
+      )}
+
+      {delId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="bg-[#0f172a] border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl text-center space-y-4">
+            <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto">
+              <Trash2 className="w-6 h-6 text-red-400" />
+            </div>
+            <h3 className="font-bold text-white">Устгах уу?</h3>
+            <p className="text-slate-400 text-sm">Энэ тендерийн бичлэгийг устгах гэж байна.</p>
+            <div className="flex gap-2 justify-center">
+              <button onClick={() => setDelId(null)} className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm hover:bg-slate-700">Болих</button>
+              <button onClick={() => del.mutate(delId!)} disabled={del.isPending} className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-sm font-bold disabled:opacity-50">
+                {del.isPending ? "Устгаж байна..." : "Устгах"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // ─── STAT CARD ───────────────────────────────────────────────────
 function StatCard({ icon: Icon, label, value, color = "blue" }: any) {
@@ -702,6 +886,7 @@ export default function ProjectDashboard() {
       {tab === "requests"  && <RequestsTab />}
       {tab === "orders"    && <OrdersTab />}
       {tab === "contracts" && <ContractsTab />}
+      {tab === "tenders"   && <TendersTab />}
       {tab === "report"    && <ReportTab />}
     </div>
   );
