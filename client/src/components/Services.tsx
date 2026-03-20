@@ -1,15 +1,11 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, FileText, Wrench } from "lucide-react";
+import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, FileText, Wrench, Plus, Pencil, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
-const BUDGET_CONTACTS = [
-  { name: "Д.Батболд",   role: "Захирал",              phone: "9900-1234" },
-  { name: "Г.Оюунчимэг", role: "Тооцооны инженер",     phone: "9911-5678" },
-  { name: "Б.Мөнхбат",   role: "Зам гүүрийн инженер",  phone: "9922-9012" },
-  { name: "С.Энхтүвшин", role: "Борлуулалт, гэрээ",    phone: "9933-3456" },
-];
+const adminHdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") || "" });
+const isAdminSession = () => localStorage.getItem("adminToken") === "authenticated";
 
 const PRODUCTS = [
   { label: "М100 Бетон зуурмаг",  value: "М100 бетон",    unit: "м³" },
@@ -25,86 +21,237 @@ const PRODUCTS = [
   { label: "Шигшсэн элс",        value: "Элс",            unit: "м³" },
 ];
 
-// ===== Төслийн нэрс modal =====
+
+const getLevel = (p: number | null) => {
+  if (p === null || p === undefined) return { label: "Төлөвлөгдсөн", color: "text-slate-400", bg: "bg-slate-600" };
+  if (p >= 100) return { label: "Дууссан",             color: "text-green-400", bg: "bg-green-600" };
+  if (p >= 75)  return { label: "Дуусахдаа ойртсон",  color: "text-amber-400", bg: "bg-amber-500" };
+  if (p >= 25)  return { label: "Явагдаж байна",       color: "text-blue-400",  bg: "bg-blue-600"  };
+  return              { label: "Эхлэх шатанд",         color: "text-slate-400", bg: "bg-slate-600" };
+};
+const BLANK_PROJECT = { title: "", description: "", imageUrl: "/placeholder.jpg", category: "Авто зам", location: "", year: new Date().getFullYear().toString(), progress: 0 };
+
+// ===== Төслийн нэрс CRUD modal =====
 function ProjectsModal({ onClose }: { onClose: () => void }) {
-  const { data: projects = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/projects"],
-    staleTime: 60_000,
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const isAdmin = isAdminSession();
+  const [editing, setEditing] = useState<any | null>(null);
+  const [adding, setAdding]   = useState(false);
+  const [form, setForm]       = useState<any>(BLANK_PROJECT);
+
+  const { data: projects = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/projects"] });
+
+  const save = useMutation({
+    mutationFn: () => {
+      const url  = editing ? `/api/projects/${editing.id}` : "/api/projects";
+      const meth = editing ? "PATCH" : "POST";
+      return fetch(url, { method: meth, headers: adminHdrs(), body: JSON.stringify({ ...form, progress: Number(form.progress) }) }).then(r => r.json());
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/projects"] }); setEditing(null); setAdding(false); toast({ title: editing ? "Засагдлаа" : "Нэмэгдлээ" }); },
+    onError:   () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
 
-  const getLevel = (progress: number | null) => {
-    if (progress === null || progress === undefined) return { label: "Төлөвлөгдсөн", color: "text-slate-400", bg: "bg-slate-700" };
-    if (progress >= 100)  return { label: "Дууссан",              color: "text-green-400",  bg: "bg-green-600" };
-    if (progress >= 75)   return { label: "Дуусахдаа ойртсон",   color: "text-amber-400",  bg: "bg-amber-500" };
-    if (progress >= 25)   return { label: "Явагдаж байна",        color: "text-blue-400",   bg: "bg-blue-600"  };
-    return                       { label: "Эхлэх шатанд",         color: "text-slate-400",  bg: "bg-slate-600" };
-  };
+  const del = useMutation({
+    mutationFn: (id: number) => fetch(`/api/projects/${id}`, { method: "DELETE", headers: adminHdrs() }),
+    onSuccess:  () => { qc.invalidateQueries({ queryKey: ["/api/projects"] }); toast({ title: "Устгагдлаа" }); },
+  });
+
+  const openAdd  = () => { setForm(BLANK_PROJECT); setAdding(true); setEditing(null); };
+  const openEdit = (p: any) => { setForm({ title: p.title, description: p.description || "", imageUrl: p.imageUrl || "/placeholder.jpg", category: p.category || "", location: p.location || "", year: p.year || "", progress: p.progress ?? 0 }); setEditing(p); setAdding(false); };
+  const f = (k: string) => (e: any) => setForm((prev: any) => ({ ...prev, [k]: e.target.value }));
+
+  const showForm = adding || !!editing;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
-      <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 20 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 20 }}
-        onClick={e => e.stopPropagation()}
-        className="bg-[#0f172a] border border-amber-500/20 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        onClick={e => e.stopPropagation()} className="bg-[#0f172a] border border-amber-500/20 rounded-2xl w-full max-w-2xl shadow-2xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center">
-              <FileText className="w-5 h-5 text-amber-400" />
-            </div>
-            <div>
-              <h2 className="font-black text-white text-base">Төслийн нэрс</h2>
-              <p className="text-slate-400 text-xs">Хэрэгжиж байгаа болон дууссан төслүүд</p>
-            </div>
+            <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center"><FileText className="w-5 h-5 text-amber-400" /></div>
+            <div><h2 className="font-black text-white text-base">Төслийн нэрс</h2><p className="text-slate-400 text-xs">Хэрэгжиж байгаа болон дууссан төслүүд</p></div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 hover:bg-white/5 rounded-lg transition-all">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {isAdmin && !showForm && <button onClick={openAdd} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition-all"><Plus className="w-3.5 h-3.5" />Нэмэх</button>}
+            <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 hover:bg-white/5 rounded-lg transition-all"><X className="w-5 h-5" /></button>
+          </div>
         </div>
 
-        <div className="p-5 overflow-y-auto max-h-[70vh] space-y-3">
-          {isLoading && (
-            <div className="text-center py-10 text-slate-400 text-sm">Уншиж байна...</div>
+        <div className="overflow-y-auto flex-1 p-5">
+          {/* Form */}
+          {showForm && (
+            <div className="bg-slate-800/60 border border-white/10 rounded-xl p-4 mb-4 space-y-3">
+              <p className="text-amber-400 text-sm font-bold">{editing ? "Засах" : "Шинэ төсөл нэмэх"}</p>
+              {[{ k: "title", label: "Нэр *" }, { k: "category", label: "Ангилал" }, { k: "location", label: "Байршил" }, { k: "year", label: "Он" }].map(({ k, label }) => (
+                <div key={k}><label className="text-slate-400 text-xs mb-1 block">{label}</label>
+                  <input value={form[k]} onChange={f(k)} className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+                </div>
+              ))}
+              <div><label className="text-slate-400 text-xs mb-1 block">Гүйцэтгэл % (0–100)</label>
+                <input type="number" min={0} max={100} value={form.progress} onChange={f("progress")} className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+              </div>
+              <div><label className="text-slate-400 text-xs mb-1 block">Тайлбар</label>
+                <textarea rows={2} value={form.description} onChange={f("description")} className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50 resize-none" />
+              </div>
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => { setAdding(false); setEditing(null); }} className="flex-1 py-2 rounded-lg bg-slate-700 text-slate-300 text-sm font-bold hover:bg-slate-600 transition-all">Болих</button>
+                <button onClick={() => save.mutate()} disabled={!form.title || save.isPending} className="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50 transition-all">{save.isPending ? "Хадгалж байна..." : "Хадгалах"}</button>
+              </div>
+            </div>
           )}
-          {!isLoading && projects.length === 0 && (
-            <div className="text-center py-10 text-slate-400 text-sm">Төсөл бүртгэлгүй байна.</div>
+
+          {/* List */}
+          {isLoading && <div className="text-center py-10 text-slate-400 text-sm">Уншиж байна...</div>}
+          {!isLoading && projects.length === 0 && !showForm && (
+            <div className="text-center py-10 text-slate-400 text-sm">
+              <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>Одоогоор төсөл бүртгэлгүй байна.</p>
+              {isAdmin && <button onClick={openAdd} className="mt-3 text-amber-400 text-xs underline">+ Анхны төсөл нэмэх</button>}
+            </div>
           )}
-          {projects.map((p: any) => {
-            const lvl = getLevel(p.progress);
-            return (
-              <div key={p.id} className="bg-white/5 border border-white/8 rounded-xl p-4">
-                <div className="flex items-start justify-between gap-3 mb-2">
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-white font-semibold text-sm leading-snug">{p.title}</h3>
-                    <div className="flex items-center gap-2 mt-1 flex-wrap">
-                      {p.category && <span className="text-[11px] text-slate-400 bg-slate-700/50 rounded px-2 py-0.5">{p.category}</span>}
-                      {p.location  && <span className="text-[11px] text-slate-500">{p.location}</span>}
-                      {p.year      && <span className="text-[11px] text-slate-500">{p.year}</span>}
+          <div className="space-y-3">
+            {projects.map((p: any) => {
+              const lvl = getLevel(p.progress);
+              return (
+                <div key={p.id} className="bg-white/5 border border-white/8 rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-3 mb-2">
+                    <div className="flex-1 min-w-0">
+                      <h3 className="text-white font-semibold text-sm leading-snug">{p.title}</h3>
+                      <div className="flex items-center gap-2 mt-1 flex-wrap">
+                        {p.category && <span className="text-[11px] text-slate-400 bg-slate-700/50 rounded px-2 py-0.5">{p.category}</span>}
+                        {p.location && <span className="text-[11px] text-slate-500">{p.location}</span>}
+                        {p.year     && <span className="text-[11px] text-slate-500">{p.year}</span>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full ${lvl.color} bg-white/5 border border-current/20`}>{lvl.label}</span>
+                      {isAdmin && <>
+                        <button onClick={() => openEdit(p)} className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-lg transition-all"><Pencil className="w-3.5 h-3.5" /></button>
+                        <button onClick={() => del.mutate(p.id)} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
+                      </>}
                     </div>
                   </div>
-                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${lvl.color} bg-white/5 border border-current/20`}>
-                    {lvl.label}
-                  </span>
+                  {p.progress !== null && p.progress !== undefined && (
+                    <div className="mt-2">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] text-slate-500">Гүйцэтгэл</span>
+                        <span className="text-[11px] font-bold text-amber-400">{p.progress}%</span>
+                      </div>
+                      <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${lvl.bg}`} style={{ width: `${Math.min(p.progress, 100)}%` }} />
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {(p.progress !== null && p.progress !== undefined) && (
-                  <div className="mt-2">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-[10px] text-slate-500">Гүйцэтгэл</span>
-                      <span className="text-[11px] font-bold text-amber-400">{p.progress}%</span>
-                    </div>
-                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${lvl.bg}`}
-                        style={{ width: `${Math.min(p.progress, 100)}%` }}
-                      />
-                    </div>
+              );
+            })}
+          </div>
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ===== Зам гүүрийн төсөв: Холбогдох хүмүүс CRUD modal =====
+const BLANK_CONTACT = { name: "", role: "", phone: "" };
+function BudgetContactsModal({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const isAdmin = isAdminSession();
+  const [editing, setEditing] = useState<any | null>(null);
+  const [adding, setAdding]   = useState(false);
+  const [form, setForm]       = useState(BLANK_CONTACT);
+
+  const { data: contacts = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/budget-contacts"] });
+
+  const save = useMutation({
+    mutationFn: () => {
+      const url  = editing ? `/api/budget-contacts/${editing.id}` : "/api/budget-contacts";
+      const meth = editing ? "PATCH" : "POST";
+      return fetch(url, { method: meth, headers: adminHdrs(), body: JSON.stringify(form) }).then(r => r.json());
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/budget-contacts"] }); setEditing(null); setAdding(false); toast({ title: editing ? "Засагдлаа" : "Нэмэгдлээ" }); },
+    onError:   () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: number) => fetch(`/api/budget-contacts/${id}`, { method: "DELETE", headers: adminHdrs() }),
+    onSuccess:  () => { qc.invalidateQueries({ queryKey: ["/api/budget-contacts"] }); toast({ title: "Устгагдлаа" }); },
+  });
+
+  const openAdd  = () => { setForm(BLANK_CONTACT); setAdding(true); setEditing(null); };
+  const openEdit = (c: any) => { setForm({ name: c.name, role: c.role, phone: c.phone }); setEditing(c); setAdding(false); };
+  const f = (k: string) => (e: any) => setForm((prev: any) => ({ ...prev, [k]: e.target.value }));
+  const showForm = adding || !!editing;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <motion.div initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        onClick={e => e.stopPropagation()} className="bg-[#0f172a] border border-amber-500/20 rounded-2xl w-full max-w-lg shadow-2xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center"><User className="w-5 h-5 text-amber-400" /></div>
+            <div><h2 className="font-black text-white text-base">Холбогдох хүмүүс</h2><p className="text-slate-400 text-xs">Зам гүүрийн төсөвтэй холбоотой мэргэжилтнүүд</p></div>
+          </div>
+          <div className="flex items-center gap-2">
+            {isAdmin && !showForm && <button onClick={openAdd} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition-all"><Plus className="w-3.5 h-3.5" />Нэмэх</button>}
+            <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 hover:bg-white/5 rounded-lg transition-all"><X className="w-5 h-5" /></button>
+          </div>
+        </div>
+
+        <div className="overflow-y-auto flex-1 p-5">
+          {/* Form */}
+          {showForm && (
+            <div className="bg-slate-800/60 border border-white/10 rounded-xl p-4 mb-4 space-y-3">
+              <p className="text-amber-400 text-sm font-bold">{editing ? "Засах" : "Шинэ хүн нэмэх"}</p>
+              {[{ k: "name", label: "Нэр *" }, { k: "role", label: "Албан тушаал *" }, { k: "phone", label: "Утас *" }].map(({ k, label }) => (
+                <div key={k}><label className="text-slate-400 text-xs mb-1 block">{label}</label>
+                  <input value={(form as any)[k]} onChange={f(k)} className="w-full bg-slate-700 border border-white/10 rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+                </div>
+              ))}
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => { setAdding(false); setEditing(null); }} className="flex-1 py-2 rounded-lg bg-slate-700 text-slate-300 text-sm font-bold hover:bg-slate-600 transition-all">Болих</button>
+                <button onClick={() => save.mutate()} disabled={!form.name || !form.role || !form.phone || save.isPending} className="flex-1 py-2 rounded-lg bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50 transition-all">{save.isPending ? "Хадгалж байна..." : "Хадгалах"}</button>
+              </div>
+            </div>
+          )}
+
+          {/* List */}
+          {isLoading && <div className="text-center py-10 text-slate-400 text-sm">Уншиж байна...</div>}
+          {!isLoading && contacts.length === 0 && !showForm && (
+            <div className="text-center py-10 text-slate-400 text-sm">
+              <User className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>Одоогоор хүн бүртгэлгүй байна.</p>
+              {isAdmin && <button onClick={openAdd} className="mt-3 text-amber-400 text-xs underline">+ Анхны хүн нэмэх</button>}
+            </div>
+          )}
+          <div className="space-y-2">
+            {contacts.map((c: any) => (
+              <div key={c.id} className="flex items-center justify-between bg-white/5 border border-white/8 rounded-xl px-4 py-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <User className="w-3.5 h-3.5 text-primary shrink-0" />
+                    <span className="text-sm font-semibold text-white">{c.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <span className="text-[11px] text-slate-400">{c.role}</span>
+                    <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-[11px] text-amber-400 hover:text-amber-300 transition-colors">
+                      <Phone className="w-3 h-3" />{c.phone}
+                    </a>
+                  </div>
+                </div>
+                {isAdmin && (
+                  <div className="flex items-center gap-1 ml-3 shrink-0">
+                    <button onClick={() => openEdit(c)} className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-lg transition-all"><Pencil className="w-3.5 h-3.5" /></button>
+                    <button onClick={() => del.mutate(c.id)} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
                   </div>
                 )}
               </div>
-            );
-          })}
+            ))}
+          </div>
         </div>
       </motion.div>
     </div>
@@ -396,9 +543,9 @@ const servicesData = [
 
 export default function Services() {
   const [showOrderModal,    setShowOrderModal]    = useState(false);
-  const [selectedProduct,   setSelectedProduct]   = useState(PRODUCTS[2].value);
   const [showProjectsModal, setShowProjectsModal] = useState(false);
   const [showVehiclesModal, setShowVehiclesModal] = useState(false);
+  const [showBudgetModal,   setShowBudgetModal]   = useState(false);
 
   const scrollToContact = () => {
     const el = document.getElementById("contact");
@@ -492,51 +639,26 @@ export default function Services() {
                 </button>
               )}
 
-              {/* Зам гүүрийн төсөв: холбогдох хүмүүс */}
+              {/* Зам гүүрийн төсөв: Холбогдох хүмүүс товч */}
               {service.id === 4 && (
-                <div className="mt-1 space-y-2 flex-1">
-                  {BUDGET_CONTACTS.map((c, i) => (
-                    <div key={i} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <User className="w-3 h-3 text-primary shrink-0" />
-                        <span className="text-xs font-semibold text-foreground">{c.name}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-muted-foreground">{c.role}</span>
-                        <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 transition-colors">
-                          <Phone className="w-2.5 h-2.5" />
-                          {c.phone}
-                        </a>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                <button
+                  onClick={() => setShowBudgetModal(true)}
+                  className="mt-auto pt-4 w-full py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-primary/30 hover:border-primary/60 text-primary font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  <User className="w-4 h-4" />
+                  Холбогдох хүмүүс
+                </button>
               )}
 
               {service.orderBtn && (
-                <div className="mt-5 space-y-2">
-                  <div className="relative">
-                    <select
-                      data-testid="select-product-card"
-                      value={selectedProduct}
-                      onChange={e => setSelectedProduct(e.target.value)}
-                      className="w-full appearance-none bg-slate-800/80 border border-amber-500/30 hover:border-amber-500/60 rounded-xl px-4 py-2.5 text-white text-sm font-medium focus:outline-none focus:border-amber-500 transition-colors cursor-pointer pr-9"
-                    >
-                      {PRODUCTS.map(p => (
-                        <option key={p.value} value={p.value}>{p.label} ({p.unit})</option>
-                      ))}
-                    </select>
-                    <ChevronDown className="w-4 h-4 text-amber-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                  </div>
-                  <button
-                    data-testid="btn-factory-order-open"
-                    onClick={() => setShowOrderModal(true)}
-                    className="w-full py-3 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30"
-                  >
-                    <Warehouse className="w-4 h-4" />
-                    Үйлдвэрт захиалга өгөх
-                  </button>
-                </div>
+                <button
+                  data-testid="btn-factory-order-open"
+                  onClick={() => setShowOrderModal(true)}
+                  className="mt-5 w-full py-3 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30"
+                >
+                  <Warehouse className="w-4 h-4" />
+                  Үйлдвэрт захиалга өгөх
+                </button>
               )}
 
               <div className="absolute bottom-0 left-0 h-0.5 bg-primary w-0 group-hover:w-full transition-all duration-500"></div>
@@ -548,7 +670,8 @@ export default function Services() {
       <AnimatePresence>
         {showProjectsModal && <ProjectsModal         onClose={() => setShowProjectsModal(false)} />}
         {showVehiclesModal && <AvailableVehiclesModal onClose={() => setShowVehiclesModal(false)} />}
-        {showOrderModal    && <FactoryOrderModal      onClose={() => setShowOrderModal(false)} initialProduct={selectedProduct} />}
+        {showBudgetModal   && <BudgetContactsModal   onClose={() => setShowBudgetModal(false)} />}
+        {showOrderModal    && <FactoryOrderModal      onClose={() => setShowOrderModal(false)} />}
       </AnimatePresence>
     </section>
   );

@@ -575,6 +575,18 @@ export const insertProjectDocumentSchema = createInsertSchema(projectDocuments).
 export type ProjectDocument = typeof projectDocuments.$inferSelect;
 export type InsertProjectDocument = z.infer<typeof insertProjectDocumentSchema>;
 
+// ===================== ЗӨВЛӨХ / ХОЛБОГДОХ ХҮМҮҮС =====================
+export const budgetContacts = pgTable("budget_contacts", {
+  id:        serial("id").primaryKey(),
+  name:      text("name").notNull(),
+  role:      text("role").notNull(),
+  phone:     text("phone").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export const insertBudgetContactSchema = createInsertSchema(budgetContacts).omit({ id: true, createdAt: true });
+export type BudgetContact = typeof budgetContacts.$inferSelect;
+export type InsertBudgetContact = z.infer<typeof insertBudgetContactSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;

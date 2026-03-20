@@ -114,6 +114,25 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/projects", async (_req, res) => {
     res.json(await storage.getProjects());
   });
+  app.post("/api/projects", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertProjectSchema.parse(req.body);
+      const [p] = await db.insert(schema.projects).values(data).returning();
+      res.status(201).json(p);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.patch("/api/projects/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { title, description, imageUrl, category, location, length, year, clientName, contractValue, progress } = req.body;
+      const [p] = await db.update(schema.projects).set({ title, description, imageUrl, category, location, length, year, clientName, contractValue, progress }).where(eq(schema.projects.id, id)).returning();
+      res.json(p);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/projects/:id", requireAdmin, async (req, res) => {
+    await db.delete(schema.projects).where(eq(schema.projects.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  });
   app.patch("/api/projects/metadata", requireAdmin, async (req, res) => {
     try {
       const { publicId, title, description, location, length, year, clientName, contractValue, progress } = req.body;
@@ -484,6 +503,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       console.error("Idle vehicles error:", e);
       res.status(500).json([]);
     }
+  });
+
+  // ============ BUDGET CONTACTS ============
+  app.get("/api/budget-contacts", async (_req, res) => {
+    res.json(await db.select().from(schema.budgetContacts).orderBy(schema.budgetContacts.createdAt));
+  });
+  app.post("/api/budget-contacts", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertBudgetContactSchema.parse(req.body);
+      const [c] = await db.insert(schema.budgetContacts).values(data).returning();
+      res.status(201).json(c);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.patch("/api/budget-contacts/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { name, role, phone } = req.body;
+      const [c] = await db.update(schema.budgetContacts).set({ name, role, phone }).where(eq(schema.budgetContacts.id, id)).returning();
+      res.json(c);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/budget-contacts/:id", requireAdmin, async (req, res) => {
+    await db.delete(schema.budgetContacts).where(eq(schema.budgetContacts.id, parseInt(req.params.id)));
+    res.json({ ok: true });
   });
 
   app.get("/api/content", async (_req, res) => {
