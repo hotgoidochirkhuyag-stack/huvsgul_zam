@@ -1,252 +1,168 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
-import { motion } from "framer-motion";
 import {
   MessageSquare, Trash2, Users, Mail, Filter, Layers,
-  Phone, Calendar, ChevronDown, ChevronUp, HelpCircle
+  Phone, Calendar, ChevronDown, ChevronUp, HelpCircle,
+  ShoppingCart, FileText, BarChart3, Plus, X, Edit2,
+  CheckCircle2, Clock, AlertTriangle, TrendingUp, Banknote,
+  Package, FileSignature,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import LogoutButton from "@/components/LogoutButton";
+import {
+  BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+  ResponsiveContainer, PieChart, Pie, Cell, Legend,
+} from "recharts";
 
-function getHeaders() {
+function hdrs() {
   return {
     "Content-Type": "application/json",
     "x-admin-token": localStorage.getItem("adminToken") || "",
   };
 }
 
-const TYPE_STYLE: Record<string, { bg: string; text: string; border: string }> = {
-  "Холбоо барих": { bg: "bg-green-600/20",  text: "text-green-400",  border: "border-green-500/30"  },
-  "Үнийн санал":  { bg: "bg-amber-600/20",  text: "text-amber-400",  border: "border-amber-500/30"  },
-  "Ажлын байр":   { bg: "bg-purple-600/20", text: "text-purple-400", border: "border-purple-500/30" },
-  "Төслийн мэдээ":{ bg: "bg-blue-600/20",   text: "text-blue-400",   border: "border-blue-500/30"   },
-  "Зөвлөгөө авах":{ bg: "bg-cyan-600/20",   text: "text-cyan-400",   border: "border-cyan-500/30"   },
+// ─── CONSTANTS ────────────────────────────────────────────────────
+const TYPE_STYLE: Record<string, { bg: string; text: string }> = {
+  "Холбоо барих":  { bg: "bg-green-600/20",  text: "text-green-400"  },
+  "Үнийн санал":   { bg: "bg-amber-600/20",  text: "text-amber-400"  },
+  "Ажлын байр":    { bg: "bg-purple-600/20", text: "text-purple-400" },
+  "Төслийн мэдээ": { bg: "bg-blue-600/20",   text: "text-blue-400"   },
+  "Зөвлөгөө авах": { bg: "bg-cyan-600/20",   text: "text-cyan-400"   },
 };
 
-const FILTER_ITEMS = ["Бүгд", "Холбоо барих", "Үнийн санал", "Ажлын байр", "Төслийн мэдээ", "Зөвлөгөө авах"];
+const ORDER_STATUS: Record<string, { label: string; color: string; icon: any }> = {
+  pending:     { label: "Хүлээгдэж байна", color: "text-amber-400 bg-amber-500/10",   icon: Clock         },
+  confirmed:   { label: "Баталгаажсан",    color: "text-blue-400 bg-blue-500/10",     icon: CheckCircle2  },
+  in_progress: { label: "Явагдаж байна",   color: "text-purple-400 bg-purple-500/10", icon: TrendingUp    },
+  completed:   { label: "Гүйцэтгэгдсэн",  color: "text-green-400 bg-green-500/10",   icon: CheckCircle2  },
+  cancelled:   { label: "Цуцлагдсан",      color: "text-red-400 bg-red-500/10",       icon: X             },
+};
 
-export default function ProjectDashboard() {
+const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
+  active:    { label: "Хүчинтэй",   color: "text-green-400 bg-green-500/10"  },
+  completed: { label: "Дууссан",    color: "text-blue-400 bg-blue-500/10"    },
+  expired:   { label: "Хугацаа дууссан", color: "text-red-400 bg-red-500/10" },
+};
+
+const WORK_TYPES = ["Замын ажил", "Гүүр барилга", "Замын засвар", "Хийцийн ажил", "Тусгай ажил", "Бусад"];
+const TABS = [
+  { key: "requests",  label: "Хүсэлт",   icon: MessageSquare },
+  { key: "orders",    label: "Захиалга",  icon: ShoppingCart  },
+  { key: "contracts", label: "Гэрээ",     icon: FileSignature },
+  { key: "report",    label: "Тайлан",    icon: BarChart3     },
+];
+
+// ─── STAT CARD ───────────────────────────────────────────────────
+function StatCard({ icon: Icon, label, value, color = "blue" }: any) {
+  const colors: Record<string, string> = {
+    blue:   "bg-blue-600/20 text-blue-400",
+    green:  "bg-green-600/20 text-green-400",
+    amber:  "bg-amber-600/20 text-amber-400",
+    purple: "bg-purple-600/20 text-purple-400",
+    red:    "bg-red-600/20 text-red-400",
+  };
+  return (
+    <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-5 flex items-center gap-4">
+      <div className={`p-3 rounded-xl ${colors[color]}`}>
+        <Icon className="w-5 h-5" />
+      </div>
+      <div>
+        <p className="text-slate-400 text-xs">{label}</p>
+        <p className="text-2xl font-black text-white">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── REQUESTS TAB ─────────────────────────────────────────────────
+function RequestsTab() {
   const { toast } = useToast();
   const [filter, setFilter] = useState("Бүгд");
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const FILTER_ITEMS = ["Бүгд", "Холбоо барих", "Үнийн санал", "Ажлын байр", "Төслийн мэдээ", "Зөвлөгөө авах"];
 
-  const { data: contacts = [], isLoading: loadingC } = useQuery<any[]>({
+  const { data: contacts = [], isLoading: lC } = useQuery<any[]>({
     queryKey: ["/api/contacts"],
-    queryFn: async () => {
-      const res = await fetch("/api/contacts", { headers: getHeaders() });
-      if (!res.ok) throw new Error("Татахад алдаа");
-      return res.json();
-    },
+    queryFn: () => fetch("/api/contacts", { headers: hdrs() }).then(r => r.json()),
   });
-
-  const { data: subscriptions = [], isLoading: loadingS } = useQuery<any[]>({
+  const { data: subs = [], isLoading: lS } = useQuery<any[]>({
     queryKey: ["/api/subscriptions"],
-    queryFn: async () => {
-      const res = await fetch("/api/subscriptions", { headers: getHeaders() });
-      if (!res.ok) throw new Error("Татахад алдаа");
-      return res.json();
-    },
+    queryFn: () => fetch("/api/subscriptions", { headers: hdrs() }).then(r => r.json()),
   });
 
-  const deleteContact = useMutation({
-    mutationFn: (id: number) => fetch(`/api/contacts/${id}`, { method: "DELETE", headers: getHeaders() }).then(r => { if (!r.ok) throw new Error(); }),
+  const delContact = useMutation({
+    mutationFn: (id: number) => fetch(`/api/contacts/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/contacts"] }); toast({ title: "Устгагдлаа" }); },
   });
-
-  const deleteSub = useMutation({
-    mutationFn: (id: number) => fetch(`/api/subscriptions/${id}`, { method: "DELETE", headers: getHeaders() }).then(r => { if (!r.ok) throw new Error(); }),
+  const delSub = useMutation({
+    mutationFn: (id: number) => fetch(`/api/subscriptions/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),
     onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/subscriptions"] }); toast({ title: "Устгагдлаа" }); },
   });
 
-  const isLoading = loadingC || loadingS;
+  const all = [
+    ...contacts.map((c: any) => ({ id: `c-${c.id}`, rawId: c.id, kind: "contact" as const, name: c.name, email: c.email, phone: c.phone || "—", info: c.message, type: c.type || "Холбоо барих", date: c.createdAt })),
+    ...subs.map((s: any)     => ({ id: `s-${s.id}`, rawId: s.id, kind: "sub"     as const, name: "—",     email: s.email, phone: "—",            info: "И-мэйл бүртгэл",     type: s.type,                date: s.createdAt })),
+  ].sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
 
-  const contactRows = contacts.map((c: any) => ({
-    id: `c-${c.id}`, rawId: c.id, kind: "contact" as const,
-    name: c.name, email: c.email, phone: c.phone || "—",
-    info: c.message, type: c.type || "Холбоо барих", date: c.createdAt,
-  }));
-  const subRows = subscriptions.map((s: any) => ({
-    id: `s-${s.id}`, rawId: s.id, kind: "sub" as const,
-    name: "—", email: s.email, phone: "—",
-    info: "И-мэйл бүртгэл", type: s.type, date: s.createdAt,
-  }));
-
-  const allRows = [...contactRows, ...subRows]
-    .sort((a, b) => new Date(b.date || 0).getTime() - new Date(a.date || 0).getTime());
-
-  const filtered = filter === "Бүгд" ? allRows : allRows.filter(r => r.type === filter);
-
-  const countOf = (t: string) =>
-    t === "Ажлын байр" || t === "Төслийн мэдээ" || t === "Зөвлөгөө авах"
-      ? subscriptions.filter((s: any) => s.type === t).length
-      : contacts.filter((c: any) => c.type === t).length;
-
-  const stats = [
-    { label: "Холбоо барих",  icon: MessageSquare, key: "Холбоо барих"  },
-    { label: "Үнийн санал",   icon: Layers,        key: "Үнийн санал"   },
-    { label: "Ажлын байр",    icon: Users,          key: "Ажлын байр"    },
-    { label: "Төслийн мэдээ", icon: Mail,           key: "Төслийн мэдээ" },
-    { label: "Зөвлөгөө авах", icon: HelpCircle,    key: "Зөвлөгөө авах" },
-  ];
+  const filtered = filter === "Бүгд" ? all : all.filter(r => r.type === filter);
+  const countOf = (t: string) => t === "Ажлын байр" || t === "Төслийн мэдээ" || t === "Зөвлөгөө авах"
+    ? subs.filter((s: any) => s.type === t).length
+    : contacts.filter((c: any) => c.type === t).length;
 
   return (
-    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-8">
-      {/* Header */}
-      <header className="flex justify-between items-start mb-10 border-b border-white/10 pb-6">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold text-white">Төслийн хөгжүүлэлт</h1>
-          <p className="text-slate-400 mt-1">Бүртгэлийн нэгдсэн самбар — Хөвсгөл Зам ХХК</p>
-        </div>
-        <LogoutButton />
-      </header>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        {stats.map(s => {
-          const style = TYPE_STYLE[s.key];
-          const count = countOf(s.key);
-          return (
-            <motion.div
-              key={s.key}
-              whileHover={{ y: -2 }}
-              onClick={() => setFilter(filter === s.key ? "Бүгд" : s.key)}
-              className={`rounded-2xl p-5 flex items-center gap-4 cursor-pointer border transition-all ${
-                filter === s.key
-                  ? `${style.bg} ${style.border} border`
-                  : "bg-slate-900/60 border border-white/10 hover:border-white/20"
-              }`}
-            >
-              <div className={`p-3 rounded-xl ${style.bg}`}>
-                <s.icon className={`w-5 h-5 ${style.text}`} />
-              </div>
-              <div>
-                <p className="text-slate-400 text-xs leading-tight">{s.label}</p>
-                <p className="text-3xl font-black text-white">{count}</p>
-              </div>
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* Filter chips */}
-      <div className="flex items-center gap-2 flex-wrap mb-5">
+    <div className="space-y-5">
+      <div className="flex items-center gap-2 flex-wrap">
         <Filter className="w-4 h-4 text-slate-500" />
         {FILTER_ITEMS.map(f => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-              filter === f ? "bg-amber-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"
-            }`}
-          >
-            {f}
-            {f !== "Бүгд" && (
-              <span className="ml-1.5 opacity-60">
-                ({countOf(f)})
-              </span>
-            )}
-            {f === "Бүгд" && (
-              <span className="ml-1.5 opacity-60">({allRows.length})</span>
-            )}
+          <button key={f} onClick={() => setFilter(f)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filter === f ? "bg-amber-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+            {f} <span className="opacity-60">({f === "Бүгд" ? all.length : countOf(f)})</span>
           </button>
         ))}
       </div>
 
-      {/* Table */}
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="bg-slate-900/60 rounded-2xl border border-white/10 overflow-hidden"
-      >
-        {isLoading ? (
+      <div className="bg-slate-900/60 rounded-2xl border border-white/10 overflow-hidden">
+        {(lC || lS) ? (
           <div className="p-16 text-center text-slate-400">Уншиж байна...</div>
         ) : filtered.length === 0 ? (
-          <div className="p-16 text-center text-slate-500">
-            <Layers className="w-12 h-12 mx-auto mb-4 opacity-20" />
-            <p className="text-sm">Бүртгэл байхгүй байна</p>
-          </div>
+          <div className="p-16 text-center text-slate-500"><Layers className="w-12 h-12 mx-auto mb-4 opacity-20" /><p>Бүртгэл байхгүй</p></div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-slate-800/60 border-b border-white/10">
-                <tr>
-                  <th className="text-left p-4 text-slate-400 text-xs uppercase tracking-widest">#</th>
-                  <th className="text-left p-4 text-slate-400 text-xs uppercase tracking-widest">Төрөл</th>
-                  <th className="text-left p-4 text-slate-400 text-xs uppercase tracking-widest">Нэр</th>
-                  <th className="text-left p-4 text-slate-400 text-xs uppercase tracking-widest">И-мэйл</th>
-                  <th className="text-left p-4 text-slate-400 text-xs uppercase tracking-widest">Утас</th>
-                  <th className="text-left p-4 text-slate-400 text-xs uppercase tracking-widest">Мэдэгдэл</th>
-                  <th className="text-left p-4 text-slate-400 text-xs uppercase tracking-widest">Огноо</th>
-                  <th className="text-left p-4 text-slate-400 text-xs uppercase tracking-widest"></th>
-                </tr>
+                <tr>{["#","Төрөл","Нэр","И-мэйл","Утас","Мэдэгдэл","Огноо",""].map(h => (
+                  <th key={h} className="text-left p-4 text-slate-400 text-xs uppercase tracking-widest">{h}</th>
+                ))}</tr>
               </thead>
               <tbody>
                 {filtered.map((row, i) => {
-                  const style = TYPE_STYLE[row.type] || { bg: "bg-slate-700", text: "text-slate-300", border: "" };
-                  const isExpanded = expandedId === row.id;
+                  const style = TYPE_STYLE[row.type] || { bg: "bg-slate-700", text: "text-slate-300" };
+                  const isExp = expandedId === row.id;
                   return (
                     <>
-                      <tr
-                        key={row.id}
-                        className="border-b border-white/5 hover:bg-white/[0.03] transition-colors cursor-pointer"
-                        onClick={() => setExpandedId(isExpanded ? null : row.id)}
-                      >
+                      <tr key={row.id} onClick={() => setExpandedId(isExp ? null : row.id)} className="border-b border-white/5 hover:bg-white/[0.03] cursor-pointer">
                         <td className="p-4 text-slate-500 text-sm">{i + 1}</td>
-                        <td className="p-4">
-                          <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${style.bg} ${style.text}`}>
-                            {row.type}
-                          </span>
-                        </td>
+                        <td className="p-4"><span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${style.bg} ${style.text}`}>{row.type}</span></td>
                         <td className="p-4 text-white font-medium text-sm">{row.name}</td>
-                        <td className="p-4 text-slate-300 text-sm">
-                          <a href={`mailto:${row.email}`} className="hover:text-amber-400 transition-colors" onClick={e => e.stopPropagation()}>
-                            {row.email}
-                          </a>
-                        </td>
+                        <td className="p-4 text-slate-300 text-sm"><a href={`mailto:${row.email}`} onClick={e => e.stopPropagation()} className="hover:text-amber-400">{row.email}</a></td>
                         <td className="p-4 text-slate-400 text-sm">{row.phone}</td>
-                        <td className="p-4 text-slate-300 text-sm max-w-[220px]">
-                          <p className="truncate">{row.info}</p>
-                        </td>
-                        <td className="p-4 text-slate-500 text-xs whitespace-nowrap">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3 h-3" />
-                            {row.date ? new Date(row.date).toLocaleDateString("mn-MN") : "—"}
-                          </div>
-                        </td>
+                        <td className="p-4 text-slate-300 text-sm max-w-[200px]"><p className="truncate">{row.info}</p></td>
+                        <td className="p-4 text-slate-500 text-xs whitespace-nowrap"><Calendar className="w-3 h-3 inline mr-1" />{row.date ? new Date(row.date).toLocaleDateString("mn-MN") : "—"}</td>
                         <td className="p-4">
                           <div className="flex items-center gap-1">
-                            {isExpanded ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
-                            <button
-                              onClick={e => { e.stopPropagation(); row.kind === "contact" ? deleteContact.mutate(row.rawId) : deleteSub.mutate(row.rawId); }}
-                              disabled={deleteContact.isPending || deleteSub.isPending}
-                              className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg transition-all"
-                            >
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
+                            {isExp ? <ChevronUp className="w-4 h-4 text-slate-500" /> : <ChevronDown className="w-4 h-4 text-slate-500" />}
+                            <button onClick={e => { e.stopPropagation(); row.kind === "contact" ? delContact.mutate(row.rawId) : delSub.mutate(row.rawId); }} className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg transition-all"><Trash2 className="w-3.5 h-3.5" /></button>
                           </div>
                         </td>
                       </tr>
-                      {isExpanded && row.kind === "contact" && (
-                        <tr key={`${row.id}-expand`} className="border-b border-white/5 bg-slate-900/40">
+                      {isExp && row.kind === "contact" && (
+                        <tr key={`${row.id}-exp`} className="border-b border-white/5 bg-slate-900/40">
                           <td colSpan={8} className="px-8 py-4">
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                              <div>
-                                <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Нэр</p>
-                                <p className="text-white">{row.name}</p>
-                              </div>
-                              <div>
-                                <p className="text-slate-500 text-xs uppercase tracking-wider mb-1 flex items-center gap-1"><Mail className="w-3 h-3" /> И-мэйл</p>
-                                <a href={`mailto:${row.email}`} className="text-amber-400 hover:underline">{row.email}</a>
-                              </div>
-                              <div>
-                                <p className="text-slate-500 text-xs uppercase tracking-wider mb-1 flex items-center gap-1"><Phone className="w-3 h-3" /> Утас</p>
-                                <p className="text-white">{row.phone}</p>
-                              </div>
-                              <div className="md:col-span-3">
-                                <p className="text-slate-500 text-xs uppercase tracking-wider mb-1">Мэдэгдэл / Хүсэлт</p>
-                                <p className="text-slate-200 leading-relaxed bg-slate-800/50 rounded-xl p-4">{row.info}</p>
-                              </div>
+                              <div><p className="text-slate-500 text-xs uppercase mb-1">Нэр</p><p className="text-white">{row.name}</p></div>
+                              <div><p className="text-slate-500 text-xs uppercase mb-1">И-мэйл</p><a href={`mailto:${row.email}`} className="text-amber-400 hover:underline">{row.email}</a></div>
+                              <div><p className="text-slate-500 text-xs uppercase mb-1">Утас</p><p className="text-white">{row.phone}</p></div>
+                              <div className="md:col-span-3"><p className="text-slate-500 text-xs uppercase mb-1">Мэдэгдэл</p><p className="text-slate-200 bg-slate-800/50 rounded-xl p-4">{row.info}</p></div>
                             </div>
                           </td>
                         </tr>
@@ -258,7 +174,505 @@ export default function ProjectDashboard() {
             </table>
           </div>
         )}
-      </motion.div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ORDER FORM ───────────────────────────────────────────────────
+function OrderForm({ initial, onClose, onSaved }: { initial?: any; onClose: () => void; onSaved: () => void }) {
+  const { toast } = useToast();
+  const isEdit = !!initial;
+  const [form, setForm] = useState({
+    orderNumber: initial?.orderNumber ?? `ZAH-${Date.now().toString().slice(-5)}`,
+    clientName:  initial?.clientName  ?? "",
+    clientPhone: initial?.clientPhone ?? "",
+    clientEmail: initial?.clientEmail ?? "",
+    workType:    initial?.workType    ?? WORK_TYPES[0],
+    location:    initial?.location    ?? "",
+    amount:      initial?.amount      ?? "",
+    status:      initial?.status      ?? "pending",
+    notes:       initial?.notes       ?? "",
+  });
+
+  const save = useMutation({
+    mutationFn: () => {
+      const url  = isEdit ? `/api/project/orders/${initial.id}` : "/api/project/orders";
+      const meth = isEdit ? "PATCH" : "POST";
+      return fetch(url, { method: meth, headers: hdrs(), body: JSON.stringify({ ...form, amount: form.amount ? parseFloat(String(form.amount)) : null }) }).then(r => { if (!r.ok) throw new Error(); return r.json(); });
+    },
+    onSuccess: () => { toast({ title: isEdit ? "Шинэчлэгдлээ" : "Нэмэгдлээ" }); onSaved(); onClose(); },
+    onError:   () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
+  });
+
+  const f = (k: string) => (e: any) => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <h2 className="font-bold text-white">{isEdit ? "Захиалга засах" : "Шинэ захиалга"}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          {[
+            { label: "Захиалгын дугаар", key: "orderNumber" },
+            { label: "Захиалагч нэр",    key: "clientName"  },
+            { label: "Утас",             key: "clientPhone" },
+            { label: "И-мэйл",          key: "clientEmail" },
+            { label: "Байршил",         key: "location"    },
+            { label: "Дүн (₮)",         key: "amount", type: "number" },
+          ].map(({ label, key, type }) => (
+            <div key={key}>
+              <label className="text-slate-400 text-xs mb-1 block">{label}</label>
+              <input type={type || "text"} value={(form as any)[key]} onChange={f(key)} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+            </div>
+          ))}
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Ажлын төрөл</label>
+            <select value={form.workType} onChange={f("workType")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
+              {WORK_TYPES.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Статус</label>
+            <select value={form.status} onChange={f("status")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
+              {Object.entries(ORDER_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Тэмдэглэл</label>
+            <textarea value={form.notes} onChange={f("notes")} rows={3} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none resize-none" />
+          </div>
+        </div>
+        <div className="p-5 border-t border-white/10 flex gap-2 justify-end">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm hover:bg-slate-700">Болих</button>
+          <button onClick={() => save.mutate()} disabled={save.isPending} className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50">
+            {save.isPending ? "Хадгалж байна..." : "Хадгалах"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── ORDERS TAB ───────────────────────────────────────────────────
+function OrdersTab() {
+  const { toast } = useToast();
+  const [modal, setModal] = useState<null | "new" | any>(null);
+
+  const { data: orders = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/project/orders"],
+    queryFn: () => fetch("/api/project/orders", { headers: hdrs() }).then(r => r.json()),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: number) => fetch(`/api/project/orders/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/project/orders"] }); toast({ title: "Устгагдлаа" }); },
+  });
+
+  const totalAmt = orders.reduce((s: number, o: any) => s + (o.amount || 0), 0);
+  const byStatus = Object.keys(ORDER_STATUS).map(k => ({ key: k, label: ORDER_STATUS[k].label, count: orders.filter((o: any) => o.status === k).length }));
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={Package}     label="Нийт захиалга"   value={orders.length}                   color="blue"   />
+        <StatCard icon={Banknote}    label="Нийт дүн"        value={`${(totalAmt/1000000).toFixed(1)}сая₮`} color="amber"  />
+        <StatCard icon={CheckCircle2} label="Гүйцэтгэгдсэн"  value={byStatus.find(s=>s.key==="completed")?.count??0} color="green"  />
+        <StatCard icon={Clock}       label="Хүлээгдэж байна" value={byStatus.find(s=>s.key==="pending")?.count??0}   color="purple" />
+      </div>
+
+      <div className="flex justify-end">
+        <button data-testid="btn-new-order" onClick={() => setModal("new")} className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-sm transition-all">
+          <Plus className="w-4 h-4" /> Шинэ захиалга
+        </button>
+      </div>
+
+      <div className="bg-slate-900/60 rounded-2xl border border-white/10 overflow-hidden">
+        {isLoading ? (
+          <div className="p-16 text-center text-slate-400">Уншиж байна...</div>
+        ) : orders.length === 0 ? (
+          <div className="p-16 text-center text-slate-500"><ShoppingCart className="w-12 h-12 mx-auto mb-4 opacity-20" /><p>Захиалга байхгүй байна</p></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-800/60 border-b border-white/10">
+                <tr>{["Дугаар","Захиалагч","Утас","Ажлын төрөл","Байршил","Дүн","Статус","Огноо",""].map(h => (
+                  <th key={h} className="text-left p-4 text-slate-400 text-xs uppercase tracking-wider">{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {orders.map((o: any) => {
+                  const st = ORDER_STATUS[o.status] || ORDER_STATUS.pending;
+                  const Icon = st.icon;
+                  return (
+                    <tr key={o.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                      <td className="p-4 text-amber-400 font-mono text-sm font-bold">{o.orderNumber}</td>
+                      <td className="p-4 text-white text-sm font-medium">{o.clientName}</td>
+                      <td className="p-4 text-slate-400 text-sm">{o.clientPhone || "—"}</td>
+                      <td className="p-4 text-slate-300 text-sm">{o.workType}</td>
+                      <td className="p-4 text-slate-400 text-sm">{o.location || "—"}</td>
+                      <td className="p-4 text-green-400 font-bold text-sm">{o.amount ? `${Number(o.amount).toLocaleString()}₮` : "—"}</td>
+                      <td className="p-4">
+                        <span className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold w-fit ${st.color}`}>
+                          <Icon className="w-3 h-3" />{st.label}
+                        </span>
+                      </td>
+                      <td className="p-4 text-slate-500 text-xs whitespace-nowrap">{o.createdAt ? new Date(o.createdAt).toLocaleDateString("mn-MN") : "—"}</td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-1">
+                          <button data-testid={`btn-edit-order-${o.id}`} onClick={() => setModal(o)} className="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded-lg"><Edit2 className="w-3.5 h-3.5" /></button>
+                          <button data-testid={`btn-del-order-${o.id}`} onClick={() => del.mutate(o.id)} className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <OrderForm
+          initial={modal === "new" ? undefined : modal}
+          onClose={() => setModal(null)}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/project/orders"] })}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── CONTRACT FORM ────────────────────────────────────────────────
+function ContractForm({ initial, onClose, onSaved }: { initial?: any; onClose: () => void; onSaved: () => void }) {
+  const { toast } = useToast();
+  const isEdit = !!initial;
+  const [form, setForm] = useState({
+    contractNumber: initial?.contractNumber ?? `GEE-${Date.now().toString().slice(-5)}`,
+    clientName:     initial?.clientName     ?? "",
+    workType:       initial?.workType       ?? WORK_TYPES[0],
+    amount:         initial?.amount         ?? "",
+    startDate:      initial?.startDate      ?? "",
+    endDate:        initial?.endDate        ?? "",
+    status:         initial?.status         ?? "active",
+    description:    initial?.description    ?? "",
+  });
+
+  const save = useMutation({
+    mutationFn: () => {
+      const url  = isEdit ? `/api/project/contracts/${initial.id}` : "/api/project/contracts";
+      const meth = isEdit ? "PATCH" : "POST";
+      return fetch(url, { method: meth, headers: hdrs(), body: JSON.stringify({ ...form, amount: parseFloat(String(form.amount)) || 0 }) }).then(r => { if (!r.ok) throw new Error(); return r.json(); });
+    },
+    onSuccess: () => { toast({ title: isEdit ? "Шинэчлэгдлээ" : "Нэмэгдлээ" }); onSaved(); onClose(); },
+    onError:   () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
+  });
+
+  const f = (k: string) => (e: any) => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-lg shadow-2xl overflow-y-auto max-h-[90vh]">
+        <div className="flex items-center justify-between p-5 border-b border-white/10">
+          <h2 className="font-bold text-white">{isEdit ? "Гэрээ засах" : "Шинэ гэрээ"}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-white"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 space-y-3">
+          {[
+            { label: "Гэрээний дугаар", key: "contractNumber" },
+            { label: "Гэрэглэгч нэр",  key: "clientName"     },
+            { label: "Гэрээний дүн (₮)", key: "amount", type: "number" },
+            { label: "Эхлэх огноо",    key: "startDate", type: "date" },
+            { label: "Дуусах огноо",   key: "endDate",   type: "date" },
+          ].map(({ label, key, type }) => (
+            <div key={key}>
+              <label className="text-slate-400 text-xs mb-1 block">{label}</label>
+              <input type={type || "text"} value={(form as any)[key]} onChange={f(key)} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
+            </div>
+          ))}
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Ажлын төрөл</label>
+            <select value={form.workType} onChange={f("workType")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
+              {WORK_TYPES.map(w => <option key={w} value={w}>{w}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Статус</label>
+            <select value={form.status} onChange={f("status")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
+              {Object.entries(CONTRACT_STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Тайлбар</label>
+            <textarea value={form.description} onChange={f("description")} rows={3} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none resize-none" />
+          </div>
+        </div>
+        <div className="p-5 border-t border-white/10 flex gap-2 justify-end">
+          <button onClick={onClose} className="px-4 py-2 rounded-xl bg-slate-800 text-slate-300 text-sm hover:bg-slate-700">Болих</button>
+          <button onClick={() => save.mutate()} disabled={save.isPending} className="px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50">
+            {save.isPending ? "Хадгалж байна..." : "Хадгалах"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── CONTRACTS TAB ────────────────────────────────────────────────
+function ContractsTab() {
+  const { toast } = useToast();
+  const [modal, setModal] = useState<null | "new" | any>(null);
+
+  const { data: contracts = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/project/contracts"],
+    queryFn: () => fetch("/api/project/contracts", { headers: hdrs() }).then(r => r.json()),
+  });
+
+  const del = useMutation({
+    mutationFn: (id: number) => fetch(`/api/project/contracts/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/project/contracts"] }); toast({ title: "Устгагдлаа" }); },
+  });
+
+  const totalAmt = contracts.reduce((s: number, c: any) => s + (c.amount || 0), 0);
+  const active   = contracts.filter((c: any) => c.status === "active").length;
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={FileText}    label="Нийт гэрээ"   value={contracts.length}                          color="blue"  />
+        <StatCard icon={Banknote}    label="Нийт дүн"     value={`${(totalAmt/1000000).toFixed(1)}сая₮`}   color="amber" />
+        <StatCard icon={CheckCircle2} label="Хүчинтэй"    value={active}                                    color="green" />
+        <StatCard icon={AlertTriangle} label="Дууссан/хугацаа" value={contracts.length - active}            color="red"   />
+      </div>
+
+      <div className="flex justify-end">
+        <button data-testid="btn-new-contract" onClick={() => setModal("new")} className="flex items-center gap-2 px-4 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-sm transition-all">
+          <Plus className="w-4 h-4" /> Шинэ гэрээ
+        </button>
+      </div>
+
+      <div className="bg-slate-900/60 rounded-2xl border border-white/10 overflow-hidden">
+        {isLoading ? (
+          <div className="p-16 text-center text-slate-400">Уншиж байна...</div>
+        ) : contracts.length === 0 ? (
+          <div className="p-16 text-center text-slate-500"><FileText className="w-12 h-12 mx-auto mb-4 opacity-20" /><p>Гэрээ байхгүй байна</p></div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-slate-800/60 border-b border-white/10">
+                <tr>{["Дугаар","Байгуулагч","Ажлын төрөл","Дүн","Эхлэх","Дуусах","Статус",""].map(h => (
+                  <th key={h} className="text-left p-4 text-slate-400 text-xs uppercase tracking-wider">{h}</th>
+                ))}</tr>
+              </thead>
+              <tbody>
+                {contracts.map((c: any) => {
+                  const st = CONTRACT_STATUS[c.status] || CONTRACT_STATUS.active;
+                  return (
+                    <tr key={c.id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                      <td className="p-4 text-amber-400 font-mono text-sm font-bold">{c.contractNumber}</td>
+                      <td className="p-4 text-white text-sm font-medium">{c.clientName}</td>
+                      <td className="p-4 text-slate-300 text-sm">{c.workType}</td>
+                      <td className="p-4 text-green-400 font-bold text-sm">{Number(c.amount).toLocaleString()}₮</td>
+                      <td className="p-4 text-slate-400 text-sm">{c.startDate || "—"}</td>
+                      <td className="p-4 text-slate-400 text-sm">{c.endDate || "—"}</td>
+                      <td className="p-4"><span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${st.color}`}>{st.label}</span></td>
+                      <td className="p-4">
+                        <div className="flex items-center gap-1">
+                          <button data-testid={`btn-edit-contract-${c.id}`} onClick={() => setModal(c)} className="p-1.5 text-blue-400 hover:bg-blue-500/20 rounded-lg"><Edit2 className="w-3.5 h-3.5" /></button>
+                          <button data-testid={`btn-del-contract-${c.id}`} onClick={() => del.mutate(c.id)} className="p-1.5 text-red-400 hover:bg-red-500/20 rounded-lg"><Trash2 className="w-3.5 h-3.5" /></button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {modal && (
+        <ContractForm
+          initial={modal === "new" ? undefined : modal}
+          onClose={() => setModal(null)}
+          onSaved={() => queryClient.invalidateQueries({ queryKey: ["/api/project/contracts"] })}
+        />
+      )}
+    </div>
+  );
+}
+
+// ─── REPORT TAB ───────────────────────────────────────────────────
+const PIE_COLORS = ["#22c55e", "#3b82f6", "#a855f7", "#f59e0b", "#ef4444"];
+
+function ReportTab() {
+  const { data: orders    = [] } = useQuery<any[]>({ queryKey: ["/api/project/orders"],    queryFn: () => fetch("/api/project/orders",    { headers: hdrs() }).then(r => r.json()) });
+  const { data: contracts = [] } = useQuery<any[]>({ queryKey: ["/api/project/contracts"], queryFn: () => fetch("/api/project/contracts", { headers: hdrs() }).then(r => r.json()) });
+
+  const totalOrderAmt    = orders.reduce((s: number, o: any) => s + (o.amount    || 0), 0);
+  const totalContractAmt = contracts.reduce((s: number, c: any) => s + (c.amount || 0), 0);
+
+  const orderByStatus = Object.entries(ORDER_STATUS).map(([k, v]) => ({
+    name: v.label, value: orders.filter((o: any) => o.status === k).length,
+  })).filter(d => d.value > 0);
+
+  const contractByStatus = Object.entries(CONTRACT_STATUS).map(([k, v]) => ({
+    name: v.label, value: contracts.filter((c: any) => c.status === k).length,
+  })).filter(d => d.value > 0);
+
+  const workTypeData = WORK_TYPES.map(wt => ({
+    name:     wt.length > 6 ? wt.slice(0, 6) + "…" : wt,
+    захиалга: orders.filter((o: any) => o.workType === wt).length,
+    гэрээ:    contracts.filter((c: any) => c.workType === wt).length,
+  })).filter(d => d.захиалга > 0 || d.гэрээ > 0);
+
+  return (
+    <div className="space-y-6">
+      {/* Summary cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <StatCard icon={Package}     label="Нийт захиалга"  value={orders.length}                               color="blue"  />
+        <StatCard icon={FileText}    label="Нийт гэрээ"     value={contracts.length}                            color="purple"/>
+        <StatCard icon={Banknote}    label="Захиалгын дүн"  value={`${(totalOrderAmt/1000000).toFixed(1)}сая₮`}  color="amber" />
+        <StatCard icon={TrendingUp}  label="Гэрээний дүн"   value={`${(totalContractAmt/1000000).toFixed(1)}сая₮`} color="green" />
+      </div>
+
+      {/* Charts row */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        {/* Work type grouped bar */}
+        <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-5">
+          <h3 className="text-sm font-bold text-slate-300 mb-4">Ажлын төрлөөр (захиалга vs гэрээ)</h3>
+          {workTypeData.length === 0 ? (
+            <div className="h-48 flex items-center justify-center text-slate-500 text-sm">Өгөгдөл байхгүй</div>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <BarChart data={workTypeData} barCategoryGap="30%">
+                <CartesianGrid strokeDasharray="3 3" stroke="#ffffff10" />
+                <XAxis dataKey="name" tick={{ fill: "#94a3b8", fontSize: 11 }} />
+                <YAxis tick={{ fill: "#94a3b8", fontSize: 11 }} allowDecimals={false} />
+                <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #ffffff20", borderRadius: 12 }} />
+                <Legend />
+                <Bar dataKey="захиалга" fill="#f59e0b" radius={[3,3,0,0]} />
+                <Bar dataKey="гэрээ"    fill="#3b82f6" radius={[3,3,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Pie charts */}
+        <div className="grid grid-rows-2 gap-5">
+          <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-5">
+            <h3 className="text-sm font-bold text-slate-300 mb-2">Захиалгын статус</h3>
+            {orderByStatus.length === 0 ? (
+              <div className="h-20 flex items-center justify-center text-slate-500 text-sm">Өгөгдөл байхгүй</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={130}>
+                <PieChart>
+                  <Pie data={orderByStatus} cx="50%" cy="50%" outerRadius={50} dataKey="value" nameKey="name" label={({ name, value }) => `${name}: ${value}`} labelLine={false} fontSize={10}>
+                    {orderByStatus.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #ffffff20", borderRadius: 8 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+          <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-5">
+            <h3 className="text-sm font-bold text-slate-300 mb-2">Гэрээний статус</h3>
+            {contractByStatus.length === 0 ? (
+              <div className="h-20 flex items-center justify-center text-slate-500 text-sm">Өгөгдөл байхгүй</div>
+            ) : (
+              <ResponsiveContainer width="100%" height={130}>
+                <PieChart>
+                  <Pie data={contractByStatus} cx="50%" cy="50%" outerRadius={50} dataKey="value" nameKey="name" label={({ name, value }) => `${name}: ${value}`} labelLine={false} fontSize={10}>
+                    {contractByStatus.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                  </Pie>
+                  <Tooltip contentStyle={{ background: "#0f172a", border: "1px solid #ffffff20", borderRadius: 8 }} />
+                </PieChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Financial summary table */}
+      <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+        <div className="p-4 border-b border-white/10">
+          <h3 className="text-sm font-bold text-slate-300">Санхүүгийн тойм</h3>
+        </div>
+        <table className="w-full">
+          <thead className="bg-slate-800/40">
+            <tr>{["","Тоо","Нийт дүн","Дундаж дүн"].map(h => <th key={h} className="text-left p-4 text-slate-400 text-xs uppercase tracking-wider">{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-white/5">
+              <td className="p-4 text-amber-400 font-bold">Захиалга</td>
+              <td className="p-4 text-white">{orders.length}</td>
+              <td className="p-4 text-green-400 font-bold">{totalOrderAmt.toLocaleString()}₮</td>
+              <td className="p-4 text-slate-300">{orders.length ? Math.round(totalOrderAmt / orders.length).toLocaleString() : 0}₮</td>
+            </tr>
+            <tr className="border-t border-white/5">
+              <td className="p-4 text-blue-400 font-bold">Гэрээ</td>
+              <td className="p-4 text-white">{contracts.length}</td>
+              <td className="p-4 text-green-400 font-bold">{totalContractAmt.toLocaleString()}₮</td>
+              <td className="p-4 text-slate-300">{contracts.length ? Math.round(totalContractAmt / contracts.length).toLocaleString() : 0}₮</td>
+            </tr>
+            <tr className="border-t border-amber-500/20 bg-amber-500/5">
+              <td className="p-4 text-white font-black">Нийт</td>
+              <td className="p-4 text-white font-bold">{orders.length + contracts.length}</td>
+              <td className="p-4 text-amber-400 font-black">{(totalOrderAmt + totalContractAmt).toLocaleString()}₮</td>
+              <td className="p-4 text-slate-400">—</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ─── MAIN DASHBOARD ───────────────────────────────────────────────
+export default function ProjectDashboard() {
+  const [tab, setTab] = useState("requests");
+
+  return (
+    <div className="min-h-screen bg-[#020617] text-white p-6 md:p-8">
+      {/* Header */}
+      <header className="flex justify-between items-start mb-8 border-b border-white/10 pb-6">
+        <div>
+          <h1 className="text-2xl md:text-3xl font-bold text-white">Төслийн хөгжүүлэлт</h1>
+          <p className="text-slate-400 mt-1">Захиалга · Гэрээ · Борлуулалт — Хөвсгөл Зам ХХК</p>
+        </div>
+        <LogoutButton />
+      </header>
+
+      {/* Tabs */}
+      <div className="flex gap-1 bg-slate-900/60 border border-white/10 rounded-2xl p-1.5 mb-6 w-fit">
+        {TABS.map(t => {
+          const Icon = t.icon;
+          return (
+            <button
+              key={t.key}
+              data-testid={`tab-${t.key}`}
+              onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                tab === t.key
+                  ? "bg-amber-600 text-white shadow"
+                  : "text-slate-400 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              {t.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Tab content */}
+      {tab === "requests"  && <RequestsTab />}
+      {tab === "orders"    && <OrdersTab />}
+      {tab === "contracts" && <ContractsTab />}
+      {tab === "report"    && <ReportTab />}
     </div>
   );
 }

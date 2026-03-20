@@ -522,6 +522,41 @@ export const insertBreakdownSchema = createInsertSchema(breakdownRequests).omit(
 export type BreakdownRequest = typeof breakdownRequests.$inferSelect;
 export type InsertBreakdown = z.infer<typeof insertBreakdownSchema>;
 
+// ============ ТӨСЛИЙН ЗАХИАЛГА ============
+export const projectOrders = pgTable("project_orders", {
+  id:           serial("id").primaryKey(),
+  orderNumber:  text("order_number").notNull(),
+  clientName:   text("client_name").notNull(),
+  clientPhone:  text("client_phone"),
+  clientEmail:  text("client_email"),
+  workType:     text("work_type").notNull(),
+  location:     text("location"),
+  amount:       real("amount"),
+  status:       text("status").notNull().default("pending"),
+  notes:        text("notes"),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+export const insertProjectOrderSchema = createInsertSchema(projectOrders).omit({ id: true, createdAt: true });
+export type ProjectOrder = typeof projectOrders.$inferSelect;
+export type InsertProjectOrder = z.infer<typeof insertProjectOrderSchema>;
+
+// ============ ГЭРЭЭНИЙ БҮРТГЭЛ ============
+export const projectContracts = pgTable("project_contracts", {
+  id:              serial("id").primaryKey(),
+  contractNumber:  text("contract_number").notNull(),
+  clientName:      text("client_name").notNull(),
+  workType:        text("work_type").notNull(),
+  amount:          real("amount").notNull(),
+  startDate:       text("start_date"),
+  endDate:         text("end_date"),
+  status:          text("status").notNull().default("active"),
+  description:     text("description"),
+  createdAt:       timestamp("created_at").defaultNow(),
+});
+export const insertProjectContractSchema = createInsertSchema(projectContracts).omit({ id: true, createdAt: true });
+export type ProjectContract = typeof projectContracts.$inferSelect;
+export type InsertProjectContract = z.infer<typeof insertProjectContractSchema>;
+
 // ============ ТӨСЛИЙН PDF БАРИМТУУД ============
 export const projectDocuments = pgTable("project_documents", {
   id:          serial("id").primaryKey(),

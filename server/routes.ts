@@ -285,6 +285,68 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getFeaturedVideos());
   });
 
+  // ============ ТӨСЛИЙН ЗАХИАЛГА ============
+  app.get("/api/project/orders", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.projectOrders).orderBy(desc(schema.projectOrders.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/project/orders", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertProjectOrderSchema.parse(req.body);
+      const [row] = await db.insert(schema.projectOrders).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/project/orders/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [row] = await db.update(schema.projectOrders).set(req.body).where(eq(schema.projectOrders.id, id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/project/orders/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.projectOrders).where(eq(schema.projectOrders.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ============ ГЭРЭЭНИЙ БҮРТГЭЛ ============
+  app.get("/api/project/contracts", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.projectContracts).orderBy(desc(schema.projectContracts.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/project/contracts", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertProjectContractSchema.parse(req.body);
+      const [row] = await db.insert(schema.projectContracts).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/project/contracts/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [row] = await db.update(schema.projectContracts).set(req.body).where(eq(schema.projectContracts.id, id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/project/contracts/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.projectContracts).where(eq(schema.projectContracts.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ============ ТӨСЛИЙН PDF БАРИМТУУД ============
   app.get("/api/project-documents", async (_req, res) => {
     try {
