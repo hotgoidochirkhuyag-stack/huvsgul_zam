@@ -69,10 +69,10 @@ export default function Navbar() {
             </div>
             <div className="flex flex-col text-left">
               <span className="font-display font-bold text-base leading-none tracking-wider text-foreground uppercase whitespace-nowrap">
-                ХӨВСГӨЛ ЗАМ
+                ХӨВСГӨЛ ЗАМ ХХК
               </span>
               <span className="text-[10px] text-primary font-bold tracking-[0.2em] uppercase whitespace-nowrap">
-                компани
+                Зам гүүр, барилга угсралтын
               </span>
             </div>
           </div>

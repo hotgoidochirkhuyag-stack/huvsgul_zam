@@ -41,12 +41,12 @@ export function printReport(title: string, bodyHtml: string) {
     "</style></head><body>",
     "<button class='print-btn' onclick='window.print()'>PDF хэвлэх / Хадгалах</button>",
     "<div class='header'>",
-    "<div><div class='company'>ХӨВСГӨЛ ЗАМ ХК</div><div class='sub'>Зам барилгын компани · Мөрөн, Хөвсгөл аймаг</div></div>",
+    "<div><div class='company'>ХӨВСГӨЛ ЗАМ ХХК</div><div class='sub'>Зам гүүр, барилга угсралтын компани · Мөрөн, Хөвсгөл аймаг</div></div>",
     "<div style='text-align:right'><div class='sub'>Тайлан гаргасан:</div><div style='font-size:11px;font-weight:bold'>" + now + "</div></div>",
     "</div>",
     "<div class='report-title'>" + title + "</div>",
     bodyHtml,
-    "<div class='footer'><span>Хөвсгөл Зам ХК &copy; " + new Date().getFullYear() + "</span><span>Хэвлэсэн: " + now + "</span></div>",
+    "<div class='footer'><span>Зам гүүр, барилга угсралтын Хөвсгөл зам ХХК &copy; " + new Date().getFullYear() + "</span><span>Хэвлэсэн: " + now + "</span></div>",
     "</body></html>",
   ].join("");
 

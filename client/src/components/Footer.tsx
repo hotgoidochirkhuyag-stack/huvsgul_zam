@@ -65,10 +65,10 @@ export default function Footer() {
                 />
               </div>
               <span className="font-display font-bold text-2xl leading-none tracking-wider text-foreground uppercase">
-                Хөвсгөл Зам
+                Хөвсгөл зам ХХК
               </span>
               <span className="text-[11px] text-primary font-bold tracking-[0.3em] uppercase mt-1">
-                Компани
+                Зам гүүр, барилга угсралтын
               </span>
             </div>
             <p className="text-muted-foreground text-sm leading-relaxed mb-6">
