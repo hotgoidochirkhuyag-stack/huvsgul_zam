@@ -4,17 +4,17 @@ import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDo
 import { useToast } from "@/hooks/use-toast";
 
 const PRODUCTS = [
-  { label: "М100 Бетон зуурмаг",  value: "М100 бетон",  unit: "м³", price: 185000 },
-  { label: "М150 Бетон зуурмаг",  value: "М150 бетон",  unit: "м³", price: 210000 },
-  { label: "М200 Бетон зуурмаг",  value: "М200 бетон",  unit: "м³", price: 240000 },
-  { label: "М250 Бетон зуурмаг",  value: "М250 бетон",  unit: "м³", price: 265000 },
-  { label: "М300 Бетон зуурмаг",  value: "М300 бетон",  unit: "м³", price: 290000 },
-  { label: "М350 Бетон зуурмаг",  value: "М350 бетон",  unit: "м³", price: 320000 },
-  { label: "М400 Бетон зуурмаг",  value: "М400 бетон",  unit: "м³", price: 355000 },
-  { label: "Асфальт хольц (AC)",  value: "Асфальт хольц", unit: "тн", price: 520000 },
-  { label: "Хайрга (0-5мм)",      value: "Хайрга 0-5мм",  unit: "м³", price: 48000  },
-  { label: "Хайрга (5-20мм)",     value: "Хайрга 5-20мм", unit: "м³", price: 52000  },
-  { label: "Шигшсэн элс",        value: "Элс",            unit: "м³", price: 38000  },
+  { label: "М100 Бетон зуурмаг",  value: "М100 бетон",    unit: "м³" },
+  { label: "М150 Бетон зуурмаг",  value: "М150 бетон",    unit: "м³" },
+  { label: "М200 Бетон зуурмаг",  value: "М200 бетон",    unit: "м³" },
+  { label: "М250 Бетон зуурмаг",  value: "М250 бетон",    unit: "м³" },
+  { label: "М300 Бетон зуурмаг",  value: "М300 бетон",    unit: "м³" },
+  { label: "М350 Бетон зуурмаг",  value: "М350 бетон",    unit: "м³" },
+  { label: "М400 Бетон зуурмаг",  value: "М400 бетон",    unit: "м³" },
+  { label: "Асфальт хольц (AC)",  value: "Асфальт хольц", unit: "тн" },
+  { label: "Хайрга (0-5мм)",      value: "Хайрга 0-5мм",  unit: "м³" },
+  { label: "Хайрга (5-20мм)",     value: "Хайрга 5-20мм", unit: "м³" },
+  { label: "Шигшсэн элс",        value: "Элс",            unit: "м³" },
 ];
 
 function FactoryOrderModal({ onClose }: { onClose: () => void }) {
@@ -34,7 +34,6 @@ function FactoryOrderModal({ onClose }: { onClose: () => void }) {
   });
 
   const selected = PRODUCTS.find(p => p.value === form.productType) || PRODUCTS[2];
-  const totalAmt = selected.price * (parseFloat(form.quantity) || 0);
 
   const f = (k: string) => (e: any) => setForm(p => ({ ...p, [k]: e.target.value }));
 
@@ -49,10 +48,8 @@ function FactoryOrderModal({ onClose }: { onClose: () => void }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          quantity:     parseFloat(form.quantity),
-          unit:         selected.unit,
-          pricePerUnit: selected.price,
-          amount:       totalAmt || null,
+          quantity: parseFloat(form.quantity),
+          unit:     selected.unit,
         }),
       });
       const data = await res.json();
@@ -109,13 +106,9 @@ function FactoryOrderModal({ onClose }: { onClose: () => void }) {
                     data-testid="select-product-type"
                     className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-amber-500/50 appearance-none pr-10"
                   >
-                    {PRODUCTS.map(p => <option key={p.value} value={p.value}>{p.label} — {p.price.toLocaleString()}₮/{p.unit}</option>)}
+                    {PRODUCTS.map(p => <option key={p.value} value={p.value}>{p.label} ({p.unit})</option>)}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-                <div className="mt-2 flex gap-3">
-                  <span className="text-xs text-slate-400">Нэгж үнэ:</span>
-                  <span className="text-xs text-amber-400 font-bold">{selected.price.toLocaleString()}₮/{selected.unit}</span>
                 </div>
               </div>
 
@@ -130,12 +123,6 @@ function FactoryOrderModal({ onClose }: { onClose: () => void }) {
                   data-testid="input-quantity"
                   className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500/50"
                 />
-                {totalAmt > 0 && (
-                  <div className="mt-1.5 flex items-center gap-2">
-                    <span className="text-xs text-slate-400">Нийт дүн:</span>
-                    <span className="text-sm text-green-400 font-black">{totalAmt.toLocaleString()}₮</span>
-                  </div>
-                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">

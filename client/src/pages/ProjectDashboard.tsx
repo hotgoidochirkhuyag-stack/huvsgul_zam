@@ -46,17 +46,17 @@ const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
 };
 
 const FACTORY_PRODUCTS = [
-  { label: "М100 Бетон зуурмаг",  value: "М100 бетон",   unit: "м³", price: 185000 },
-  { label: "М150 Бетон зуурмаг",  value: "М150 бетон",   unit: "м³", price: 210000 },
-  { label: "М200 Бетон зуурмаг",  value: "М200 бетон",   unit: "м³", price: 240000 },
-  { label: "М250 Бетон зуурмаг",  value: "М250 бетон",   unit: "м³", price: 265000 },
-  { label: "М300 Бетон зуурмаг",  value: "М300 бетон",   unit: "м³", price: 290000 },
-  { label: "М350 Бетон зуурмаг",  value: "М350 бетон",   unit: "м³", price: 320000 },
-  { label: "М400 Бетон зуурмаг",  value: "М400 бетон",   unit: "м³", price: 355000 },
-  { label: "Асфальт хольц (AC)",  value: "Асфальт хольц", unit: "тн", price: 520000 },
-  { label: "Хайрга (0-5мм)",      value: "Хайрга 0-5мм",  unit: "м³", price: 48000  },
-  { label: "Хайрга (5-20мм)",     value: "Хайрга 5-20мм", unit: "м³", price: 52000  },
-  { label: "Шигшсэн элс",        value: "Элс",            unit: "м³", price: 38000  },
+  { label: "М100 Бетон зуурмаг",  value: "М100 бетон",    unit: "м³" },
+  { label: "М150 Бетон зуурмаг",  value: "М150 бетон",    unit: "м³" },
+  { label: "М200 Бетон зуурмаг",  value: "М200 бетон",    unit: "м³" },
+  { label: "М250 Бетон зуурмаг",  value: "М250 бетон",    unit: "м³" },
+  { label: "М300 Бетон зуурмаг",  value: "М300 бетон",    unit: "м³" },
+  { label: "М350 Бетон зуурмаг",  value: "М350 бетон",    unit: "м³" },
+  { label: "М400 Бетон зуурмаг",  value: "М400 бетон",    unit: "м³" },
+  { label: "Асфальт хольц (AC)",  value: "Асфальт хольц", unit: "тн" },
+  { label: "Хайрга (0-5мм)",      value: "Хайрга 0-5мм",  unit: "м³" },
+  { label: "Хайрга (5-20мм)",     value: "Хайрга 5-20мм", unit: "м³" },
+  { label: "Шигшсэн элс",        value: "Элс",            unit: "м³" },
 ];
 const WORK_TYPES = FACTORY_PRODUCTS.map(p => p.value);
 const TABS = [
@@ -210,7 +210,6 @@ function OrderForm({ initial, onClose, onSaved }: { initial?: any; onClose: () =
   });
 
   const selected = FACTORY_PRODUCTS.find(p => p.value === form.productType) || FACTORY_PRODUCTS[2];
-  const totalAmt = selected.price * (parseFloat(String(form.quantity)) || 0);
 
   const save = useMutation({
     mutationFn: () => {
@@ -218,10 +217,8 @@ function OrderForm({ initial, onClose, onSaved }: { initial?: any; onClose: () =
       const meth = isEdit ? "PATCH" : "POST";
       return fetch(url, { method: meth, headers: hdrs(), body: JSON.stringify({
         ...form,
-        quantity:     form.quantity ? parseFloat(String(form.quantity)) : null,
-        unit:         selected.unit,
-        pricePerUnit: selected.price,
-        amount:       totalAmt || null,
+        quantity: form.quantity ? parseFloat(String(form.quantity)) : null,
+        unit:     selected.unit,
       }) }).then(r => { if (!r.ok) throw new Error(); return r.json(); });
     },
     onSuccess: () => { toast({ title: isEdit ? "Шинэчлэгдлээ" : "Нэмэгдлээ" }); onSaved(); onClose(); },
@@ -245,18 +242,12 @@ function OrderForm({ initial, onClose, onSaved }: { initial?: any; onClose: () =
           <div>
             <label className="text-slate-400 text-xs mb-1 block">Бүтээгдэхүүн</label>
             <select value={form.productType} onChange={f("productType")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none">
-              {FACTORY_PRODUCTS.map(p => <option key={p.value} value={p.value}>{p.label} — {p.price.toLocaleString()}₮/{p.unit}</option>)}
+              {FACTORY_PRODUCTS.map(p => <option key={p.value} value={p.value}>{p.label} ({p.unit})</option>)}
             </select>
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-slate-400 text-xs mb-1 block">Тоо хэмжээ ({selected.unit})</label>
-              <input type="number" min="0" value={form.quantity} onChange={f("quantity")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
-            </div>
-            <div>
-              <label className="text-slate-400 text-xs mb-1 block">Нийт дүн</label>
-              <div className="w-full bg-slate-700/50 border border-white/5 rounded-xl px-3 py-2 text-green-400 font-bold text-sm">{totalAmt > 0 ? `${totalAmt.toLocaleString()}₮` : "—"}</div>
-            </div>
+          <div>
+            <label className="text-slate-400 text-xs mb-1 block">Тоо хэмжээ ({selected.unit})</label>
+            <input type="number" min="0" value={form.quantity} onChange={f("quantity")} className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:outline-none focus:border-amber-500/50" />
           </div>
           {[
             { label: "Захиалагч нэр",    key: "clientName"       },
@@ -562,10 +553,10 @@ function ReportTab() {
     name: v.label, value: contracts.filter((c: any) => c.status === k).length,
   })).filter(d => d.value > 0);
 
-  const workTypeData = FACTORY_PRODUCTS.map(p => ({
-    name:     p.label.length > 8 ? p.label.slice(0, 8) + "…" : p.label,
-    захиалга: orders.filter((o: any) => (o.productType || o.workType) === p.value).length,
-    гэрээ:    contracts.filter((c: any) => c.workType === p.value).length,
+  const workTypeData = WORK_TYPES.map(wt => ({
+    name:     wt.length > 6 ? wt.slice(0, 6) + "…" : wt,
+    захиалга: orders.filter((o: any) => o.workType === wt).length,
+    гэрээ:    contracts.filter((c: any) => c.workType === wt).length,
   })).filter(d => d.захиалга > 0 || d.гэрээ > 0);
 
   return (
