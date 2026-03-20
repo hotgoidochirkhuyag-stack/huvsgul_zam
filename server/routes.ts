@@ -116,18 +116,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(await storage.getProjects());
   });
 
-  // Тендерт явуулсан төслүүд — DB дээр бүрэн CRUD
+  // ===== ТЕНДЕРТ ЯВУУЛСАН ТӨСЛҮҮД — tender_projects хүснэгт (бүрэн тусдаа) =====
   app.get("/api/tender-projects", async (_req, res) => {
-    const rows = await db.select().from(schema.projects).orderBy(schema.projects.id);
+    const rows = await db.select().from(schema.tenderProjects).orderBy(schema.tenderProjects.id);
     res.json(rows);
   });
   app.post("/api/tender-projects", requireAdmin, async (req, res) => {
     try {
       const { title, description, category, location, year, progress } = req.body;
       if (!title) return res.status(400).json({ error: "title шаардлагатай" });
-      const [p] = await db.insert(schema.projects).values({
-        title, description: description || "", imageUrl: "/placeholder.jpg",
-        category: category || "Авто зам", location: location || "", year: year || "", progress: Number(progress ?? 0),
+      const [p] = await db.insert(schema.tenderProjects).values({
+        title, description: description || "", category: category || "Авто зам",
+        location: location || "", year: year || "", progress: Number(progress ?? 0),
       }).returning();
       res.status(201).json(p);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
@@ -136,14 +136,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const id = parseInt(req.params.id);
       const { title, description, category, location, year, progress } = req.body;
-      const [p] = await db.update(schema.projects)
+      const [p] = await db.update(schema.tenderProjects)
         .set({ title, description, category, location, year, progress: Number(progress ?? 0) })
-        .where(eq(schema.projects.id, id)).returning();
+        .where(eq(schema.tenderProjects.id, id)).returning();
       res.json(p);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
   app.delete("/api/tender-projects/:id", requireAdmin, async (req, res) => {
-    await db.delete(schema.projects).where(eq(schema.projects.id, parseInt(req.params.id)));
+    await db.delete(schema.tenderProjects).where(eq(schema.tenderProjects.id, parseInt(req.params.id)));
     res.json({ ok: true });
   });
   app.patch("/api/projects/metadata", requireAdmin, async (req, res) => {

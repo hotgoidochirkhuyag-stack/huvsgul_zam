@@ -587,6 +587,21 @@ export const insertBudgetContactSchema = createInsertSchema(budgetContacts).omit
 export type BudgetContact = typeof budgetContacts.$inferSelect;
 export type InsertBudgetContact = z.infer<typeof insertBudgetContactSchema>;
 
+// ===================== ТЕНДЕРТ ЯВУУЛСАН ТӨСЛҮҮД =====================
+export const tenderProjects = pgTable("tender_projects", {
+  id:          serial("id").primaryKey(),
+  title:       text("title").notNull(),
+  description: text("description").default(""),
+  category:    text("category").default("Авто зам"),
+  location:    text("location").default(""),
+  year:        text("year").default(""),
+  progress:    integer("progress").default(0),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+export const insertTenderProjectSchema = createInsertSchema(tenderProjects).omit({ id: true, createdAt: true });
+export type TenderProject    = typeof tenderProjects.$inferSelect;
+export type InsertTenderProject = z.infer<typeof insertTenderProjectSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;
