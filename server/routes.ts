@@ -111,25 +111,38 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ============ WEBSITE API ============
+  // Cloudinary галерей — нүүр хуудасны showcase
   app.get("/api/projects", async (_req, res) => {
     res.json(await storage.getProjects());
   });
-  app.post("/api/projects", requireAdmin, async (req, res) => {
+
+  // Тендерт явуулсан төслүүд — DB дээр бүрэн CRUD
+  app.get("/api/tender-projects", async (_req, res) => {
+    const rows = await db.select().from(schema.projects).orderBy(schema.projects.id);
+    res.json(rows);
+  });
+  app.post("/api/tender-projects", requireAdmin, async (req, res) => {
     try {
-      const data = schema.insertProjectSchema.parse(req.body);
-      const [p] = await db.insert(schema.projects).values(data).returning();
+      const { title, description, category, location, year, progress } = req.body;
+      if (!title) return res.status(400).json({ error: "title шаардлагатай" });
+      const [p] = await db.insert(schema.projects).values({
+        title, description: description || "", imageUrl: "/placeholder.jpg",
+        category: category || "Авто зам", location: location || "", year: year || "", progress: Number(progress ?? 0),
+      }).returning();
       res.status(201).json(p);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
-  app.patch("/api/projects/:id", requireAdmin, async (req, res) => {
+  app.patch("/api/tender-projects/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { title, description, imageUrl, category, location, length, year, clientName, contractValue, progress } = req.body;
-      const [p] = await db.update(schema.projects).set({ title, description, imageUrl, category, location, length, year, clientName, contractValue, progress }).where(eq(schema.projects.id, id)).returning();
+      const { title, description, category, location, year, progress } = req.body;
+      const [p] = await db.update(schema.projects)
+        .set({ title, description, category, location, year, progress: Number(progress ?? 0) })
+        .where(eq(schema.projects.id, id)).returning();
       res.json(p);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
-  app.delete("/api/projects/:id", requireAdmin, async (req, res) => {
+  app.delete("/api/tender-projects/:id", requireAdmin, async (req, res) => {
     await db.delete(schema.projects).where(eq(schema.projects.id, parseInt(req.params.id)));
     res.json({ ok: true });
   });

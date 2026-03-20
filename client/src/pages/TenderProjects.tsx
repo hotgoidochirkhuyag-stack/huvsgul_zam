@@ -146,27 +146,27 @@ export default function TenderProjects() {
   const [delId,   setDelId]   = useState<number | null>(null);
 
   const { data: projects = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/projects"],
+    queryKey: ["/api/tender-projects"],
     staleTime: 30_000,
   });
 
   const createMut = useMutation({
     mutationFn: (data: any) =>
-      fetch("/api/projects", { method: "POST", headers: adminHdrs(), body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/projects"] }); setAdding(false); toast({ title: "✅ Төсөл нэмэгдлээ" }); },
+      fetch("/api/tender-projects", { method: "POST", headers: adminHdrs(), body: JSON.stringify(data) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/tender-projects"] }); setAdding(false); toast({ title: "✅ Төсөл нэмэгдлээ" }); },
     onError:   () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
 
   const updateMut = useMutation({
     mutationFn: (data: any) =>
-      fetch(`/api/projects/${data.id}`, { method: "PATCH", headers: adminHdrs(), body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/projects"] }); setEditing(null); toast({ title: "✅ Засагдлаа" }); },
+      fetch(`/api/tender-projects/${data.id}`, { method: "PATCH", headers: adminHdrs(), body: JSON.stringify(data) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/tender-projects"] }); setEditing(null); toast({ title: "✅ Засагдлаа" }); },
     onError:   () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
 
   const deleteMut = useMutation({
-    mutationFn: (id: number) => fetch(`/api/projects/${id}`, { method: "DELETE", headers: adminHdrs() }),
-    onSuccess:  () => { qc.invalidateQueries({ queryKey: ["/api/projects"] }); setDelId(null); toast({ title: "🗑️ Устгагдлаа" }); },
+    mutationFn: (id: number) => fetch(`/api/tender-projects/${id}`, { method: "DELETE", headers: adminHdrs() }),
+    onSuccess:  () => { qc.invalidateQueries({ queryKey: ["/api/tender-projects"] }); setDelId(null); toast({ title: "🗑️ Устгагдлаа" }); },
     onError:    () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
 
