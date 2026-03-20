@@ -427,6 +427,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(500).json({ error: "Статистик татахад алдаа" });
     }
   });
+  // Нийтийн API: Түрээслэх боломжтой (isReady=true) техник
+  app.get("/api/public/available-vehicles", async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.vehicles)
+        .where(eq(schema.vehicles.isReady, true))
+        .orderBy(schema.vehicles.type, schema.vehicles.name);
+      res.json(rows.map(v => ({
+        id:          v.id,
+        name:        v.name,
+        plateNumber: v.plateNumber,
+        type:        v.type,
+        capacity:    v.capacity,
+        readyNote:   v.readyNote,
+      })));
+    } catch (e) {
+      console.error("Available vehicles error:", e);
+      res.status(500).json([]);
+    }
+  });
+
   // Нийтийн API: 3-аас дээш өдрөөр сул байгаа техник
   app.get("/api/public/idle-vehicles", async (_req, res) => {
     try {

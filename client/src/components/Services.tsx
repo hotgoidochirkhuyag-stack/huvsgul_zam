@@ -1,19 +1,8 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, Clock, CheckSquare } from "lucide-react";
+import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, FileText, Wrench } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
-
-const TENDER_ITEMS = [
-  "Авто замын доод давхарга угсрах",
-  "Асфальт хольц хийж тавих (I давхарга)",
-  "Асфальт хольц хийж тавих (II давхарга)",
-  "Гүүрийн хийц угсрах",
-  "Дренаж, ус зайлуулах системийн ажил",
-  "Гэрлэн дохиоллын систем суурилуулах",
-  "Хашлага, тэмдэглэл хийх",
-  "Цементэн бетон хучилт хийх",
-];
 
 const BUDGET_CONTACTS = [
   { name: "Д.Батболд",   role: "Захирал",              phone: "9900-1234" },
@@ -36,6 +25,165 @@ const PRODUCTS = [
   { label: "Шигшсэн элс",        value: "Элс",            unit: "м³" },
 ];
 
+// ===== Төслийн нэрс modal =====
+function ProjectsModal({ onClose }: { onClose: () => void }) {
+  const { data: projects = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/projects"],
+    staleTime: 60_000,
+  });
+
+  const getLevel = (progress: number | null) => {
+    if (progress === null || progress === undefined) return { label: "Төлөвлөгдсөн", color: "text-slate-400", bg: "bg-slate-700" };
+    if (progress >= 100)  return { label: "Дууссан",              color: "text-green-400",  bg: "bg-green-600" };
+    if (progress >= 75)   return { label: "Дуусахдаа ойртсон",   color: "text-amber-400",  bg: "bg-amber-500" };
+    if (progress >= 25)   return { label: "Явагдаж байна",        color: "text-blue-400",   bg: "bg-blue-600"  };
+    return                       { label: "Эхлэх шатанд",         color: "text-slate-400",  bg: "bg-slate-600" };
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-[#0f172a] border border-amber-500/20 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center">
+              <FileText className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h2 className="font-black text-white text-base">Төслийн нэрс</h2>
+              <p className="text-slate-400 text-xs">Хэрэгжиж байгаа болон дууссан төслүүд</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 hover:bg-white/5 rounded-lg transition-all">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto max-h-[70vh] space-y-3">
+          {isLoading && (
+            <div className="text-center py-10 text-slate-400 text-sm">Уншиж байна...</div>
+          )}
+          {!isLoading && projects.length === 0 && (
+            <div className="text-center py-10 text-slate-400 text-sm">Төсөл бүртгэлгүй байна.</div>
+          )}
+          {projects.map((p: any) => {
+            const lvl = getLevel(p.progress);
+            return (
+              <div key={p.id} className="bg-white/5 border border-white/8 rounded-xl p-4">
+                <div className="flex items-start justify-between gap-3 mb-2">
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-white font-semibold text-sm leading-snug">{p.title}</h3>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      {p.category && <span className="text-[11px] text-slate-400 bg-slate-700/50 rounded px-2 py-0.5">{p.category}</span>}
+                      {p.location  && <span className="text-[11px] text-slate-500">{p.location}</span>}
+                      {p.year      && <span className="text-[11px] text-slate-500">{p.year}</span>}
+                    </div>
+                  </div>
+                  <span className={`text-[11px] font-bold px-2.5 py-1 rounded-full shrink-0 ${lvl.color} bg-white/5 border border-current/20`}>
+                    {lvl.label}
+                  </span>
+                </div>
+                {(p.progress !== null && p.progress !== undefined) && (
+                  <div className="mt-2">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-[10px] text-slate-500">Гүйцэтгэл</span>
+                      <span className="text-[11px] font-bold text-amber-400">{p.progress}%</span>
+                    </div>
+                    <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${lvl.bg}`}
+                        style={{ width: `${Math.min(p.progress, 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ===== Түрээслэх техник modal =====
+function AvailableVehiclesModal({ onClose }: { onClose: () => void }) {
+  const { data: vehicles = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/public/available-vehicles"],
+    staleTime: 60_000,
+  });
+
+  const byType = vehicles.reduce<Record<string, any[]>>((acc, v) => {
+    const t = v.type || "Бусад";
+    if (!acc[t]) acc[t] = [];
+    acc[t].push(v);
+    return acc;
+  }, {});
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
+      <motion.div
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{ opacity: 1, scale: 1, y: 0 }}
+        exit={{ opacity: 0, scale: 0.95, y: 20 }}
+        onClick={e => e.stopPropagation()}
+        className="bg-[#0f172a] border border-amber-500/20 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
+      >
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center">
+              <Truck className="w-5 h-5 text-amber-400" />
+            </div>
+            <div>
+              <h2 className="font-black text-white text-base">Түрээслэх техник</h2>
+              <p className="text-slate-400 text-xs">Ажилд бэлэн, түрээсэлж болох техник ({vehicles.length})</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 hover:bg-white/5 rounded-lg transition-all">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        <div className="p-5 overflow-y-auto max-h-[70vh] space-y-5">
+          {isLoading && (
+            <div className="text-center py-10 text-slate-400 text-sm">Уншиж байна...</div>
+          )}
+          {!isLoading && vehicles.length === 0 && (
+            <div className="text-center py-10 text-slate-400 text-sm">Одоогоор бэлэн техник байхгүй байна.</div>
+          )}
+          {Object.entries(byType).map(([type, list]) => (
+            <div key={type}>
+              <div className="flex items-center gap-2 mb-2">
+                <Wrench className="w-3.5 h-3.5 text-amber-400" />
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">{type} ({list.length})</span>
+              </div>
+              <div className="space-y-2">
+                {list.map((v: any) => (
+                  <div key={v.id} className="flex items-center justify-between bg-white/5 border border-white/8 rounded-lg px-4 py-2.5">
+                    <div>
+                      <p className="text-white text-sm font-semibold">{v.name}</p>
+                      <p className="text-slate-400 text-[11px]">{v.plateNumber}{v.capacity ? ` · ${v.capacity}` : ""}</p>
+                    </div>
+                    <span className="text-[11px] text-green-400 font-bold bg-green-500/10 border border-green-500/20 rounded-full px-2.5 py-0.5">
+                      Бэлэн
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      </motion.div>
+    </div>
+  );
+}
+
+// ===== Үйлдвэрийн захиалгын modal =====
 function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; initialProduct?: string }) {
   const { toast } = useToast();
   const [step, setStep] = useState<"form" | "success">("form");
@@ -247,13 +395,10 @@ const servicesData = [
 ];
 
 export default function Services() {
-  const [showOrderModal, setShowOrderModal]   = useState(false);
-  const [selectedProduct, setSelectedProduct] = useState(PRODUCTS[2].value);
-
-  const { data: idleVehicles = [] } = useQuery<any[]>({
-    queryKey: ["/api/public/idle-vehicles"],
-    staleTime: 5 * 60 * 1000,
-  });
+  const [showOrderModal,    setShowOrderModal]    = useState(false);
+  const [selectedProduct,   setSelectedProduct]   = useState(PRODUCTS[2].value);
+  const [showProjectsModal, setShowProjectsModal] = useState(false);
+  const [showVehiclesModal, setShowVehiclesModal] = useState(false);
 
   const scrollToContact = () => {
     const el = document.getElementById("contact");
@@ -325,51 +470,26 @@ export default function Services() {
                 {service.description}
               </p>
 
-              {/* Авто зам гүүр: тендерийн ажлын нэрс */}
+              {/* Авто зам гүүр: Төслийн нэрс товч */}
               {service.id === 1 && (
-                <div className="mt-1 space-y-1.5 flex-1">
-                  {TENDER_ITEMS.map((item, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <CheckSquare className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
-                      <span className="text-xs text-muted-foreground leading-snug">{item}</span>
-                    </div>
-                  ))}
-                </div>
+                <button
+                  onClick={() => setShowProjectsModal(true)}
+                  className="mt-auto pt-4 w-full py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-primary/30 hover:border-primary/60 text-primary font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  <FileText className="w-4 h-4" />
+                  Төслийн нэрс
+                </button>
               )}
 
-              {/* Техникийн түрээс: 3+ өдрөөр сул байгаа техник */}
+              {/* Техникийн түрээс: Түрээслэх техник товч */}
               {service.id === 3 && (
-                <div className="mt-1 flex-1">
-                  {idleVehicles.length === 0 ? (
-                    <p className="text-xs text-muted-foreground italic">Одоогоор сул техник байхгүй байна.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      <p className="text-xs text-amber-400 font-semibold mb-2 flex items-center gap-1.5">
-                        <Clock className="w-3.5 h-3.5" />
-                        Түрээсэлж болох техник ({idleVehicles.length}):
-                      </p>
-                      {idleVehicles.slice(0, 5).map((v: any) => (
-                        <div key={v.id} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
-                          <div className="flex items-center gap-1.5 mb-0.5">
-                            <Truck className="w-3 h-3 text-primary shrink-0" />
-                            <span className="text-xs font-semibold text-foreground truncate">{v.name}</span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] text-muted-foreground">{v.plateNumber} · {v.type}</span>
-                            {v.lastUsed ? (
-                              <span className="text-[10px] text-amber-400">{v.lastUsed} сүүлд</span>
-                            ) : (
-                              <span className="text-[10px] text-slate-500">Бүртгэлгүй</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                      {idleVehicles.length > 5 && (
-                        <p className="text-[10px] text-muted-foreground text-center pt-1">+{idleVehicles.length - 5} техник нэмэлтээр байна</p>
-                      )}
-                    </div>
-                  )}
-                </div>
+                <button
+                  onClick={() => setShowVehiclesModal(true)}
+                  className="mt-auto pt-4 w-full py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-primary/30 hover:border-primary/60 text-primary font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2"
+                >
+                  <Truck className="w-4 h-4" />
+                  Түрээслэх техник
+                </button>
               )}
 
               {/* Зам гүүрийн төсөв: холбогдох хүмүүс */}
@@ -426,7 +546,9 @@ export default function Services() {
       </div>
 
       <AnimatePresence>
-        {showOrderModal && <FactoryOrderModal onClose={() => setShowOrderModal(false)} initialProduct={selectedProduct} />}
+        {showProjectsModal && <ProjectsModal         onClose={() => setShowProjectsModal(false)} />}
+        {showVehiclesModal && <AvailableVehiclesModal onClose={() => setShowVehiclesModal(false)} />}
+        {showOrderModal    && <FactoryOrderModal      onClose={() => setShowOrderModal(false)} initialProduct={selectedProduct} />}
       </AnimatePresence>
     </section>
   );
