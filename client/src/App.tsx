@@ -7,7 +7,6 @@ import NotFound from "@/pages/not-found";
 import Home from "@/pages/Home";
 import RoleSelection from "@/pages/RoleSelection";
 import AdminLogin from "@/pages/AdminLogin";
-import BoardDashboard from "@/pages/BoardDashboard";
 import ProjectDashboard from "@/pages/ProjectDashboard";
 import AdminDashboard from "@/pages/AdminDashboard";
 import EngineerDashboard from "@/pages/EngineerDashboard";
@@ -29,7 +28,6 @@ const ProtectedRoute = ({ component: Component, role }: { component: React.Compo
 
   if (userRole !== role) {
     const redirects: Record<string, string> = {
-      BOARD:      "/dashboard/board",
       PROJECT:    "/dashboard/project",
       ADMIN:      "/dashboard/admin",
       ENGINEER:   "/dashboard/engineer",
@@ -60,7 +58,6 @@ function Router() {
       <Route path="/vehicle-inspection" component={EquipmentInspection} />
 
       {/* Удирдлагын самбарууд */}
-      <Route path="/dashboard/board"      component={() => <ProtectedRoute component={BoardDashboard}      role="BOARD" />} />
       <Route path="/dashboard/project"    component={() => <ProtectedRoute component={ProjectDashboard}    role="PROJECT" />} />
       <Route path="/dashboard/admin"      component={() => <ProtectedRoute component={AdminDashboard}      role="ADMIN" />} />
       <Route path="/dashboard/engineer"   component={() => <ProtectedRoute component={EngineerDashboard}   role="ENGINEER" />} />

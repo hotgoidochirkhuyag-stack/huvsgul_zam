@@ -223,7 +223,7 @@ export default function ERPReport() {
       {/* Header */}
       <div className={`border-b border-white/10 ${config.bgClass} px-5 py-3`}>
         <div className="max-w-lg mx-auto flex items-center justify-between">
-          <button onClick={() => setLocation("/select-role")} className="text-slate-400 hover:text-white transition-all">
+          <button onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }} className="text-slate-400 hover:text-white transition-all">
             <ArrowLeft size={18} />
           </button>
           <div className="flex items-center gap-2">
