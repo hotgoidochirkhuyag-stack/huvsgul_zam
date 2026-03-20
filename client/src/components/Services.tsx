@@ -71,7 +71,7 @@ function ProjectsModal({ onClose }: { onClose: () => void }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-amber-500/10 rounded-lg flex items-center justify-center"><FileText className="w-5 h-5 text-amber-400" /></div>
-            <div><h2 className="font-black text-white text-base">Төслийн нэрс</h2><p className="text-slate-400 text-xs">Хэрэгжиж байгаа болон дууссан төслүүд</p></div>
+            <div><h2 className="font-black text-white text-base">Тендерт явуулсан төслүүд</h2><p className="text-slate-400 text-xs">Хэрэгжиж байгаа болон дууссан тендерийн төслүүд</p></div>
           </div>
           <div className="flex items-center gap-2">
             {isAdmin && !showForm && <button onClick={openAdd} className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition-all"><Plus className="w-3.5 h-3.5" />Нэмэх</button>}
@@ -107,8 +107,8 @@ function ProjectsModal({ onClose }: { onClose: () => void }) {
           {!isLoading && projects.length === 0 && !showForm && (
             <div className="text-center py-10 text-slate-400 text-sm">
               <FileText className="w-10 h-10 mx-auto mb-3 opacity-30" />
-              <p>Одоогоор төсөл бүртгэлгүй байна.</p>
-              {isAdmin && <button onClick={openAdd} className="mt-3 text-amber-400 text-xs underline">+ Анхны төсөл нэмэх</button>}
+              <p>Одоогоор тендерт явуулсан төсөл бүртгэлгүй байна.</p>
+              {isAdmin && <button onClick={openAdd} className="mt-3 text-amber-400 text-xs underline">+ Анхны тендерийн төсөл нэмэх</button>}
             </div>
           )}
           <div className="space-y-3">
@@ -519,7 +519,7 @@ const servicesData = [
     id: 2,
     icon: Warehouse,
     title: "Бетон зуурмагийн үйлдвэр",
-    description: "М100–М400 бетон зуурмаг, асфальт хольц, хайрга, элс — тохирлын гэрчилгээтэй, өндөр чанартай.",
+    description: "Бетон зуурмаг, асфальтбетон хольц, хайрга, элс — тохирлын гэрчилгээтэй, өндөр чанартай.",
     delay: 0.2,
     orderBtn: true,
   },
@@ -621,10 +621,10 @@ export default function Services() {
               {service.id === 1 && (
                 <button
                   onClick={() => setShowProjectsModal(true)}
-                  className="mt-auto pt-4 w-full py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-primary/30 hover:border-primary/60 text-primary font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2"
+                  className="mt-auto w-full py-2.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
                 >
                   <FileText className="w-4 h-4" />
-                  Төслийн нэрс
+                  Тендерт явуулсан төслүүд
                 </button>
               )}
 
@@ -632,7 +632,7 @@ export default function Services() {
               {service.id === 3 && (
                 <button
                   onClick={() => setShowVehiclesModal(true)}
-                  className="mt-auto pt-4 w-full py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-primary/30 hover:border-primary/60 text-primary font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2"
+                  className="mt-auto w-full py-2.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
                 >
                   <Truck className="w-4 h-4" />
                   Түрээслэх техник
@@ -643,7 +643,7 @@ export default function Services() {
               {service.id === 4 && (
                 <button
                   onClick={() => setShowBudgetModal(true)}
-                  className="mt-auto pt-4 w-full py-2.5 bg-slate-800/80 hover:bg-slate-700/80 border border-primary/30 hover:border-primary/60 text-primary font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2"
+                  className="mt-auto w-full py-2.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
                 >
                   <User className="w-4 h-4" />
                   Холбогдох хүмүүс
@@ -654,7 +654,7 @@ export default function Services() {
                 <button
                   data-testid="btn-factory-order-open"
                   onClick={() => setShowOrderModal(true)}
-                  className="mt-5 w-full py-3 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/30"
+                  className="mt-auto w-full py-2.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
                 >
                   <Warehouse className="w-4 h-4" />
                   Үйлдвэрт захиалга өгөх
