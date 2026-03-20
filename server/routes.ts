@@ -1658,6 +1658,211 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ===================== МЭРГЭЖЛИЙН ГЭРЧИЛГЭЭ =====================
+  app.get("/api/employee-certificates", requireAdmin, async (req, res) => {
+    try {
+      const empId = req.query.employeeId ? parseInt(req.query.employeeId as string) : null;
+      const rows = empId
+        ? await db.select().from(schema.employeeCertificates).where(eq(schema.employeeCertificates.employeeId, empId)).orderBy(desc(schema.employeeCertificates.createdAt))
+        : await db.select().from(schema.employeeCertificates).orderBy(desc(schema.employeeCertificates.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/employee-certificates", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertEmployeeCertSchema.parse(req.body);
+      const [row] = await db.insert(schema.employeeCertificates).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/employee-certificates/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.employeeCertificates).where(eq(schema.employeeCertificates.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== ХАБЭА СУРГАЛТ =====================
+  app.get("/api/employee-trainings", requireAdmin, async (req, res) => {
+    try {
+      const empId = req.query.employeeId ? parseInt(req.query.employeeId as string) : null;
+      const rows = empId
+        ? await db.select().from(schema.employeeTrainings).where(eq(schema.employeeTrainings.employeeId, empId)).orderBy(desc(schema.employeeTrainings.createdAt))
+        : await db.select().from(schema.employeeTrainings).orderBy(desc(schema.employeeTrainings.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/employee-trainings", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertEmployeeTrainingSchema.parse(req.body);
+      const [row] = await db.insert(schema.employeeTrainings).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/employee-trainings/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.employeeTrainings).where(eq(schema.employeeTrainings.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== ЧАДВАРЫН МАТРИЦ =====================
+  app.get("/api/employee-skills", requireAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(schema.employeeSkills).orderBy(desc(schema.employeeSkills.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/employee-skills", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertEmployeeSkillSchema.parse(req.body);
+      const [row] = await db.insert(schema.employeeSkills).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/employee-skills/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.employeeSkills).where(eq(schema.employeeSkills.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== ТО ХУВААРЬ =====================
+  app.get("/api/maintenance-schedules", requireAdmin, async (req, res) => {
+    try {
+      const vId = req.query.vehicleId ? parseInt(req.query.vehicleId as string) : null;
+      const rows = vId
+        ? await db.select().from(schema.maintenanceSchedules).where(eq(schema.maintenanceSchedules.vehicleId, vId)).orderBy(desc(schema.maintenanceSchedules.scheduledDate))
+        : await db.select().from(schema.maintenanceSchedules).orderBy(desc(schema.maintenanceSchedules.scheduledDate));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/maintenance-schedules", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertMaintenanceScheduleSchema.parse(req.body);
+      const [row] = await db.insert(schema.maintenanceSchedules).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.patch("/api/maintenance-schedules/:id", requireAdmin, async (req, res) => {
+    try {
+      const [row] = await db.update(schema.maintenanceSchedules)
+        .set(req.body).where(eq(schema.maintenanceSchedules.id, parseInt(req.params.id))).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/maintenance-schedules/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.maintenanceSchedules).where(eq(schema.maintenanceSchedules.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== СЭЛБЭГ ХЭРЭГСЭЛ =====================
+  app.get("/api/spare-parts", requireAdmin, async (req, res) => {
+    try {
+      const vId = req.query.vehicleId ? parseInt(req.query.vehicleId as string) : null;
+      const rows = vId
+        ? await db.select().from(schema.spareParts).where(eq(schema.spareParts.vehicleId, vId)).orderBy(schema.spareParts.partName)
+        : await db.select().from(schema.spareParts).orderBy(schema.spareParts.partName);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/spare-parts", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertSparePartSchema.parse(req.body);
+      const [row] = await db.insert(schema.spareParts).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.patch("/api/spare-parts/:id", requireAdmin, async (req, res) => {
+    try {
+      const [row] = await db.update(schema.spareParts)
+        .set(req.body).where(eq(schema.spareParts.id, parseInt(req.params.id))).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/spare-parts/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.spareParts).where(eq(schema.spareParts.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== ТЕХНИКИЙН БАРИМТ БИЧИГ =====================
+  app.get("/api/vehicle-documents", requireAdmin, async (req, res) => {
+    try {
+      const vId = req.query.vehicleId ? parseInt(req.query.vehicleId as string) : null;
+      const rows = vId
+        ? await db.select().from(schema.vehicleDocuments).where(eq(schema.vehicleDocuments.vehicleId, vId)).orderBy(schema.vehicleDocuments.expiryDate)
+        : await db.select().from(schema.vehicleDocuments).orderBy(schema.vehicleDocuments.expiryDate);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/vehicle-documents", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertVehicleDocSchema.parse(req.body);
+      const [row] = await db.insert(schema.vehicleDocuments).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+  app.delete("/api/vehicle-documents/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.vehicleDocuments).where(eq(schema.vehicleDocuments.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ===================== НЭГТГЭСЭН АНХААРУУЛГА =====================
+  app.get("/api/expiry-alerts", requireAdmin, async (req, res) => {
+    try {
+      const today = new Date();
+      const in60  = new Date(today.getTime() + 60 * 86400000).toISOString().slice(0, 10);
+      const todayStr = today.toISOString().slice(0, 10);
+
+      const [certs, trainings, vdocs, maintenance] = await Promise.all([
+        db.select().from(schema.employeeCertificates).where(sql`${schema.employeeCertificates.expiryDate} IS NOT NULL AND ${schema.employeeCertificates.expiryDate} <= ${in60}`),
+        db.select().from(schema.employeeTrainings).where(sql`${schema.employeeTrainings.nextDueDate} IS NOT NULL AND ${schema.employeeTrainings.nextDueDate} <= ${in60}`),
+        db.select().from(schema.vehicleDocuments).where(sql`${schema.vehicleDocuments.expiryDate} <= ${in60}`),
+        db.select().from(schema.maintenanceSchedules).where(sql`${schema.maintenanceSchedules.status} = 'scheduled' AND ${schema.maintenanceSchedules.scheduledDate} <= ${in60}`),
+      ]);
+
+      const employees = await db.select().from(schema.employees);
+      const vehicles  = await db.select().from(schema.vehicles);
+      const empMap: Record<number, string> = {};
+      employees.forEach((e: any) => { empMap[e.id] = e.name; });
+      const vehMap: Record<number, string> = {};
+      vehicles.forEach((v: any) => { vehMap[v.id] = `${v.name} (${v.plateNumber})`; });
+
+      const alerts: any[] = [];
+      certs.forEach((c: any) => {
+        const daysLeft = Math.ceil((new Date(c.expiryDate).getTime() - today.getTime()) / 86400000);
+        alerts.push({ id: `cert-${c.id}`, type: "cert", level: daysLeft <= 0 ? "expired" : daysLeft <= 14 ? "critical" : "warning",
+          title: c.certName, entity: empMap[c.employeeId] ?? "Ажилтан", expiry: c.expiryDate, daysLeft, category: "HR" });
+      });
+      trainings.forEach((t: any) => {
+        const daysLeft = Math.ceil((new Date(t.nextDueDate).getTime() - today.getTime()) / 86400000);
+        alerts.push({ id: `train-${t.id}`, type: "training", level: daysLeft <= 0 ? "expired" : daysLeft <= 14 ? "critical" : "warning",
+          title: t.trainingName, entity: empMap[t.employeeId] ?? "Ажилтан", expiry: t.nextDueDate, daysLeft, category: "HR" });
+      });
+      vdocs.forEach((d: any) => {
+        const daysLeft = Math.ceil((new Date(d.expiryDate).getTime() - today.getTime()) / 86400000);
+        alerts.push({ id: `vdoc-${d.id}`, type: "vehicle_doc", level: daysLeft <= 0 ? "expired" : daysLeft <= 14 ? "critical" : "warning",
+          title: d.docName, entity: vehMap[d.vehicleId] ?? "Техник", expiry: d.expiryDate, daysLeft, category: "Техник" });
+      });
+      maintenance.forEach((m: any) => {
+        const daysLeft = Math.ceil((new Date(m.scheduledDate).getTime() - today.getTime()) / 86400000);
+        alerts.push({ id: `maint-${m.id}`, type: "maintenance", level: daysLeft <= 0 ? "expired" : daysLeft <= 7 ? "critical" : "warning",
+          title: `${m.toType} засвар`, entity: vehMap[m.vehicleId] ?? "Техник", expiry: m.scheduledDate, daysLeft, category: "Засвар" });
+      });
+      alerts.sort((a, b) => a.daysLeft - b.daysLeft);
+      res.json(alerts);
+    } catch (e: any) {
+      console.error("expiry-alerts error:", e);
+      res.status(500).json({ error: e.message });
+    }
+  });
+
   // ===================== ОНЫ НЭГТГЭЛ ТАЙЛАН =====================
   app.get("/api/annual-report", requireAdmin, async (req, res) => {
     try {

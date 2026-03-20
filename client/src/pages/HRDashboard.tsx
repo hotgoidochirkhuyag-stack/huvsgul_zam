@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Users, Plus, Trash2, QrCode, LogOut, RefreshCw,
   Clock, ShieldCheck, Download, Search, Building2, HardHat, Factory, ChevronDown,
-  Pencil, X, Check,
+  Pencil, X, Check, Award, GraduationCap, Wrench, AlertTriangle, CheckCircle2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -31,7 +31,7 @@ export default function HRDashboard() {
   const qc = useQueryClient();
 
   const today = new Date().toISOString().slice(0, 10);
-  const [tab, setTab] = useState<"employees" | "attendance">("employees");
+  const [tab, setTab] = useState<"employees" | "attendance" | "certs" | "trainings" | "skills">("employees");
   const [search, setSearch] = useState("");
   const [filterDept, setFilterDept] = useState("all");
   const [selectedQrEmployee, setSelectedQrEmployee] = useState<any>(null);
@@ -161,13 +161,19 @@ export default function HRDashboard() {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-5">
-          <button onClick={() => setTab("employees")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "employees" ? "bg-purple-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-            <Users className="w-4 h-4" /> Ажилтнууд
-          </button>
-          <button onClick={() => setTab("attendance")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "attendance" ? "bg-purple-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-            <Clock className="w-4 h-4" /> Өнөөдрийн ирц
-          </button>
+        <div className="flex flex-wrap gap-2 mb-5">
+          {([
+            { key: "employees",  label: "Ажилтнууд",      icon: Users          },
+            { key: "attendance", label: "Өнөөдрийн ирц",  icon: Clock          },
+            { key: "certs",      label: "Гэрчилгээ",       icon: Award          },
+            { key: "trainings",  label: "Сургалт/ХАБЭА",   icon: GraduationCap  },
+            { key: "skills",     label: "Чадварын матриц", icon: Wrench         },
+          ] as { key: typeof tab; label: string; icon: any }[]).map(t => (
+            <button key={t.key} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === t.key ? "bg-purple-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+              <t.icon className="w-4 h-4" /> {t.label}
+            </button>
+          ))}
         </div>
 
         {/* ── АЖИЛТНУУДЫН ЖАГСААЛТ ── */}
@@ -555,12 +561,443 @@ export default function HRDashboard() {
         )}
       </div>
 
+      {/* ── ГЭРЧИЛГЭЭ ── */}
+      {tab === "certs" && <CertsTab employees={employees} qc={qc} toast={toast} />}
+
+      {/* ── СУРГАЛТ / ХАБЭА ── */}
+      {tab === "trainings" && <TrainingsTab employees={employees} qc={qc} toast={toast} />}
+
+      {/* ── ЧАДВАРЫН МАТРИЦ ── */}
+      {tab === "skills" && <SkillsTab employees={employees} qc={qc} toast={toast} />}
+
       {/* QR карт modal */}
       {selectedQrEmployee && (
         <QRCard
           employee={selectedQrEmployee}
           onClose={() => setSelectedQrEmployee(null)}
         />
+      )}
+    </div>
+  );
+}
+
+// ===================== ГЭРЧИЛГЭЭНИЙ ТАБ =====================
+const CERT_TYPES: Record<string, string> = {
+  driver_a: "Жолооч A анги", driver_b: "Жолооч B анги", driver_c: "Жолооч C анги",
+  driver_d: "Жолооч D анги", welder: "Гагнуурчин", electrician: "Цахилгаанчин",
+  crane: "Кран оператор", excavator: "Экскаватор оператор", хабэа: "ХАБЭА", other: "Бусад",
+};
+
+function expiryBadge(expiryDate: string | null | undefined) {
+  if (!expiryDate) return <span className="px-2 py-0.5 rounded-lg text-xs bg-slate-700/50 text-slate-400">Хугацаагүй</span>;
+  const days = Math.ceil((new Date(expiryDate).getTime() - Date.now()) / 86400000);
+  if (days < 0)   return <span className="px-2 py-0.5 rounded-lg text-xs bg-red-500/20 text-red-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />Дууссан</span>;
+  if (days <= 30)  return <span className="px-2 py-0.5 rounded-lg text-xs bg-orange-500/20 text-orange-400 flex items-center gap-1"><AlertTriangle className="w-3 h-3" />{days}өдөр үлдсэн</span>;
+  if (days <= 90)  return <span className="px-2 py-0.5 rounded-lg text-xs bg-yellow-500/20 text-yellow-400">{days}өдөр үлдсэн</span>;
+  return <span className="px-2 py-0.5 rounded-lg text-xs bg-green-500/20 text-green-400 flex items-center gap-1"><CheckCircle2 className="w-3 h-3" />Хүчинтэй</span>;
+}
+
+function CertsTab({ employees, qc, toast }: { employees: any[]; qc: any; toast: any }) {
+  const hdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
+  const [filterEmp, setFilterEmp] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ employeeId: "", certType: "driver_b", certName: "", certNumber: "", issuedBy: "", issuedDate: "", expiryDate: "", notes: "" });
+
+  const { data: certs = [] } = useQuery<any[]>({
+    queryKey: ["/api/employee-certificates"],
+    queryFn: () => fetch("/api/employee-certificates", { headers: hdrs() }).then(r => r.json()),
+  });
+  const addMut = useMutation({
+    mutationFn: (d: any) => fetch("/api/employee-certificates", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/employee-certificates"] }); setShowForm(false); toast({ title: "Гэрчилгээ нэмэгдлээ" }); },
+    onError: (e: any) => toast({ title: "Алдаа", description: e.message, variant: "destructive" }),
+  });
+  const delMut = useMutation({
+    mutationFn: (id: number) => fetch(`/api/employee-certificates/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/employee-certificates"] }),
+  });
+  const empMap: Record<number, string> = {};
+  employees.forEach(e => { empMap[e.id] = e.name; });
+  const filtered = filterEmp === "all" ? certs : certs.filter(c => c.employeeId === parseInt(filterEmp));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-bold text-white flex items-center gap-2"><Award className="w-5 h-5 text-purple-400" />Мэргэжлийн гэрчилгээ</h2>
+        <div className="flex items-center gap-2">
+          <select value={filterEmp} onChange={e => setFilterEmp(e.target.value)}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            <option value="all">Бүх ажилтан</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl transition-all">
+            <Plus className="w-4 h-4" /> Нэмэх
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 font-semibold text-purple-300 text-sm mb-1">Шинэ гэрчилгээ нэмэх</div>
+          <select value={form.employeeId} onChange={e => setForm(p => ({ ...p, employeeId: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            <option value="">Ажилтан сонгох</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <select value={form.certType} onChange={e => { const label = CERT_TYPES[e.target.value]; setForm(p => ({ ...p, certType: e.target.value, certName: label })); }}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            {Object.entries(CERT_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <input value={form.certName} onChange={e => setForm(p => ({ ...p, certName: e.target.value }))}
+            placeholder="Гэрчилгээний нэр" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input value={form.certNumber} onChange={e => setForm(p => ({ ...p, certNumber: e.target.value }))}
+            placeholder="Гэрчилгээний дугаар" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input value={form.issuedBy} onChange={e => setForm(p => ({ ...p, issuedBy: e.target.value }))}
+            placeholder="Олгосон байгууллага" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <div>
+            <label className="text-xs text-white/40 mb-1 block">Олгосон огноо</label>
+            <input type="date" value={form.issuedDate} onChange={e => setForm(p => ({ ...p, issuedDate: e.target.value }))}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <div>
+            <label className="text-xs text-white/40 mb-1 block">Дуусах огноо</label>
+            <input type="date" value={form.expiryDate} onChange={e => setForm(p => ({ ...p, expiryDate: e.target.value }))}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <div className="md:col-span-2 flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">Цуцлах</button>
+            <button onClick={() => { if (!form.employeeId || !form.certName) return; addMut.mutate({ ...form, employeeId: parseInt(form.employeeId) }); }}
+              disabled={addMut.isPending}
+              className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl transition-all">
+              Хадгалах
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-800/60">
+            <tr className="text-left text-white/50 text-xs">
+              <th className="px-4 py-3">Ажилтан</th>
+              <th className="px-4 py-3">Гэрчилгээ</th>
+              <th className="px-4 py-3">Дугаар</th>
+              <th className="px-4 py-3">Олгосон</th>
+              <th className="px-4 py-3">Дуусах</th>
+              <th className="px-4 py-3">Статус</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} className="text-center py-8 text-white/30">Гэрчилгээ бүртгэгдээгүй байна</td></tr>
+            )}
+            {filtered.map((c: any) => (
+              <tr key={c.id} className="border-t border-white/5 hover:bg-white/3">
+                <td className="px-4 py-3 font-medium text-white">{empMap[c.employeeId] ?? "—"}</td>
+                <td className="px-4 py-3 text-white/70">{c.certName}</td>
+                <td className="px-4 py-3 text-white/50">{c.certNumber ?? "—"}</td>
+                <td className="px-4 py-3 text-white/50">{c.issuedDate ?? "—"}</td>
+                <td className="px-4 py-3 text-white/50">{c.expiryDate ?? "—"}</td>
+                <td className="px-4 py-3">{expiryBadge(c.expiryDate)}</td>
+                <td className="px-4 py-3">
+                  <button onClick={() => delMut.mutate(c.id)} className="text-red-400/60 hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ===================== СУРГАЛТЫН ТАБ =====================
+const TRAINING_TYPES: Record<string, string> = {
+  хабэа_ерөнхий: "ХАБЭА ерөнхий", хабэа_тусгай: "ХАБЭА тусгай", гэрэл_дохио: "Гэрэл дохио",
+  анхны_тусламж: "Анхны тусламж", гал_унтраах: "Гал унтраах", мэргэшлийн: "Мэргэшлийн", other: "Бусад",
+};
+
+function TrainingsTab({ employees, qc, toast }: { employees: any[]; qc: any; toast: any }) {
+  const hdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
+  const [filterEmp, setFilterEmp] = useState("all");
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ employeeId: "", trainingType: "хабэа_ерөнхий", trainingName: "ХАБЭА ерөнхий сургалт", completedDate: "", nextDueDate: "", conductedBy: "", hoursCompleted: "", passed: true, notes: "" });
+
+  const { data: trainings = [] } = useQuery<any[]>({
+    queryKey: ["/api/employee-trainings"],
+    queryFn: () => fetch("/api/employee-trainings", { headers: hdrs() }).then(r => r.json()),
+  });
+  const addMut = useMutation({
+    mutationFn: (d: any) => fetch("/api/employee-trainings", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/employee-trainings"] }); setShowForm(false); toast({ title: "Сургалт нэмэгдлээ" }); },
+  });
+  const delMut = useMutation({
+    mutationFn: (id: number) => fetch(`/api/employee-trainings/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/employee-trainings"] }),
+  });
+  const empMap: Record<number, string> = {};
+  employees.forEach(e => { empMap[e.id] = e.name; });
+  const filtered = filterEmp === "all" ? trainings : trainings.filter((t: any) => t.employeeId === parseInt(filterEmp));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-bold text-white flex items-center gap-2"><GraduationCap className="w-5 h-5 text-purple-400" />Сургалт / ХАБЭА бүртгэл</h2>
+        <div className="flex items-center gap-2">
+          <select value={filterEmp} onChange={e => setFilterEmp(e.target.value)}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            <option value="all">Бүх ажилтан</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl transition-all">
+            <Plus className="w-4 h-4" /> Нэмэх
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 font-semibold text-purple-300 text-sm mb-1">Сургалт бүртгэх</div>
+          <select value={form.employeeId} onChange={e => setForm(p => ({ ...p, employeeId: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            <option value="">Ажилтан сонгох</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <select value={form.trainingType} onChange={e => { setForm(p => ({ ...p, trainingType: e.target.value, trainingName: TRAINING_TYPES[e.target.value] })); }}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            {Object.entries(TRAINING_TYPES).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <input value={form.trainingName} onChange={e => setForm(p => ({ ...p, trainingName: e.target.value }))}
+            placeholder="Сургалтын нэр" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input value={form.conductedBy} onChange={e => setForm(p => ({ ...p, conductedBy: e.target.value }))}
+            placeholder="Зохион байгуулагч" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input type="number" value={form.hoursCompleted} onChange={e => setForm(p => ({ ...p, hoursCompleted: e.target.value }))}
+            placeholder="Цаг (тоо)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <label className="flex items-center gap-2 text-sm text-white/70 cursor-pointer">
+            <input type="checkbox" checked={form.passed} onChange={e => setForm(p => ({ ...p, passed: e.target.checked }))} className="accent-purple-500" />
+            Тэнцсэн (хамарлаа)
+          </label>
+          <div>
+            <label className="text-xs text-white/40 mb-1 block">Явуулсан огноо</label>
+            <input type="date" value={form.completedDate} onChange={e => setForm(p => ({ ...p, completedDate: e.target.value }))}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <div>
+            <label className="text-xs text-white/40 mb-1 block">Дараагийн давтан сургалт</label>
+            <input type="date" value={form.nextDueDate} onChange={e => setForm(p => ({ ...p, nextDueDate: e.target.value }))}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <div className="md:col-span-2 flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">Цуцлах</button>
+            <button onClick={() => { if (!form.employeeId || !form.completedDate) return; addMut.mutate({ ...form, employeeId: parseInt(form.employeeId), hoursCompleted: form.hoursCompleted ? parseInt(form.hoursCompleted) : null, nextDueDate: form.nextDueDate || null }); }}
+              disabled={addMut.isPending}
+              className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl transition-all">
+              Хадгалах
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-800/60">
+            <tr className="text-left text-white/50 text-xs">
+              <th className="px-4 py-3">Ажилтан</th>
+              <th className="px-4 py-3">Сургалт</th>
+              <th className="px-4 py-3">Хийсэн огноо</th>
+              <th className="px-4 py-3">Цаг</th>
+              <th className="px-4 py-3">Дараагийн</th>
+              <th className="px-4 py-3">Статус</th>
+              <th className="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} className="text-center py-8 text-white/30">Сургалт бүртгэгдээгүй байна</td></tr>
+            )}
+            {filtered.map((t: any) => (
+              <tr key={t.id} className="border-t border-white/5 hover:bg-white/3">
+                <td className="px-4 py-3 font-medium text-white">{empMap[t.employeeId] ?? "—"}</td>
+                <td className="px-4 py-3 text-white/70">{t.trainingName}</td>
+                <td className="px-4 py-3 text-white/50">{t.completedDate}</td>
+                <td className="px-4 py-3 text-white/50">{t.hoursCompleted ? `${t.hoursCompleted}ц` : "—"}</td>
+                <td className="px-4 py-3 text-white/50">{t.nextDueDate ?? "—"}</td>
+                <td className="px-4 py-3">{expiryBadge(t.nextDueDate)}</td>
+                <td className="px-4 py-3">
+                  <button onClick={() => delMut.mutate(t.id)} className="text-red-400/60 hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ===================== ЧАДВАРЫН МАТРИЦ ТАБ =====================
+const VEHICLE_TYPES = ["Экскаватор", "Бульдозер", "Автомашин", "Грейдер", "Асфальт угсраалт", "Кран", "Автогрейдер", "Дам зам тавих", "Компрессор", "Өөр"];
+const SKILL_LEVELS: Record<string, { label: string; cls: string }> = {
+  эхлэгч:      { label: "Эхлэгч",      cls: "bg-blue-500/20 text-blue-300"   },
+  дундд:        { label: "Дунд",         cls: "bg-yellow-500/20 text-yellow-300"},
+  мэргэжлийн:  { label: "Мэргэжлийн",  cls: "bg-green-500/20 text-green-300" },
+};
+
+function SkillsTab({ employees, qc, toast }: { employees: any[]; qc: any; toast: any }) {
+  const hdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
+  const [showForm, setShowForm] = useState(false);
+  const [viewMode, setViewMode] = useState<"list" | "matrix">("matrix");
+  const [form, setForm] = useState({ employeeId: "", vehicleType: "Экскаватор", skillLevel: "мэргэжлийн", certifiedBy: "", validFrom: "", validUntil: "", notes: "" });
+
+  const { data: skills = [] } = useQuery<any[]>({
+    queryKey: ["/api/employee-skills"],
+    queryFn: () => fetch("/api/employee-skills", { headers: hdrs() }).then(r => r.json()),
+  });
+  const addMut = useMutation({
+    mutationFn: (d: any) => fetch("/api/employee-skills", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/employee-skills"] }); setShowForm(false); toast({ title: "Чадвар нэмэгдлээ" }); },
+  });
+  const delMut = useMutation({
+    mutationFn: (id: number) => fetch(`/api/employee-skills/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/employee-skills"] }),
+  });
+
+  const empMap: Record<number, string> = {};
+  employees.forEach(e => { empMap[e.id] = e.name; });
+
+  // Matrix data: employeeId → vehicleType → skill
+  const matrix: Record<number, Record<string, any>> = {};
+  skills.forEach((s: any) => {
+    if (!matrix[s.employeeId]) matrix[s.employeeId] = {};
+    matrix[s.employeeId][s.vehicleType] = s;
+  });
+  const empIdsWithSkills = Object.keys(matrix).map(Number);
+
+  // Only vehicle types that appear in skills
+  const usedTypes = Array.from(new Set(skills.map((s: any) => s.vehicleType)));
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-bold text-white flex items-center gap-2"><Wrench className="w-5 h-5 text-purple-400" />Чадварын матриц</h2>
+        <div className="flex items-center gap-2">
+          <button onClick={() => setViewMode(viewMode === "matrix" ? "list" : "matrix")}
+            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-bold rounded-xl transition-all">
+            {viewMode === "matrix" ? "Жагсаалт" : "Матриц"}
+          </button>
+          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl transition-all">
+            <Plus className="w-4 h-4" /> Нэмэх
+          </button>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 font-semibold text-purple-300 text-sm mb-1">Чадвар бүртгэх</div>
+          <select value={form.employeeId} onChange={e => setForm(p => ({ ...p, employeeId: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            <option value="">Ажилтан сонгох</option>
+            {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+          </select>
+          <select value={form.vehicleType} onChange={e => setForm(p => ({ ...p, vehicleType: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            {VEHICLE_TYPES.map(v => <option key={v} value={v}>{v}</option>)}
+          </select>
+          <select value={form.skillLevel} onChange={e => setForm(p => ({ ...p, skillLevel: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            {Object.entries(SKILL_LEVELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+          </select>
+          <input value={form.certifiedBy} onChange={e => setForm(p => ({ ...p, certifiedBy: e.target.value }))}
+            placeholder="Зөвшөөрсөн хүн" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <div>
+            <label className="text-xs text-white/40 mb-1 block">Эхлэх огноо</label>
+            <input type="date" value={form.validFrom} onChange={e => setForm(p => ({ ...p, validFrom: e.target.value }))}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <div>
+            <label className="text-xs text-white/40 mb-1 block">Дуусах огноо</label>
+            <input type="date" value={form.validUntil} onChange={e => setForm(p => ({ ...p, validUntil: e.target.value }))}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <div className="md:col-span-2 flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">Цуцлах</button>
+            <button onClick={() => { if (!form.employeeId) return; addMut.mutate({ ...form, employeeId: parseInt(form.employeeId), validFrom: form.validFrom || null, validUntil: form.validUntil || null }); }}
+              disabled={addMut.isPending}
+              className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl transition-all">
+              Хадгалах
+            </button>
+          </div>
+        </div>
+      )}
+
+      {viewMode === "matrix" && (
+        <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-auto">
+          {empIdsWithSkills.length === 0 ? (
+            <div className="text-center py-8 text-white/30">Чадварын матриц хоосон байна. Дээрх "Нэмэх" товчоор ажилтны чадварыг бүртгэнэ үү.</div>
+          ) : (
+            <table className="w-full text-xs min-w-[600px]">
+              <thead className="bg-slate-800/60">
+                <tr>
+                  <th className="px-4 py-3 text-left text-white/50 font-semibold w-32">Ажилтан</th>
+                  {usedTypes.map(t => <th key={t} className="px-2 py-3 text-center text-white/50 font-semibold">{t}</th>)}
+                </tr>
+              </thead>
+              <tbody>
+                {empIdsWithSkills.map(eid => (
+                  <tr key={eid} className="border-t border-white/5">
+                    <td className="px-4 py-2.5 font-semibold text-white text-sm">{empMap[eid] ?? `#${eid}`}</td>
+                    {usedTypes.map(vt => {
+                      const s = matrix[eid]?.[vt];
+                      if (!s) return <td key={vt} className="px-2 py-2.5 text-center text-white/15">—</td>;
+                      const lv = SKILL_LEVELS[s.skillLevel] ?? { label: s.skillLevel, cls: "bg-slate-700 text-slate-300" };
+                      return (
+                        <td key={vt} className="px-2 py-2.5 text-center">
+                          <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${lv.cls}`}>{lv.label}</span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {viewMode === "list" && (
+        <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-800/60">
+              <tr className="text-left text-white/50 text-xs">
+                <th className="px-4 py-3">Ажилтан</th>
+                <th className="px-4 py-3">Техникийн төрөл</th>
+                <th className="px-4 py-3">Чадварын түвшин</th>
+                <th className="px-4 py-3">Зөвшөөрсөн</th>
+                <th className="px-4 py-3">Хүртэл</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {skills.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-white/30">Чадвар бүртгэгдээгүй</td></tr>}
+              {skills.map((s: any) => {
+                const lv = SKILL_LEVELS[s.skillLevel] ?? { label: s.skillLevel, cls: "bg-slate-700 text-slate-300" };
+                return (
+                  <tr key={s.id} className="border-t border-white/5 hover:bg-white/3">
+                    <td className="px-4 py-3 font-medium text-white">{empMap[s.employeeId] ?? "—"}</td>
+                    <td className="px-4 py-3 text-white/70">{s.vehicleType}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${lv.cls}`}>{lv.label}</span></td>
+                    <td className="px-4 py-3 text-white/50">{s.certifiedBy ?? "—"}</td>
+                    <td className="px-4 py-3 text-white/50">{s.validUntil ?? "—"}</td>
+                    <td className="px-4 py-3">
+                      <button onClick={() => delMut.mutate(s.id)} className="text-red-400/60 hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

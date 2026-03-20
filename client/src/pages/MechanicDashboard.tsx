@@ -4,7 +4,8 @@ import {
   Truck, Plus, Trash2, LogOut, RefreshCw, ChevronDown,
   CheckCircle2, AlertTriangle, Calendar, Zap, FileText,
   Search, Edit2, X, Clock, ShieldCheck, History,
-  Fuel, Timer, BarChart3, Save, Printer
+  Fuel, Timer, BarChart3, Save, Printer,
+  Wrench, Package, Bell,
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
@@ -50,7 +51,7 @@ export default function MechanicDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
 
-  const [tab, setTab] = useState<"vehicles" | "inspections" | "hours" | "fuel" | "report">("vehicles");
+  const [tab, setTab] = useState<"vehicles" | "inspections" | "hours" | "fuel" | "maintenance" | "spareparts" | "alerts" | "report">("vehicles");
   const [search, setSearch] = useState("");
   const [filterReady, setFilterReady] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -307,21 +308,21 @@ export default function MechanicDashboard() {
 
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
-          <button onClick={() => setTab("vehicles")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "vehicles" ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-            <Truck className="w-4 h-4" /> Техникийн жагсаалт
-          </button>
-          <button onClick={() => setTab("inspections")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "inspections" ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-            <History className="w-4 h-4" /> Өмнөх үзлэгүүд
-          </button>
-          <button onClick={() => setTab("hours")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "hours" ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-            <Timer className="w-4 h-4" /> Цаг / Шатахуун
-          </button>
-          <button onClick={() => setTab("fuel")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "fuel" ? "bg-amber-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-            <Fuel className="w-4 h-4" /> Шатахуун төсөв
-          </button>
-          <button data-testid="tab-report" onClick={() => setTab("report")} className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === "report" ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
-            <BarChart3 className="w-4 h-4" /> Тайлан
-          </button>
+          {([
+            { key: "vehicles",     label: "Техникийн жагсаалт", icon: Truck     },
+            { key: "inspections",  label: "Өмнөх үзлэгүүд",   icon: History    },
+            { key: "hours",        label: "Цаг / Шатахуун",    icon: Timer      },
+            { key: "fuel",         label: "Шатахуун төсөв",    icon: Fuel       },
+            { key: "maintenance",  label: "ТО хуваарь",         icon: Wrench     },
+            { key: "spareparts",   label: "Сэлбэг",             icon: Package    },
+            { key: "alerts",       label: "Анхааруулга",        icon: Bell       },
+            { key: "report",       label: "Тайлан",             icon: BarChart3  },
+          ] as { key: typeof tab; label: string; icon: any }[]).map(t => (
+            <button key={t.key} data-testid={`tab-${t.key}`} onClick={() => setTab(t.key)}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === t.key ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+              <t.icon className="w-4 h-4" /> {t.label}
+            </button>
+          ))}
         </div>
 
         {/* ── ТЕХНИКИЙН ЖАГСААЛТ ── */}
@@ -1020,6 +1021,514 @@ export default function MechanicDashboard() {
             )}
           </div>
         )}
+
+        {/* ── ТО ХУВААРЬ ── */}
+        {tab === "maintenance" && <MaintenanceTab vehicles={vehicles} qc={qc} toast={toast} />}
+
+        {/* ── СЭЛБЭГ ХЭРЭГСЭЛ ── */}
+        {tab === "spareparts" && <SparePartsTab vehicles={vehicles} qc={qc} toast={toast} />}
+
+        {/* ── АНХААРУУЛГА ── */}
+        {tab === "alerts" && <AlertsTab vehicles={vehicles} qc={qc} toast={toast} />}
+
+      </div>
+    </div>
+  );
+}
+
+// ===================== ТО ХУВААРИЙН ТАБ =====================
+const TO_TYPES = ["TO1", "TO2", "TO3", "Улирлын", "Засвар", "Бусад"];
+const TO_COLORS: Record<string, string> = {
+  TO1: "bg-blue-500/20 text-blue-300", TO2: "bg-yellow-500/20 text-yellow-300",
+  TO3: "bg-orange-500/20 text-orange-300", Улирлын: "bg-purple-500/20 text-purple-300",
+  Засвар: "bg-red-500/20 text-red-300", Бусад: "bg-slate-500/20 text-slate-300",
+};
+const STATUS_COLORS: Record<string, string> = {
+  scheduled: "bg-blue-500/20 text-blue-300",
+  done: "bg-green-500/20 text-green-300",
+  overdue: "bg-red-500/20 text-red-400",
+  cancelled: "bg-slate-500/20 text-slate-400",
+};
+const STATUS_LABELS: Record<string, string> = {
+  scheduled: "Товлосон", done: "Гүйцэтгэсэн", overdue: "Хоцорсон", cancelled: "Цуцлагдсан",
+};
+
+function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toast: any }) {
+  const hdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
+  const [showForm, setShowForm] = useState(false);
+  const [filterV, setFilterV] = useState("all");
+  const [filterStatus, setFilterStatus] = useState("all");
+  const today = new Date().toISOString().slice(0, 10);
+  const [form, setForm] = useState({ vehicleId: "", toType: "TO1", scheduledDate: today, description: "", technicianName: "", hoursAtService: "", cost: "", notes: "" });
+
+  const { data: schedules = [] } = useQuery<any[]>({
+    queryKey: ["/api/maintenance-schedules"],
+    queryFn: () => fetch("/api/maintenance-schedules", { headers: hdrs() }).then(r => r.json()),
+  });
+  const addMut = useMutation({
+    mutationFn: (d: any) => fetch("/api/maintenance-schedules", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/maintenance-schedules"] }); setShowForm(false); toast({ title: "ТО хуваарь нэмэгдлээ" }); },
+  });
+  const doneMut = useMutation({
+    mutationFn: ({ id, completedDate }: any) => fetch(`/api/maintenance-schedules/${id}`, { method: "PATCH", headers: hdrs(), body: JSON.stringify({ status: "done", completedDate }) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/maintenance-schedules"] }); toast({ title: "Гүйцэтгэл тэмдэглэгдлээ" }); },
+  });
+  const delMut = useMutation({
+    mutationFn: (id: number) => fetch(`/api/maintenance-schedules/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/maintenance-schedules"] }),
+  });
+
+  const vehMap: Record<number, string> = {};
+  vehicles.forEach((v: any) => { vehMap[v.id] = `${v.name} (${v.plateNumber})`; });
+
+  const filtered = schedules
+    .filter((s: any) => filterV === "all" || s.vehicleId === parseInt(filterV))
+    .filter((s: any) => filterStatus === "all" || s.status === filterStatus);
+
+  // Auto-mark overdue
+  const overdueIds = schedules.filter((s: any) => s.status === "scheduled" && s.scheduledDate < today).map((s: any) => s.id);
+
+  const upcoming = schedules.filter((s: any) => s.status === "scheduled" && s.scheduledDate >= today).length;
+  const done     = schedules.filter((s: any) => s.status === "done").length;
+  const overdue  = schedules.filter((s: any) => s.status === "scheduled" && s.scheduledDate < today).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-bold text-white flex items-center gap-2"><Wrench className="w-5 h-5 text-orange-400" />ТО Урьдчилсан засварын хуваарь</h2>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-all">
+          <Plus className="w-4 h-4" /> Хуваарь нэмэх
+        </button>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-blue-300">{upcoming}</div>
+          <div className="text-xs text-blue-400/70 mt-0.5">Товлосон</div>
+        </div>
+        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-green-300">{done}</div>
+          <div className="text-xs text-green-400/70 mt-0.5">Гүйцэтгэсэн</div>
+        </div>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-red-300">{overdue}</div>
+          <div className="text-xs text-red-400/70 mt-0.5">Хоцорсон</div>
+        </div>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-900/80 border border-orange-500/30 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 font-semibold text-orange-300 text-sm mb-1">ТО хуваарь нэмэх</div>
+          <select value={form.vehicleId} onChange={e => setForm(p => ({ ...p, vehicleId: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            <option value="">Техник сонгох</option>
+            {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.name} ({v.plateNumber})</option>)}
+          </select>
+          <select value={form.toType} onChange={e => setForm(p => ({ ...p, toType: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            {TO_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <div>
+            <label className="text-xs text-white/40 mb-1 block">Товлосон огноо</label>
+            <input type="date" value={form.scheduledDate} onChange={e => setForm(p => ({ ...p, scheduledDate: e.target.value }))}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <input value={form.technicianName} onChange={e => setForm(p => ({ ...p, technicianName: e.target.value }))}
+            placeholder="Техникч (хэн хийх)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input type="number" value={form.hoursAtService} onChange={e => setForm(p => ({ ...p, hoursAtService: e.target.value }))}
+            placeholder="Моточас (үед хийх)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input type="number" value={form.cost} onChange={e => setForm(p => ({ ...p, cost: e.target.value }))}
+            placeholder="Зардал (₮)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
+            placeholder="Хийх ажлын тайлбар" rows={2}
+            className="md:col-span-2 bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none resize-none" />
+          <div className="md:col-span-2 flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">Цуцлах</button>
+            <button onClick={() => { if (!form.vehicleId) return; addMut.mutate({ ...form, vehicleId: parseInt(form.vehicleId), hoursAtService: form.hoursAtService ? parseFloat(form.hoursAtService) : null, cost: form.cost ? parseFloat(form.cost) : null, status: "scheduled" }); }}
+              disabled={addMut.isPending}
+              className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-all">
+              Хадгалах
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-2">
+        <select value={filterV} onChange={e => setFilterV(e.target.value)} className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+          <option value="all">Бүх техник</option>
+          {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+        </select>
+        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+          <option value="all">Бүх статус</option>
+          {Object.entries(STATUS_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+        </select>
+      </div>
+
+      <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-800/60">
+            <tr className="text-left text-white/50 text-xs">
+              <th className="px-4 py-3">Техник</th>
+              <th className="px-4 py-3">Төрөл</th>
+              <th className="px-4 py-3">Товлосон огноо</th>
+              <th className="px-4 py-3">Техникч</th>
+              <th className="px-4 py-3">Зардал</th>
+              <th className="px-4 py-3">Статус</th>
+              <th className="px-4 py-3">Үйлдэл</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} className="text-center py-8 text-white/30">ТО хуваарь байхгүй байна</td></tr>
+            )}
+            {filtered.map((s: any) => {
+              const isOverdue = s.status === "scheduled" && s.scheduledDate < today;
+              const displayStatus = isOverdue ? "overdue" : s.status;
+              return (
+                <tr key={s.id} className={`border-t border-white/5 ${isOverdue ? "bg-red-500/5" : "hover:bg-white/3"}`}>
+                  <td className="px-4 py-3 font-medium text-white">{vehMap[s.vehicleId] ?? "—"}</td>
+                  <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${TO_COLORS[s.toType] ?? "bg-slate-700 text-slate-300"}`}>{s.toType}</span></td>
+                  <td className="px-4 py-3 text-white/70">{s.scheduledDate}</td>
+                  <td className="px-4 py-3 text-white/50">{s.technicianName ?? "—"}</td>
+                  <td className="px-4 py-3 text-white/50">{s.cost ? `₮${(s.cost as number).toLocaleString()}` : "—"}</td>
+                  <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${STATUS_COLORS[displayStatus]}`}>{STATUS_LABELS[displayStatus]}</span></td>
+                  <td className="px-4 py-3 flex items-center gap-2">
+                    {s.status === "scheduled" && (
+                      <button onClick={() => doneMut.mutate({ id: s.id, completedDate: today })}
+                        className="px-2 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 text-xs rounded-lg transition-colors">
+                        Гүйцэтгэлд ✓
+                      </button>
+                    )}
+                    <button onClick={() => delMut.mutate(s.id)} className="text-red-400/60 hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ===================== СЭЛБЭГИЙН ТАБ =====================
+function SparePartsTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toast: any }) {
+  const hdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
+  const [showForm, setShowForm] = useState(false);
+  const [filterV, setFilterV] = useState("all");
+  const [form, setForm] = useState({ vehicleId: "", partName: "", partNumber: "", brand: "", unit: "ш", quantity: "", minStock: "", location: "", unitPrice: "", notes: "" });
+  const [editId, setEditId] = useState<number | null>(null);
+  const [editQty, setEditQty] = useState("");
+
+  const { data: parts = [] } = useQuery<any[]>({
+    queryKey: ["/api/spare-parts"],
+    queryFn: () => fetch("/api/spare-parts", { headers: hdrs() }).then(r => r.json()),
+  });
+  const addMut = useMutation({
+    mutationFn: (d: any) => fetch("/api/spare-parts", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/spare-parts"] }); setShowForm(false); toast({ title: "Сэлбэг нэмэгдлээ" }); },
+  });
+  const updateMut = useMutation({
+    mutationFn: ({ id, quantity }: any) => fetch(`/api/spare-parts/${id}`, { method: "PATCH", headers: hdrs(), body: JSON.stringify({ quantity }) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/spare-parts"] }); setEditId(null); },
+  });
+  const delMut = useMutation({
+    mutationFn: (id: number) => fetch(`/api/spare-parts/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/spare-parts"] }),
+  });
+
+  const vehMap: Record<number, string> = {};
+  vehicles.forEach((v: any) => { vehMap[v.id] = v.name; });
+  const filtered = filterV === "all" ? parts : parts.filter((p: any) => p.vehicleId === parseInt(filterV) || (!p.vehicleId && filterV === "general"));
+  const lowStock = parts.filter((p: any) => (p.quantity ?? 0) < (p.minStock ?? 0)).length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-bold text-white flex items-center gap-2">
+          <Package className="w-5 h-5 text-orange-400" />Сэлбэг хэрэгсэл
+          {lowStock > 0 && <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-xs rounded-lg font-bold">{lowStock} дутуу нөөц</span>}
+        </h2>
+        <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-all">
+          <Plus className="w-4 h-4" /> Нэмэх
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="bg-slate-900/80 border border-orange-500/30 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 font-semibold text-orange-300 text-sm mb-1">Сэлбэг бүртгэх</div>
+          <select value={form.vehicleId} onChange={e => setForm(p => ({ ...p, vehicleId: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            <option value="">Ерөнхий нөөц</option>
+            {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.name} ({v.plateNumber})</option>)}
+          </select>
+          <input value={form.partName} onChange={e => setForm(p => ({ ...p, partName: e.target.value }))}
+            placeholder="Сэлбэгийн нэр *" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input value={form.partNumber} onChange={e => setForm(p => ({ ...p, partNumber: e.target.value }))}
+            placeholder="Каталогийн дугаар" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input value={form.brand} onChange={e => setForm(p => ({ ...p, brand: e.target.value }))}
+            placeholder="Брэнд / Үйлдвэрлэгч" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <select value={form.unit} onChange={e => setForm(p => ({ ...p, unit: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            {["ш", "л", "кг", "м", "багц"].map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+          <input type="number" value={form.quantity} onChange={e => setForm(p => ({ ...p, quantity: e.target.value }))}
+            placeholder="Одоогийн нөөц" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input type="number" value={form.minStock} onChange={e => setForm(p => ({ ...p, minStock: e.target.value }))}
+            placeholder="Доод хэмжээ (анхааруулга)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input type="number" value={form.unitPrice} onChange={e => setForm(p => ({ ...p, unitPrice: e.target.value }))}
+            placeholder="Нэгжийн үнэ (₮)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))}
+            placeholder="Байршил (агуулах, хуу)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <div className="md:col-span-2 flex gap-2 justify-end">
+            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">Цуцлах</button>
+            <button onClick={() => { if (!form.partName) return; addMut.mutate({ ...form, vehicleId: form.vehicleId ? parseInt(form.vehicleId) : null, quantity: parseFloat(form.quantity) || 0, minStock: parseFloat(form.minStock) || 0, unitPrice: form.unitPrice ? parseFloat(form.unitPrice) : null }); }}
+              disabled={addMut.isPending}
+              className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-all">
+              Хадгалах
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-2">
+        <select value={filterV} onChange={e => setFilterV(e.target.value)} className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+          <option value="all">Бүх нөөц</option>
+          <option value="general">Ерөнхий нөөц</option>
+          {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.name}</option>)}
+        </select>
+      </div>
+
+      <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead className="bg-slate-800/60">
+            <tr className="text-left text-white/50 text-xs">
+              <th className="px-4 py-3">Сэлбэгийн нэр</th>
+              <th className="px-4 py-3">Техник</th>
+              <th className="px-4 py-3">Каталог №</th>
+              <th className="px-4 py-3">Нөөц</th>
+              <th className="px-4 py-3">Нэгжийн үнэ</th>
+              <th className="px-4 py-3">Байршил</th>
+              <th className="px-4 py-3">Үйлдэл</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filtered.length === 0 && (
+              <tr><td colSpan={7} className="text-center py-8 text-white/30">Сэлбэг хэрэгсэл байхгүй байна</td></tr>
+            )}
+            {filtered.map((p: any) => {
+              const isLow = (p.quantity ?? 0) < (p.minStock ?? 0);
+              return (
+                <tr key={p.id} className={`border-t border-white/5 ${isLow ? "bg-red-500/5" : "hover:bg-white/3"}`}>
+                  <td className="px-4 py-3 font-medium text-white">
+                    {p.partName} {p.brand && <span className="text-xs text-white/40">{p.brand}</span>}
+                  </td>
+                  <td className="px-4 py-3 text-white/50 text-xs">{p.vehicleId ? vehMap[p.vehicleId] : "Ерөнхий"}</td>
+                  <td className="px-4 py-3 text-white/50">{p.partNumber ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    {editId === p.id ? (
+                      <div className="flex items-center gap-1">
+                        <input type="number" value={editQty} onChange={e => setEditQty(e.target.value)}
+                          className="w-16 bg-slate-700 rounded px-2 py-1 text-xs text-white border border-orange-500 focus:outline-none" />
+                        <span className="text-xs text-white/40">{p.unit}</span>
+                        <button onClick={() => updateMut.mutate({ id: p.id, quantity: parseFloat(editQty) })}
+                          className="px-2 py-0.5 bg-green-600/50 text-green-300 text-xs rounded">✓</button>
+                        <button onClick={() => setEditId(null)} className="text-white/30 text-xs">✕</button>
+                      </div>
+                    ) : (
+                      <span className={`font-bold cursor-pointer hover:text-orange-300 ${isLow ? "text-red-400" : "text-white"}`}
+                        onClick={() => { setEditId(p.id); setEditQty(String(p.quantity)); }}>
+                        {p.quantity} {p.unit}
+                        {isLow && <span className="ml-1 text-xs text-red-400">⚠ Дутуу</span>}
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 text-white/50">{p.unitPrice ? `₮${(p.unitPrice as number).toLocaleString()}` : "—"}</td>
+                  <td className="px-4 py-3 text-white/50">{p.location ?? "—"}</td>
+                  <td className="px-4 py-3">
+                    <button onClick={() => delMut.mutate(p.id)} className="text-red-400/60 hover:text-red-400 transition-colors"><Trash2 className="w-3.5 h-3.5" /></button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+// ===================== АНХААРУУЛГЫН ТАБ =====================
+const ALERT_LEVEL_COLORS: Record<string, string> = {
+  expired:  "bg-red-500/20 border-red-500/40 text-red-300",
+  critical: "bg-orange-500/20 border-orange-500/40 text-orange-300",
+  warning:  "bg-yellow-500/20 border-yellow-500/40 text-yellow-300",
+};
+const ALERT_CAT_ICONS: Record<string, any> = { HR: "👤", Техник: "🚛", Засвар: "🔧" };
+const DOC_TYPE_LABELS: Record<string, string> = {
+  insurance: "Даатгал", inspection: "Улсын үзлэг", license: "Лиценз", eco_check: "Экологийн шалгалт", other: "Бусад",
+};
+
+function AlertsTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toast: any }) {
+  const hdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
+  const [showDocForm, setShowDocForm] = useState(false);
+  const [docForm, setDocForm] = useState({ vehicleId: "", docType: "insurance", docName: "ОСАГО даатгал", docNumber: "", issuedDate: "", expiryDate: "", issuedBy: "", notes: "" });
+
+  const { data: alerts = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/expiry-alerts"],
+    queryFn: () => fetch("/api/expiry-alerts", { headers: hdrs() }).then(r => r.json()),
+    refetchInterval: 60000,
+  });
+  const { data: vdocs = [] } = useQuery<any[]>({
+    queryKey: ["/api/vehicle-documents"],
+    queryFn: () => fetch("/api/vehicle-documents", { headers: hdrs() }).then(r => r.json()),
+  });
+  const addDocMut = useMutation({
+    mutationFn: (d: any) => fetch("/api/vehicle-documents", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/vehicle-documents", "/api/expiry-alerts"] }); setShowDocForm(false); toast({ title: "Баримт бичиг нэмэгдлээ" }); },
+  });
+  const delDocMut = useMutation({
+    mutationFn: (id: number) => fetch(`/api/vehicle-documents/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/vehicle-documents", "/api/expiry-alerts"] }); },
+  });
+
+  const vehMap: Record<number, string> = {};
+  vehicles.forEach((v: any) => { vehMap[v.id] = `${v.name} (${v.plateNumber})`; });
+
+  const expired  = alerts.filter((a: any) => a.level === "expired").length;
+  const critical = alerts.filter((a: any) => a.level === "critical").length;
+  const warning  = alerts.filter((a: any) => a.level === "warning").length;
+
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="font-bold text-white flex items-center gap-2"><Bell className="w-5 h-5 text-orange-400" />Хугацааны анхааруулга</h2>
+        <button onClick={() => setShowDocForm(!showDocForm)} className="flex items-center gap-2 px-4 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-all">
+          <Plus className="w-4 h-4" /> Баримт бичиг нэмэх
+        </button>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-red-300">{expired}</div>
+          <div className="text-xs text-red-400/70 mt-0.5">Дууссан</div>
+        </div>
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-orange-300">{critical}</div>
+          <div className="text-xs text-orange-400/70 mt-0.5">14 хоногт дуусна</div>
+        </div>
+        <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-yellow-300">{warning}</div>
+          <div className="text-xs text-yellow-400/70 mt-0.5">60 хоногт дуусна</div>
+        </div>
+      </div>
+
+      {/* Add vehicle document form */}
+      {showDocForm && (
+        <div className="bg-slate-900/80 border border-orange-500/30 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
+          <div className="md:col-span-2 font-semibold text-orange-300 text-sm mb-1">Техникийн баримт бичиг нэмэх</div>
+          <select value={docForm.vehicleId} onChange={e => setDocForm(p => ({ ...p, vehicleId: e.target.value }))}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            <option value="">Техник сонгох *</option>
+            {vehicles.map((v: any) => <option key={v.id} value={v.id}>{v.name} ({v.plateNumber})</option>)}
+          </select>
+          <select value={docForm.docType} onChange={e => { const labels: Record<string,string> = { insurance: "ОСАГО даатгал", inspection: "Улсын техникийн үзлэг", license: "Лиценз", eco_check: "Экологийн шалгалт", other: "Бусад" }; setDocForm(p => ({ ...p, docType: e.target.value, docName: labels[e.target.value] ?? "" })); }}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+            {Object.entries(DOC_TYPE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <input value={docForm.docName} onChange={e => setDocForm(p => ({ ...p, docName: e.target.value }))}
+            placeholder="Баримт бичгийн нэр *" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <input value={docForm.docNumber} onChange={e => setDocForm(p => ({ ...p, docNumber: e.target.value }))}
+            placeholder="Дугаар / Серийн №" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <div>
+            <label className="text-xs text-white/40 mb-1 block">Олгосон огноо</label>
+            <input type="date" value={docForm.issuedDate} onChange={e => setDocForm(p => ({ ...p, issuedDate: e.target.value }))}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <div>
+            <label className="text-xs text-white/40 mb-1 block">Дуусах огноо *</label>
+            <input type="date" value={docForm.expiryDate} onChange={e => setDocForm(p => ({ ...p, expiryDate: e.target.value }))}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          </div>
+          <div className="md:col-span-2 flex gap-2 justify-end">
+            <button onClick={() => setShowDocForm(false)} className="px-4 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">Цуцлах</button>
+            <button onClick={() => { if (!docForm.vehicleId || !docForm.expiryDate) return; addDocMut.mutate({ ...docForm, vehicleId: parseInt(docForm.vehicleId), issuedDate: docForm.issuedDate || null }); }}
+              disabled={addDocMut.isPending}
+              className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-all">
+              Хадгалах
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Live alerts */}
+      {isLoading ? (
+        <div className="text-center py-8 text-white/30">Уншиж байна...</div>
+      ) : alerts.length === 0 ? (
+        <div className="bg-green-500/10 border border-green-500/20 rounded-2xl p-8 text-center">
+          <CheckCircle2 className="w-10 h-10 text-green-400 mx-auto mb-2" />
+          <p className="text-green-300 font-semibold">Ойрын 60 хоногт дуусах баримт, гэрчилгээ байхгүй байна</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <h3 className="text-sm font-semibold text-white/50">Ойрын 60 хоногт дуусах баримт бичиг, гэрчилгээ</h3>
+          {alerts.map((a: any) => (
+            <div key={a.id} className={`flex items-start gap-3 p-4 border rounded-xl ${ALERT_LEVEL_COLORS[a.level]}`}>
+              <span className="text-lg">{ALERT_CAT_ICONS[a.category] ?? "📄"}</span>
+              <div className="flex-1 min-w-0">
+                <div className="font-semibold text-sm">{a.title}</div>
+                <div className="text-xs opacity-70 mt-0.5">{a.entity} · {a.category}</div>
+              </div>
+              <div className="text-right shrink-0">
+                <div className="text-sm font-bold">{a.daysLeft < 0 ? "Дууссан" : `${a.daysLeft} хоног`}</div>
+                <div className="text-xs opacity-60">{a.expiry}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Vehicle documents list */}
+      <div className="space-y-2">
+        <h3 className="text-sm font-semibold text-white/50 flex items-center gap-2">
+          <FileText className="w-4 h-4" />Бүртгэлтэй баримт бичгүүд
+        </h3>
+        <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-800/60">
+              <tr className="text-left text-white/50 text-xs">
+                <th className="px-4 py-3">Техник</th>
+                <th className="px-4 py-3">Баримт бичиг</th>
+                <th className="px-4 py-3">Дугаар</th>
+                <th className="px-4 py-3">Дуусах огноо</th>
+                <th className="px-4 py-3">Статус</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {vdocs.length === 0 && <tr><td colSpan={6} className="text-center py-6 text-white/30">Баримт бичиг бүртгэгдээгүй</td></tr>}
+              {vdocs.map((d: any) => {
+                const days = Math.ceil((new Date(d.expiryDate).getTime() - Date.now()) / 86400000);
+                const status = days < 0 ? { cls: "bg-red-500/20 text-red-400", label: "Дууссан" }
+                  : days <= 14 ? { cls: "bg-orange-500/20 text-orange-400", label: `${days}хон үлдсэн` }
+                  : days <= 60 ? { cls: "bg-yellow-500/20 text-yellow-400", label: `${days}хон үлдсэн` }
+                  : { cls: "bg-green-500/20 text-green-400", label: "Хүчинтэй" };
+                return (
+                  <tr key={d.id} className="border-t border-white/5 hover:bg-white/3">
+                    <td className="px-4 py-3 text-white/70 text-xs">{vehMap[d.vehicleId] ?? "—"}</td>
+                    <td className="px-4 py-3 font-medium text-white">{d.docName}</td>
+                    <td className="px-4 py-3 text-white/50">{d.docNumber ?? "—"}</td>
+                    <td className="px-4 py-3 text-white/50">{d.expiryDate}</td>
+                    <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${status.cls}`}>{status.label}</span></td>
+                    <td className="px-4 py-3"><button onClick={() => delDocMut.mutate(d.id)} className="text-red-400/60 hover:text-red-400"><Trash2 className="w-3.5 h-3.5" /></button></td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

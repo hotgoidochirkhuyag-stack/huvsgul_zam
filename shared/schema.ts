@@ -587,6 +587,112 @@ export const insertBudgetContactSchema = createInsertSchema(budgetContacts).omit
 export type BudgetContact = typeof budgetContacts.$inferSelect;
 export type InsertBudgetContact = z.infer<typeof insertBudgetContactSchema>;
 
+// ===================== МЭРГЭЖЛИЙН ГЭРЧИЛГЭЭ =====================
+export const employeeCertificates = pgTable("employee_certificates", {
+  id:           serial("id").primaryKey(),
+  employeeId:   integer("employee_id").notNull(),
+  certType:     text("cert_type").notNull(),       // driver_a | driver_b | driver_c | welder | electrician | crane | excavator | хабэа | other
+  certName:     text("cert_name").notNull(),        // "Жолоочийн үнэмлэх B анги" гэх мэт
+  certNumber:   text("cert_number"),               // Дугаар
+  issuedBy:     text("issued_by"),                 // Олгосон байгууллага
+  issuedDate:   text("issued_date"),               // YYYY-MM-DD
+  expiryDate:   text("expiry_date"),               // YYYY-MM-DD
+  notes:        text("notes"),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+export const insertEmployeeCertSchema = createInsertSchema(employeeCertificates).omit({ id: true, createdAt: true });
+export type EmployeeCert       = typeof employeeCertificates.$inferSelect;
+export type InsertEmployeeCert = z.infer<typeof insertEmployeeCertSchema>;
+
+// ===================== ХАБЭА СУРГАЛТ =====================
+export const employeeTrainings = pgTable("employee_trainings", {
+  id:            serial("id").primaryKey(),
+  employeeId:    integer("employee_id").notNull(),
+  trainingType:  text("training_type").notNull(),  // хабэа_ерөнхий | хабэа_тусгай | гэрэл_дохио | анхны_тусламж | гал_унтраах | мэргэшлийн | other
+  trainingName:  text("training_name").notNull(),
+  completedDate: text("completed_date").notNull(), // YYYY-MM-DD
+  nextDueDate:   text("next_due_date"),            // YYYY-MM-DD (дараагийн давтан сургалт)
+  conductedBy:   text("conducted_by"),             // Зохион байгуулагч
+  hoursCompleted: integer("hours_completed"),      // Цаг
+  passed:        boolean("passed").default(true),
+  notes:         text("notes"),
+  createdAt:     timestamp("created_at").defaultNow(),
+});
+export const insertEmployeeTrainingSchema = createInsertSchema(employeeTrainings).omit({ id: true, createdAt: true });
+export type EmployeeTraining       = typeof employeeTrainings.$inferSelect;
+export type InsertEmployeeTraining = z.infer<typeof insertEmployeeTrainingSchema>;
+
+// ===================== ЧАДВАРЫН МАТРИЦ =====================
+export const employeeSkills = pgTable("employee_skills", {
+  id:          serial("id").primaryKey(),
+  employeeId:  integer("employee_id").notNull(),
+  vehicleType: text("vehicle_type").notNull(),     // Экскаватор | Бульдозер | Автомашин | Грейдер | Асфальт угсраалт | Кран | Автогрейдер | Өөр
+  skillLevel:  text("skill_level").notNull(),      // эхлэгч | дундд | мэргэжлийн
+  certifiedBy: text("certified_by"),               // Хэн зөвшөөрсөн
+  validFrom:   text("valid_from"),                 // YYYY-MM-DD
+  validUntil:  text("valid_until"),                // YYYY-MM-DD
+  notes:       text("notes"),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+export const insertEmployeeSkillSchema = createInsertSchema(employeeSkills).omit({ id: true, createdAt: true });
+export type EmployeeSkill       = typeof employeeSkills.$inferSelect;
+export type InsertEmployeeSkill = z.infer<typeof insertEmployeeSkillSchema>;
+
+// ===================== ТО ХУВААРЬ (УРЬДЧИЛСАН ЗАСВАР) =====================
+export const maintenanceSchedules = pgTable("maintenance_schedules", {
+  id:            serial("id").primaryKey(),
+  vehicleId:     integer("vehicle_id").notNull(),
+  toType:        text("to_type").notNull(),        // TO1 | TO2 | TO3 | seasonal | repair
+  scheduledDate: text("scheduled_date").notNull(), // YYYY-MM-DD (төлөвлөсөн)
+  completedDate: text("completed_date"),           // YYYY-MM-DD (гүйцэтгэсэн)
+  hoursAtService: real("hours_at_service"),        // Хэдэн цагт хийсэн
+  description:   text("description"),             // Юу хийсэн
+  technicianName: text("technician_name"),         // Хэн хийсэн
+  cost:          real("cost"),                     // Зардал (₮)
+  status:        text("status").notNull().default("scheduled"), // scheduled | done | overdue | cancelled
+  notes:         text("notes"),
+  createdAt:     timestamp("created_at").defaultNow(),
+});
+export const insertMaintenanceScheduleSchema = createInsertSchema(maintenanceSchedules).omit({ id: true, createdAt: true });
+export type MaintenanceSchedule       = typeof maintenanceSchedules.$inferSelect;
+export type InsertMaintenanceSchedule = z.infer<typeof insertMaintenanceScheduleSchema>;
+
+// ===================== СЭЛБЭГ ХЭРЭГСЭЛ =====================
+export const spareParts = pgTable("spare_parts", {
+  id:           serial("id").primaryKey(),
+  vehicleId:    integer("vehicle_id"),             // null = ерөнхий
+  partName:     text("part_name").notNull(),       // Шүүрүүл, Дугуй г.м
+  partNumber:   text("part_number"),               // Каталогийн дугаар
+  brand:        text("brand"),                     // Брэнд
+  unit:         text("unit").notNull().default("ш"), // ш | л | кг | м
+  quantity:     real("quantity").notNull().default(0),
+  minStock:     real("min_stock").default(0),      // Доод хэмжээ
+  location:     text("location"),                  // Хадгалах газар
+  unitPrice:    real("unit_price"),                // Нэгжийн үнэ ₮
+  notes:        text("notes"),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+export const insertSparePartSchema = createInsertSchema(spareParts).omit({ id: true, createdAt: true });
+export type SparePart       = typeof spareParts.$inferSelect;
+export type InsertSparePart = z.infer<typeof insertSparePartSchema>;
+
+// ===================== ТЕХНИКИЙН БАРИМТ БИЧГИЙН ХУГАЦАА =====================
+export const vehicleDocuments = pgTable("vehicle_documents", {
+  id:          serial("id").primaryKey(),
+  vehicleId:   integer("vehicle_id").notNull(),
+  docType:     text("doc_type").notNull(),         // insurance | inspection | license | eco_check | other
+  docName:     text("doc_name").notNull(),         // "ОСАГО даатгал", "Улсын техникийн үзлэг" г.м
+  docNumber:   text("doc_number"),                 // Дугаар
+  issuedDate:  text("issued_date"),                // YYYY-MM-DD
+  expiryDate:  text("expiry_date").notNull(),      // YYYY-MM-DD
+  issuedBy:    text("issued_by"),
+  notes:       text("notes"),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+export const insertVehicleDocSchema = createInsertSchema(vehicleDocuments).omit({ id: true, createdAt: true });
+export type VehicleDocument       = typeof vehicleDocuments.$inferSelect;
+export type InsertVehicleDocument = z.infer<typeof insertVehicleDocSchema>;
+
 // ===================== ТЕНДЕРТ ЯВУУЛСАН ТӨСЛҮҮД =====================
 export const tenderProjects = pgTable("tender_projects", {
   id:          serial("id").primaryKey(),
