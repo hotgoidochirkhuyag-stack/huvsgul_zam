@@ -88,7 +88,7 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
       parentNode:               meetRef.current,
       userInfo:                 { displayName: "Зохион байгуулагч" },
       configOverwrite:          { startWithAudioMuted: false, startWithVideoMuted: false },
-      interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ["microphone", "camera", "chat", "hangup", "tileview", "fullscreen"] },
+      interfaceConfigOverwrite: { TOOLBAR_BUTTONS: ["microphone", "camera", "chat", "tileview", "fullscreen", "settings", "raisehand"] },
     });
     apiRef.current.addEventListener("videoConferenceLeft", () => endCall());
     setIsCalling(true);
