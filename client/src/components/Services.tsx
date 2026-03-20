@@ -1,7 +1,26 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown } from "lucide-react";
+import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, Clock, CheckSquare } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
+
+const TENDER_ITEMS = [
+  "Авто замын доод давхарга угсрах",
+  "Асфальт хольц хийж тавих (I давхарга)",
+  "Асфальт хольц хийж тавих (II давхарга)",
+  "Гүүрийн хийц угсрах",
+  "Дренаж, ус зайлуулах системийн ажил",
+  "Гэрлэн дохиоллын систем суурилуулах",
+  "Хашлага, тэмдэглэл хийх",
+  "Цементэн бетон хучилт хийх",
+];
+
+const BUDGET_CONTACTS = [
+  { name: "Д.Батболд",   role: "Захирал",              phone: "9900-1234" },
+  { name: "Г.Оюунчимэг", role: "Тооцооны инженер",     phone: "9911-5678" },
+  { name: "Б.Мөнхбат",   role: "Зам гүүрийн инженер",  phone: "9922-9012" },
+  { name: "С.Энхтүвшин", role: "Борлуулалт, гэрээ",    phone: "9933-3456" },
+];
 
 const PRODUCTS = [
   { label: "М100 Бетон зуурмаг",  value: "М100 бетон",    unit: "м³" },
@@ -230,6 +249,11 @@ const servicesData = [
 export default function Services() {
   const [showOrderModal, setShowOrderModal] = useState(false);
 
+  const { data: idleVehicles = [] } = useQuery<any[]>({
+    queryKey: ["/api/public/idle-vehicles"],
+    staleTime: 5 * 60 * 1000,
+  });
+
   const scrollToContact = () => {
     const el = document.getElementById("contact");
     if (el) el.scrollIntoView({ behavior: "smooth" });
@@ -276,7 +300,7 @@ export default function Services() {
         </motion.div>
 
         {/* Service cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-start">
           {servicesData.map((service) => (
             <motion.div
               key={service.id}
@@ -296,9 +320,77 @@ export default function Services() {
                 {service.title}
               </h3>
 
-              <p className="text-sm text-muted-foreground leading-relaxed flex-1">
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4">
                 {service.description}
               </p>
+
+              {/* Авто зам гүүр: тендерийн ажлын нэрс */}
+              {service.id === 1 && (
+                <div className="mt-1 space-y-1.5 flex-1">
+                  {TENDER_ITEMS.map((item, i) => (
+                    <div key={i} className="flex items-start gap-2">
+                      <CheckSquare className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0" />
+                      <span className="text-xs text-muted-foreground leading-snug">{item}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Техникийн түрээс: 3+ өдрөөр сул байгаа техник */}
+              {service.id === 3 && (
+                <div className="mt-1 flex-1">
+                  {idleVehicles.length === 0 ? (
+                    <p className="text-xs text-muted-foreground italic">Одоогоор сул техник байхгүй байна.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-xs text-amber-400 font-semibold mb-2 flex items-center gap-1.5">
+                        <Clock className="w-3.5 h-3.5" />
+                        Түрээсэлж болох техник ({idleVehicles.length}):
+                      </p>
+                      {idleVehicles.slice(0, 5).map((v: any) => (
+                        <div key={v.id} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            <Truck className="w-3 h-3 text-primary shrink-0" />
+                            <span className="text-xs font-semibold text-foreground truncate">{v.name}</span>
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-[10px] text-muted-foreground">{v.plateNumber} · {v.type}</span>
+                            {v.lastUsed ? (
+                              <span className="text-[10px] text-amber-400">{v.lastUsed} сүүлд</span>
+                            ) : (
+                              <span className="text-[10px] text-slate-500">Бүртгэлгүй</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                      {idleVehicles.length > 5 && (
+                        <p className="text-[10px] text-muted-foreground text-center pt-1">+{idleVehicles.length - 5} техник нэмэлтээр байна</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Зам гүүрийн төсөв: холбогдох хүмүүс */}
+              {service.id === 4 && (
+                <div className="mt-1 space-y-2 flex-1">
+                  {BUDGET_CONTACTS.map((c, i) => (
+                    <div key={i} className="bg-white/5 border border-white/10 rounded-lg px-3 py-2">
+                      <div className="flex items-center gap-1.5 mb-0.5">
+                        <User className="w-3 h-3 text-primary shrink-0" />
+                        <span className="text-xs font-semibold text-foreground">{c.name}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] text-muted-foreground">{c.role}</span>
+                        <a href={`tel:${c.phone}`} className="flex items-center gap-1 text-[10px] text-amber-400 hover:text-amber-300 transition-colors">
+                          <Phone className="w-2.5 h-2.5" />
+                          {c.phone}
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {service.orderBtn && (
                 <button
@@ -307,7 +399,7 @@ export default function Services() {
                   className="mt-5 w-full py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm rounded-lg transition-all flex items-center justify-center gap-2"
                 >
                   <Warehouse className="w-4 h-4" />
-                  Үйлдвэрийн захиалга өгөх
+                  Үйлдвэрт захиалга өгөх
                 </button>
               )}
 

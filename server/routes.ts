@@ -427,6 +427,45 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       res.status(500).json({ error: "Статистик татахад алдаа" });
     }
   });
+  // Нийтийн API: 3-аас дээш өдрөөр сул байгаа техник
+  app.get("/api/public/idle-vehicles", async (_req, res) => {
+    try {
+      const allVehicles = await db.select().from(schema.vehicles).orderBy(schema.vehicles.name);
+      const threeDaysAgo = new Date();
+      threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+      const cutoff = threeDaysAgo.toISOString().split("T")[0];
+
+      // Сүүлийн ажлын бүртгэлийг бүрд нь авна
+      const lastLogs = await db.select({
+        vehicleId: schema.equipmentLogs.vehicleId,
+        lastDate:  sql<string>`max(${schema.equipmentLogs.date})`,
+      }).from(schema.equipmentLogs).groupBy(schema.equipmentLogs.vehicleId);
+
+      const lastLogMap: Record<number, string> = {};
+      for (const l of lastLogs) lastLogMap[l.vehicleId] = l.lastDate;
+
+      const idleVehicles = allVehicles
+        .filter(v => {
+          const last = lastLogMap[v.id];
+          return !last || last < cutoff;
+        })
+        .map(v => ({
+          id:          v.id,
+          name:        v.name,
+          plateNumber: v.plateNumber,
+          type:        v.type,
+          capacity:    v.capacity,
+          isReady:     v.isReady,
+          lastUsed:    lastLogMap[v.id] || null,
+        }));
+
+      res.json(idleVehicles);
+    } catch (e) {
+      console.error("Idle vehicles error:", e);
+      res.status(500).json([]);
+    }
+  });
+
   app.get("/api/content", async (_req, res) => {
     res.json(await db.select().from(schema.content));
   });
