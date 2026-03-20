@@ -88,7 +88,7 @@ function FactoryOrderModal({ onClose }: { onClose: () => void }) {
             <div className="flex items-center justify-between p-5 border-b border-white/10">
               <div>
                 <h2 className="font-black text-white text-lg">Үйлдвэрийн захиалга</h2>
-                <p className="text-slate-400 text-xs mt-0.5">Бетон зуурмаг болон дорхийн материал</p>
+                <p className="text-slate-400 text-xs mt-0.5">Бетон зуурмаг, асфальт хольц, хайрга, элс захиалга</p>
               </div>
               <button onClick={onClose} className="text-slate-400 hover:text-white p-1.5 hover:bg-white/5 rounded-lg transition-all">
                 <X className="w-5 h-5" />
