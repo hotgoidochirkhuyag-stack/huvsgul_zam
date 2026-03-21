@@ -720,6 +720,18 @@ export const insertRoleCredentialSchema = createInsertSchema(roleCredentials).om
 export type RoleCredential       = typeof roleCredentials.$inferSelect;
 export type InsertRoleCredential = z.infer<typeof insertRoleCredentialSchema>;
 
+// ===================== ҮЙЛДЛИЙН БҮРТГЭЛ (AUDIT LOG) =====================
+export const activityLogs = pgTable("activity_logs", {
+  id:        serial("id").primaryKey(),
+  role:      text("role").notNull(),
+  username:  text("username").notNull(),
+  action:    text("action").notNull(),
+  details:   text("details"),
+  ip:        text("ip"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export type ActivityLog = typeof activityLogs.$inferSelect;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;

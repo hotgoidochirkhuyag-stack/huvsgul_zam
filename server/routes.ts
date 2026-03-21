@@ -86,10 +86,18 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
 
+  // ============ AUDIT LOG HELPER ============
+  const logActivity = async (role: string, username: string, action: string, details?: string, ip?: string) => {
+    try {
+      await db.insert(schema.activityLogs).values({ role, username, action, details: details ?? null, ip: ip ?? null });
+    } catch (e) { console.error("Log error:", e); }
+  };
+
   // ============ ADMIN AUTH API ============
   app.post("/api/admin/login", async (req, res) => {
     const { username, password, role } = req.body;
     const cleanRole = (role || "").toString().toUpperCase();
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0].trim() || req.socket.remoteAddress || "unknown";
 
     const defaults: Record<string, { u: string; p: string }> = {
       ADMIN:      { u: "admin", p: "admin" },
@@ -103,16 +111,36 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       LAB:        { u: "admin", p: "admin" },
     };
 
-    // DB-ээс тухайн роль-ын нэвтрэлт хайх, олдохгүй бол default ашиглах
     const [dbCred] = await db.select().from(schema.roleCredentials).where(eq(schema.roleCredentials.role, cleanRole));
     const cred = dbCred
       ? { u: dbCred.username, p: dbCred.password }
       : defaults[cleanRole];
 
     if (cred && username === cred.u && password === cred.p) {
+      await logActivity(cleanRole, username, "НЭВТЭРСЭН", `${cleanRole} самбарт нэвтэрсэн`, ip);
       return res.json({ success: true, token: "authenticated", role: cleanRole });
     }
+    await logActivity(cleanRole, username || "?", "НЭВТРЭЛТ АМЖИЛТГҮЙ", `Буруу нууц үг оруулсан — роль: ${cleanRole}`, ip);
     return res.status(401).json({ message: "Нэр эсвэл нууц үг буруу" });
+  });
+
+  // ====== Бүртгэл авах (admin only) ======
+  app.get("/api/admin/activity-logs", requireAdmin, async (req, res) => {
+    const limit = parseInt(req.query.limit as string) || 200;
+    const role  = req.query.role as string;
+    const rows  = await db.select().from(schema.activityLogs)
+      .where(role && role !== "ALL" ? eq(schema.activityLogs.role, role) : undefined)
+      .orderBy(desc(schema.activityLogs.createdAt))
+      .limit(limit);
+    res.json(rows);
+  });
+
+  // ====== Бүртгэл гараас нэмэх (хэрэглэгч самбараас ажлын бүртгэл) ======
+  app.post("/api/admin/activity-logs", requireAdmin, async (req, res) => {
+    const { role, username, action, details } = req.body;
+    if (!role || !username || !action) return res.status(400).json({ error: "Дутуу мэдээлэл" });
+    await logActivity(role, username, action, details);
+    res.json({ success: true });
   });
 
   // ====== Нэвтрэлтийн тохиргоо авах (admin only) ======

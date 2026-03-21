@@ -11,13 +11,14 @@ import {
   AlertTriangle, CheckCircle2, Clock, Gauge, Bot, RefreshCw,
   Sparkles, FileText, ChevronRight, Video, Loader2, Globe,
   MapPin, Ruler, Calendar, Building2, DollarSign, Pencil, Save, X, ImageIcon,
-  Plus, Trash2, Download, FolderOpen, KeyRound, Eye, EyeOff, Check,
+  Plus, Trash2, Download, FolderOpen, KeyRound, Eye, EyeOff, Check, ScrollText,
+  ShieldAlert, LogIn, LogOut,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
 import { useToast } from "@/hooks/use-toast";
 
-type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "website" | "credentials";
+type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "website" | "credentials" | "logs";
 
 function hdrs() {
   return {
@@ -1248,6 +1249,121 @@ function PdfDocumentsManager() {
 }
 
 /* ══════════════════════ MAIN ══════════════════════ */
+/* ═══════════════════ ҮЙЛДЛИЙН БҮРТГЭЛ ════════════════════ */
+const ALL_LOG_ROLES = ["ALL","ADMIN","BOARD","PROJECT","ENGINEER","HR","SUPERVISOR","MECHANIC","WAREHOUSE","LAB"];
+const ACTION_COLOR: Record<string, string> = {
+  "НЭВТЭРСЭН":            "bg-green-500/15 text-green-400",
+  "НЭВТРЭЛТ АМЖИЛТГҮЙ":  "bg-red-500/15 text-red-400",
+  "ГАРСАН":               "bg-slate-500/15 text-slate-400",
+};
+
+function ActivityLogsTab() {
+  const hdrsLocal = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
+  const [roleFilter, setRoleFilter] = useState("ALL");
+
+  const { data: logs = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["/api/admin/activity-logs", roleFilter],
+    queryFn: () => fetch(`/api/admin/activity-logs?role=${roleFilter}&limit=300`, { headers: hdrsLocal() }).then(r => r.json()),
+    refetchInterval: 30000,
+  });
+
+  const fmt = (ts: string) => {
+    const d = new Date(ts);
+    return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")} ${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}:${String(d.getSeconds()).padStart(2,"0")}`;
+  };
+
+  const ROLE_LABEL: Record<string,string> = {
+    ADMIN:"Админ", BOARD:"ТУЗ", PROJECT:"Төсөл", ENGINEER:"Инженер",
+    HR:"ХНС", SUPERVISOR:"Хяналт", MECHANIC:"Механик", WAREHOUSE:"Агуулах", LAB:"Лаборатори",
+  };
+
+  const failed = logs.filter((l:any) => l.action === "НЭВТРЭЛТ АМЖИЛТГҮЙ").length;
+  const success = logs.filter((l:any) => l.action === "НЭВТЭРСЭН").length;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-blue-600/20 rounded-xl"><ScrollText className="w-5 h-5 text-blue-400" /></div>
+          <div>
+            <h2 className="font-bold text-white">Үйлдлийн бүртгэл</h2>
+            <p className="text-slate-500 text-xs">Хэн нэвтэрсэн, юу хийсэн — бүртгэл</p>
+          </div>
+        </div>
+        <button onClick={() => refetch()} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold transition-all">
+          <RefreshCw className="w-3.5 h-3.5" /> Шинэчлэх
+        </button>
+      </div>
+
+      {/* Статистик */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-slate-800/50 border border-white/10 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-white">{logs.length}</div>
+          <div className="text-xs text-slate-500 mt-0.5">Нийт бүртгэл</div>
+        </div>
+        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-green-400 flex items-center justify-center gap-1"><LogIn className="w-5 h-5" />{success}</div>
+          <div className="text-xs text-green-500/70 mt-0.5">Амжилттай нэвтрэлт</div>
+        </div>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-red-400 flex items-center justify-center gap-1"><ShieldAlert className="w-5 h-5" />{failed}</div>
+          <div className="text-xs text-red-500/70 mt-0.5">Амжилтгүй оролдлого</div>
+        </div>
+      </div>
+
+      {/* Шүүлтүүр */}
+      <div className="flex flex-wrap gap-2">
+        {ALL_LOG_ROLES.map(r => (
+          <button key={r} onClick={() => setRoleFilter(r)}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${roleFilter === r ? "bg-blue-600 text-white" : "bg-slate-800 text-slate-400 hover:text-white border border-white/10"}`}>
+            {r === "ALL" ? "Бүгд" : (ROLE_LABEL[r] ?? r)}
+          </button>
+        ))}
+      </div>
+
+      {/* Бүртгэлийн хүснэгт */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-blue-400" /></div>
+      ) : logs.length === 0 ? (
+        <div className="text-center py-12 text-slate-500">Бүртгэл байхгүй байна</div>
+      ) : (
+        <div className="bg-slate-900/50 border border-white/10 rounded-2xl overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-white/10 bg-slate-800/50">
+                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Огноо / Цаг</th>
+                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Роль</th>
+                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Нэвтрэх нэр</th>
+                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Үйлдэл</th>
+                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Дэлгэрэнгүй</th>
+                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">IP хаяг</th>
+                </tr>
+              </thead>
+              <tbody>
+                {logs.map((log: any, i: number) => (
+                  <tr key={log.id} className={`border-b border-white/5 ${i % 2 === 0 ? "" : "bg-white/[0.02]"} hover:bg-white/[0.04] transition-colors`}>
+                    <td className="px-4 py-2.5 text-slate-400 font-mono text-xs whitespace-nowrap">{fmt(log.createdAt)}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="text-xs font-bold px-2 py-0.5 rounded bg-slate-700 text-slate-300">{ROLE_LABEL[log.role] ?? log.role}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-white font-mono text-xs">{log.username}</td>
+                    <td className="px-4 py-2.5">
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded ${ACTION_COLOR[log.action] ?? "bg-blue-500/15 text-blue-400"}`}>{log.action}</span>
+                    </td>
+                    <td className="px-4 py-2.5 text-slate-400 text-xs max-w-xs truncate">{log.details ?? "—"}</td>
+                    <td className="px-4 py-2.5 text-slate-500 font-mono text-xs">{log.ip ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ═══════════════════ НЭВТРЭЛТИЙН ТОХИРГОО ════════════════════ */
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Администратор", BOARD: "ТУЗ / Захирал", PROJECT: "Төслийн удирдагч",
@@ -1379,6 +1495,7 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "meeting",     label: "Онлайн хурал",          icon: Video       },
   { key: "website",     label: "Вэбсайт",               icon: Globe       },
   { key: "credentials", label: "Нэвтрэлт",              icon: KeyRound    },
+  { key: "logs",        label: "Бүртгэл",               icon: ScrollText  },
 ];
 
 export default function AdminDashboard() {
@@ -1437,6 +1554,7 @@ export default function AdminDashboard() {
         {tab === "meeting"      && <MeetingTab />}
         {tab === "website"      && <WebsiteTab />}
         {tab === "credentials"  && <CredentialsTab />}
+        {tab === "logs"         && <ActivityLogsTab />}
       </main>
     </div>
   );
