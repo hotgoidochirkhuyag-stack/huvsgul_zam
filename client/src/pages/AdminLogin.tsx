@@ -11,7 +11,7 @@ const AdminLogin = () => {
   const [, setLocation] = useLocation();
 
   // Роль авах: localStorage (найдвартай) → window.location fallback (шууд URL орсон тохиолдолд)
-  const VALID_ROLES = ['ADMIN','BOARD','PROJECT','ENGINEER','HR','SUPERVISOR','MECHANIC','WAREHOUSE','LAB'];
+  const VALID_ROLES = ['ADMIN','BOARD','PROJECT','ENGINEER','HR','SUPERVISOR','MECHANIC','WAREHOUSE','LAB','SALES'];
   const fromStorage = localStorage.getItem("pendingRole") ?? '';
   const fromPath = window.location.pathname.split('/').filter(Boolean).pop()?.toUpperCase() ?? '';
   const selectedRole = VALID_ROLES.includes(fromStorage) ? fromStorage
