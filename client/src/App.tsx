@@ -21,6 +21,7 @@ import EquipmentInspection from "@/pages/EquipmentInspection";
 import LabQCDashboard from "@/pages/LabQCDashboard";
 import AnnualReport from "@/pages/AnnualReport";
 import UserManual from "@/pages/UserManual";
+import SalesDashboard from "@/pages/SalesDashboard";
 
 const ProtectedRoute = ({ component: Component, role }: { component: React.ComponentType; role: string }) => {
   const userRole = localStorage.getItem("userRole");
@@ -38,6 +39,7 @@ const ProtectedRoute = ({ component: Component, role }: { component: React.Compo
       MECHANIC:   "/dashboard/mechanic",
       WAREHOUSE:  "/dashboard/warehouse",
       LAB:        "/dashboard/lab-qc",
+      SALES:      "/dashboard/sales",
     };
     return <Redirect to={redirects[userRole ?? ""] ?? `/admin/${role}`} />;
   }
@@ -68,6 +70,7 @@ function Router() {
       <Route path="/dashboard/supervisor" component={() => <ProtectedRoute component={SupervisorDashboard} role="SUPERVISOR" />} />
       <Route path="/dashboard/mechanic"   component={() => <ProtectedRoute component={MechanicDashboard}   role="MECHANIC" />} />
       <Route path="/dashboard/warehouse"  component={() => <ProtectedRoute component={WarehouseDashboard}  role="WAREHOUSE" />} />
+      <Route path="/dashboard/sales"      component={() => <ProtectedRoute component={SalesDashboard}      role="SALES" />} />
 
       {/* ERP Систем */}
       <Route path="/erp" component={() => <ProtectedRoute component={ERPDashboard} role="ADMIN" />} />

@@ -1368,7 +1368,7 @@ function ActivityLogsTab() {
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Администратор", BOARD: "ТУЗ / Захирал", PROJECT: "Төслийн удирдагч",
   ENGINEER: "Инженер", HR: "Хүний нөөц", SUPERVISOR: "Хяналтын инженер",
-  MECHANIC: "Механик", WAREHOUSE: "Агуулах", LAB: "Лаборатори",
+  MECHANIC: "Механик", WAREHOUSE: "Агуулах", LAB: "Лаборатори", SALES: "Борлуулалтын алба",
 };
 
 function CredentialsTab() {

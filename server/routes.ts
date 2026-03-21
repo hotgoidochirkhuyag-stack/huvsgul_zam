@@ -109,6 +109,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       MECHANIC:   { u: "admin", p: "admin" },
       WAREHOUSE:  { u: "admin", p: "admin" },
       LAB:        { u: "admin", p: "admin" },
+      SALES:      { u: "admin", p: "admin" },
     };
 
     const [dbCred] = await db.select().from(schema.roleCredentials).where(eq(schema.roleCredentials.role, cleanRole));
@@ -145,7 +146,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // ====== Нэвтрэлтийн тохиргоо авах (admin only) ======
   app.get("/api/admin/credentials", requireAdmin, async (_req, res) => {
-    const ALL_ROLES = ["ADMIN","BOARD","PROJECT","ENGINEER","HR","SUPERVISOR","MECHANIC","WAREHOUSE","LAB"];
+    const ALL_ROLES = ["ADMIN","BOARD","PROJECT","ENGINEER","HR","SUPERVISOR","MECHANIC","WAREHOUSE","LAB","SALES"];
     const rows = await db.select().from(schema.roleCredentials);
     const map = Object.fromEntries(rows.map(r => [r.role, { username: r.username, password: r.password }]));
     const result = ALL_ROLES.map(role => ({
@@ -2053,10 +2054,170 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     }
   });
 
+  // ===================== БОРЛУУЛАЛТЫН ЗАХИАЛГА =====================
+  const requireSales = (req: any, res: any, next: any) => {
+    const token = req.headers["x-admin-token"];
+    if (token === "authenticated") return next();
+    res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+  };
+
+  app.get("/api/sales/orders", requireSales, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.salesOrders).orderBy(desc(schema.salesOrders.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/sales/orders", requireSales, async (req, res) => {
+    try {
+      const [row] = await db.insert(schema.salesOrders).values(req.body).returning();
+      res.status(201).json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.patch("/api/sales/orders/:id", requireSales, async (req, res) => {
+    try {
+      const [row] = await db.update(schema.salesOrders)
+        .set(req.body)
+        .where(eq(schema.salesOrders.id, parseInt(req.params.id)))
+        .returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/sales/orders/:id", requireSales, async (req, res) => {
+    try {
+      await db.delete(schema.salesOrders).where(eq(schema.salesOrders.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Өртгийн тохиргоо
+  app.get("/api/sales/cost-config", requireSales, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.productionCostConfig);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.put("/api/sales/cost-config/:plant", requireAdmin, async (req, res) => {
+    try {
+      const { plant } = req.params;
+      const [existing] = await db.select().from(schema.productionCostConfig)
+        .where(eq(schema.productionCostConfig.plant, plant));
+      let row;
+      if (existing) {
+        [row] = await db.update(schema.productionCostConfig)
+          .set({ ...req.body, updatedAt: new Date() })
+          .where(eq(schema.productionCostConfig.plant, plant))
+          .returning();
+      } else {
+        [row] = await db.insert(schema.productionCostConfig)
+          .values({ plant, ...req.body })
+          .returning();
+      }
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Өртгийн тооцоолол + Зах зээлтэй харьцуулалт
+  app.post("/api/sales/calculate-cost", requireSales, async (req, res) => {
+    try {
+      const { plant, aiMaterialCosts } = req.body;
+      // aiMaterialCosts: [{ name, pricePerUnit, quantity }] борлуулалтын ажилтнаас баталгаажуулсан
+
+      // Үйлдвэрийн тохиргоо татах
+      const [config] = await db.select().from(schema.productionCostConfig)
+        .where(eq(schema.productionCostConfig.plant, plant));
+
+      if (!config) return res.status(404).json({ error: "Тохиргоо олдсонгүй" });
+
+      // Материалын нийт өртөг
+      const materialCost = (aiMaterialCosts || []).reduce((sum: number, m: any) => {
+        return sum + (Number(m.pricePerUnit) * Number(m.quantity));
+      }, 0);
+
+      // Хөдөлмөрийн зардал / нэгж
+      const dailyOutput = config.dailyCapacity * (config.targetPct / 100);
+      const monthlyOutput = dailyOutput * 22; // 22 ажлын өдөр
+      const totalSalary = (config.workerCount || 20) * (config.minSalary || 3000000);
+      const laborCostPerUnit = monthlyOutput > 0 ? totalSalary / monthlyOutput : 0;
+
+      // Нийт өртөг / нэгж
+      const totalCostPerUnit = materialCost
+        + laborCostPerUnit
+        + (config.powerCostPerUnit || 0)
+        + (config.equipmentCostPerUnit || 0);
+
+      res.json({
+        plant,
+        materialCost,
+        laborCostPerUnit: Math.round(laborCostPerUnit),
+        powerCostPerUnit: config.powerCostPerUnit || 0,
+        equipmentCostPerUnit: config.equipmentCostPerUnit || 0,
+        totalCostPerUnit: Math.round(totalCostPerUnit),
+        dailyTarget: Math.round(dailyOutput),
+        monthlyTarget: Math.round(monthlyOutput),
+        breakdown: aiMaterialCosts,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ТУЗ-ийн ашигт ажиллагааны тойм
+  app.get("/api/sales/profitability-summary", requireSales, async (_req, res) => {
+    try {
+      const orders = await db.select().from(schema.salesOrders);
+      const configs = await db.select().from(schema.productionCostConfig);
+
+      const today = new Date();
+      const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-01`;
+
+      const thisMonth = orders.filter(o => (o.createdAt?.toISOString() ?? "") >= monthStart);
+      const confirmed = orders.filter(o => o.status === "confirmed" || o.status === "in_production" || o.status === "delivered");
+
+      const totalRevenue = confirmed.reduce((s, o) => s + ((o.pricePerUnit || 0) * (o.quantity || 0)), 0);
+      const totalCost    = confirmed.reduce((s, o) => s + ((o.costPerUnit  || 0) * (o.quantity || 0)), 0);
+      const totalProfit  = totalRevenue - totalCost;
+      const totalQty     = confirmed.reduce((s, o) => s + (o.quantity || 0), 0);
+
+      // Үйлдвэр тус бүрийн 30%-ийн зорилтын явц
+      const plantProgress = configs.map(c => {
+        const plantOrders = confirmed.filter(o => {
+          if (c.plant === "concrete")  return o.product.startsWith("concrete");
+          if (c.plant === "asphalt")   return o.product === "asphalt";
+          if (c.plant === "crushing")  return o.product === "crushed_stone";
+          return false;
+        });
+        const deliveredQty = plantOrders.reduce((s, o) => s + (o.quantity || 0), 0);
+        const monthlyTarget = c.dailyCapacity * (c.targetPct / 100) * 22;
+        return {
+          plant: c.plant,
+          dailyCapacity: c.dailyCapacity,
+          targetPct: c.targetPct,
+          monthlyTarget: Math.round(monthlyTarget),
+          deliveredQty: Math.round(deliveredQty),
+          achievedPct: monthlyTarget > 0 ? Math.round((deliveredQty / monthlyTarget) * 100) : 0,
+        };
+      });
+
+      res.json({
+        totalRevenue:   Math.round(totalRevenue),
+        totalCost:      Math.round(totalCost),
+        totalProfit:    Math.round(totalProfit),
+        totalQty:       Math.round(totalQty),
+        orderCount:     confirmed.length,
+        thisMonthCount: thisMonth.length,
+        plantProgress,
+        marginPct: totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Seed data
   seedInitialContent().catch(console.error);
   seedDefaultKpiConfigs().catch(console.error);
   seedWarehouse().catch(console.error);
+  seedProductionCostConfig().catch(console.error);
   return httpServer;
 }
 
@@ -2136,5 +2297,17 @@ async function seedInitialContent() {
         secondaryCtaText: "Холбогдох",
       });
     }
+  } catch {}
+}
+
+async function seedProductionCostConfig() {
+  try {
+    const existing = await db.select().from(schema.productionCostConfig).limit(1);
+    if (existing.length > 0) return;
+    await db.insert(schema.productionCostConfig).values([
+      { plant: "concrete",  dailyCapacity: 1500, targetPct: 30, workerCount: 25, minSalary: 3000000, powerCostPerUnit: 8000,  equipmentCostPerUnit: 12000 },
+      { plant: "asphalt",   dailyCapacity: 200,  targetPct: 30, workerCount: 20, minSalary: 3000000, powerCostPerUnit: 15000, equipmentCostPerUnit: 20000 },
+      { plant: "crushing",  dailyCapacity: 800,  targetPct: 30, workerCount: 15, minSalary: 3000000, powerCostPerUnit: 5000,  equipmentCostPerUnit: 8000  },
+    ]);
   } catch {}
 }

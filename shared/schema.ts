@@ -732,6 +732,42 @@ export const activityLogs = pgTable("activity_logs", {
 });
 export type ActivityLog = typeof activityLogs.$inferSelect;
 
+// ===================== БОРЛУУЛАЛТЫН ЗАХИАЛГА =====================
+export const salesOrders = pgTable("sales_orders", {
+  id:            serial("id").primaryKey(),
+  customerName:  text("customer_name").notNull(),
+  product:       text("product").notNull(),       // concrete_m200/m300/m400 | asphalt | crushed_stone
+  quantity:      real("quantity").notNull(),       // м³ эсвэл тн
+  unit:          text("unit").notNull().default("м³"),
+  pricePerUnit:  real("price_per_unit"),           // тохирсон үнэ (борлуулалтын ажилтан баталгаажуулсан)
+  costPerUnit:   real("cost_per_unit"),            // тооцоолсон өртөг
+  deliveryDate:  text("delivery_date"),
+  location:      text("location"),
+  status:        text("status").default("pending"), // pending|confirmed|in_production|delivered|cancelled
+  notes:         text("notes"),
+  confirmedBy:   text("confirmed_by"),
+  createdAt:     timestamp("created_at").defaultNow(),
+});
+export const insertSalesOrderSchema = createInsertSchema(salesOrders).omit({ id: true, createdAt: true });
+export type SalesOrder       = typeof salesOrders.$inferSelect;
+export type InsertSalesOrder = z.infer<typeof insertSalesOrderSchema>;
+
+// ===================== ҮЙЛДВЭРИЙН ӨРТГИЙН ТОХИРГОО =====================
+export const productionCostConfig = pgTable("production_cost_config", {
+  id:                  serial("id").primaryKey(),
+  plant:               text("plant").notNull().unique(), // asphalt | concrete | crushing
+  dailyCapacity:       real("daily_capacity").notNull(),  // м³/хоног эсвэл тн/хоног
+  targetPct:           real("target_pct").default(30),    // %
+  workerCount:         integer("worker_count").default(20),
+  minSalary:           real("min_salary").default(3000000),
+  powerCostPerUnit:    real("power_cost_per_unit").default(0),
+  equipmentCostPerUnit: real("equipment_cost_per_unit").default(0),
+  updatedAt:           timestamp("updated_at").defaultNow(),
+});
+export const insertProductionCostConfigSchema = createInsertSchema(productionCostConfig).omit({ id: true, updatedAt: true });
+export type ProductionCostConfig       = typeof productionCostConfig.$inferSelect;
+export type InsertProductionCostConfig = z.infer<typeof insertProductionCostConfigSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;

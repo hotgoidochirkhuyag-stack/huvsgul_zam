@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import {
   ArrowLeft, Building2, HardHat, Factory, LayoutDashboard,
   ClipboardList, UserCircle, Package, FlaskConical,
-  Wrench, BarChart3, Truck, BookOpen
+  Wrench, BarChart3, Truck, BookOpen, TrendingUp
 } from "lucide-react";
 
 const COLOR_MAP: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -33,6 +33,7 @@ const ROW2: Card[] = [
   { name: "ТУЗ-ын самбар",           desc: "Удирдлагын зөвлөл — хяналтын самбар", path: "/admin/ADMIN",    icon: LayoutDashboard, color: "slate"   },
   { name: "Техникийн дэмжлэг",       desc: "Инженер, үйлдвэрийн хяналт",       path: "/admin/ENGINEER",   icon: Wrench,          color: "red"     },
   { name: "Төслийн хөгжүүлэлт",      desc: "Бүртгэл, хүсэлт, KPI дүн",        path: "/admin/PROJECT",    icon: BarChart3,       color: "teal"    },
+  { name: "Борлуулалтын алба",        desc: "Захиалга, өртөг, өрсөлдөх чадвар", path: "/admin/SALES",      icon: TrendingUp,      color: "green"   },
 ];
 
 const ERP_REPORTS: Card[] = [
