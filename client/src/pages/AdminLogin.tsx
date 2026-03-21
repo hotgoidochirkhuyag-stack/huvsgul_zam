@@ -52,6 +52,7 @@ const AdminLogin = () => {
         MECHANIC:   '/dashboard/mechanic',
         WAREHOUSE:  '/dashboard/warehouse',
         LAB:        '/dashboard/lab-qc',
+        SALES:      '/dashboard/sales',
       };
       setLocation(routes[data.role] ?? '/dashboard/admin');
     } catch (e) {
