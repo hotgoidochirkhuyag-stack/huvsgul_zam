@@ -1274,7 +1274,7 @@ function ActivityLogsTab() {
 
   const ROLE_LABEL: Record<string,string> = {
     ADMIN:"Админ", BOARD:"ТУЗ", PROJECT:"Төсөл", ENGINEER:"Инженер",
-    HR:"ХНС", SUPERVISOR:"Хяналт", MECHANIC:"Механик", WAREHOUSE:"Агуулах", LAB:"Лаборатори",
+    HR:"Хүний нөөц", SUPERVISOR:"Хяналт", MECHANIC:"Механик", WAREHOUSE:"Агуулах", LAB:"Лаборатори",
   };
 
   const failed = logs.filter((l:any) => l.action === "НЭВТРЭЛТ АМЖИЛТГҮЙ").length;
@@ -1367,7 +1367,7 @@ function ActivityLogsTab() {
 /* ═══════════════════ НЭВТРЭЛТИЙН ТОХИРГОО ════════════════════ */
 const ROLE_LABELS: Record<string, string> = {
   ADMIN: "Администратор", BOARD: "ТУЗ / Захирал", PROJECT: "Төслийн удирдагч",
-  ENGINEER: "Инженер", HR: "ХНС", SUPERVISOR: "Хяналтын инженер",
+  ENGINEER: "Инженер", HR: "Хүний нөөц", SUPERVISOR: "Хяналтын инженер",
   MECHANIC: "Механик", WAREHOUSE: "Агуулах", LAB: "Лаборатори",
 };
 
