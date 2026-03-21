@@ -1512,6 +1512,14 @@ export default function AdminDashboard() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            data-testid="btn-manual-admin"
+            onClick={() => setLocation("/manual")}
+            className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 border border-white/10 text-slate-300 text-sm rounded-xl transition-all"
+          >
+            <BookOpen className="w-4 h-4" />
+            Заавар
+          </button>
+          <button
             data-testid="btn-annual-report"
             onClick={() => setLocation("/dashboard/annual-report")}
             className="flex items-center gap-2 px-4 py-2 bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/40 text-amber-300 text-sm font-bold rounded-xl transition-all"

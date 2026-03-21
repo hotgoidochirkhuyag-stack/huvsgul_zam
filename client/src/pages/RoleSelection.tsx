@@ -2,7 +2,7 @@ import { useLocation } from "wouter";
 import {
   ArrowLeft, Building2, HardHat, Factory, LayoutDashboard,
   ClipboardList, UserCircle, Package, FlaskConical,
-  Wrench, BarChart3, Truck
+  Wrench, BarChart3, Truck, BookOpen
 } from "lucide-react";
 
 const COLOR_MAP: Record<string, { bg: string; border: string; text: string; icon: string }> = {
@@ -66,10 +66,18 @@ export default function RoleSelection() {
       </div>
 
       <div className="relative z-10 max-w-4xl mx-auto px-6 py-12">
-        <button onClick={() => setLocation("/")}
-          className="flex items-center gap-2 text-slate-400 hover:text-white transition-all mb-10">
-          <ArrowLeft size={18} /> Нүүр хуудас
-        </button>
+        <div className="flex items-center justify-between mb-10">
+          <button onClick={() => setLocation("/")}
+            className="flex items-center gap-2 text-slate-400 hover:text-white transition-all"
+            data-testid="btn-back-home">
+            <ArrowLeft size={18} /> Нүүр хуудас
+          </button>
+          <button onClick={() => setLocation("/manual")}
+            className="flex items-center gap-2 text-amber-400 hover:text-amber-300 transition-all text-sm border border-amber-500/30 hover:border-amber-400/60 px-3 py-1.5 rounded-lg bg-amber-500/10"
+            data-testid="btn-manual">
+            <BookOpen size={15} /> Хэрэглэгчийн заавар
+          </button>
+        </div>
 
         <div className="mb-10 text-center">
           <h1 className="text-2xl font-black uppercase tracking-widest text-white mb-2">Системээ сонгоно уу</h1>
