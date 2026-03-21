@@ -1333,7 +1333,7 @@ function ActivityLogsTab() {
               <thead>
                 <tr className="border-b border-white/10 bg-slate-800/50">
                   <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Огноо / Цаг</th>
-                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Роль</th>
+                  <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Харьяалал</th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Нэвтрэх нэр</th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Үйлдэл</th>
                   <th className="text-left px-4 py-3 text-xs font-bold text-slate-400">Дэлгэрэнгүй</th>
@@ -1409,7 +1409,7 @@ function CredentialsTab() {
         <div className="p-2.5 bg-amber-600/20 rounded-xl"><KeyRound className="w-5 h-5 text-amber-400" /></div>
         <div>
           <h2 className="font-bold text-white">Нэвтрэлтийн тохиргоо</h2>
-          <p className="text-slate-500 text-xs">Роль бүрийн нэвтрэх нэр, нууц үгийг өөрчлөх</p>
+          <p className="text-slate-500 text-xs">Харьяалал бүрийн нэвтрэх нэр, нууц үгийг өөрчлөх</p>
         </div>
       </div>
 
