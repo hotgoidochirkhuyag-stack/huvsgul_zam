@@ -708,6 +708,18 @@ export const insertTenderProjectSchema = createInsertSchema(tenderProjects).omit
 export type TenderProject    = typeof tenderProjects.$inferSelect;
 export type InsertTenderProject = z.infer<typeof insertTenderProjectSchema>;
 
+// ===================== НЭВТРЭХ НЭВТРЭЛТИЙН ТОХИРГОО =====================
+export const roleCredentials = pgTable("role_credentials", {
+  id:        serial("id").primaryKey(),
+  role:      text("role").notNull().unique(),
+  username:  text("username").notNull(),
+  password:  text("password").notNull(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+export const insertRoleCredentialSchema = createInsertSchema(roleCredentials).omit({ id: true, updatedAt: true });
+export type RoleCredential       = typeof roleCredentials.$inferSelect;
+export type InsertRoleCredential = z.infer<typeof insertRoleCredentialSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;

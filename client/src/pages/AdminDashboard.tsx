@@ -11,13 +11,13 @@ import {
   AlertTriangle, CheckCircle2, Clock, Gauge, Bot, RefreshCw,
   Sparkles, FileText, ChevronRight, Video, Loader2, Globe,
   MapPin, Ruler, Calendar, Building2, DollarSign, Pencil, Save, X, ImageIcon,
-  Plus, Trash2, Download, FolderOpen,
+  Plus, Trash2, Download, FolderOpen, KeyRound, Eye, EyeOff, Check,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
 import { useToast } from "@/hooks/use-toast";
 
-type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "website";
+type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "website" | "credentials";
 
 function hdrs() {
   return {
@@ -1248,15 +1248,137 @@ function PdfDocumentsManager() {
 }
 
 /* ══════════════════════ MAIN ══════════════════════ */
+/* ═══════════════════ НЭВТРЭЛТИЙН ТОХИРГОО ════════════════════ */
+const ROLE_LABELS: Record<string, string> = {
+  ADMIN: "Администратор", BOARD: "ТУЗ / Захирал", PROJECT: "Төслийн удирдагч",
+  ENGINEER: "Инженер", HR: "ХНС", SUPERVISOR: "Хяналтын инженер",
+  MECHANIC: "Механик", WAREHOUSE: "Агуулах", LAB: "Лаборатори",
+};
+
+function CredentialsTab() {
+  const { toast } = useToast();
+  const hdrsLocal = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
+
+  const { data: creds = [], isLoading, refetch } = useQuery<any[]>({
+    queryKey: ["/api/admin/credentials"],
+    queryFn: () => fetch("/api/admin/credentials", { headers: hdrsLocal() }).then(r => r.json()),
+  });
+
+  const [editing, setEditing] = useState<string | null>(null);
+  const [form, setForm]       = useState({ username: "", password: "" });
+  const [showPw, setShowPw]   = useState<Record<string, boolean>>({});
+  const [saving, setSaving]   = useState(false);
+
+  const startEdit = (c: any) => { setEditing(c.role); setForm({ username: c.username, password: c.password }); };
+  const cancelEdit = () => setEditing(null);
+
+  const save = async () => {
+    if (!form.username.trim() || !form.password.trim()) {
+      toast({ title: "Нэр болон нууц үг оруулна уу", variant: "destructive" }); return;
+    }
+    setSaving(true);
+    const r = await fetch(`/api/admin/credentials/${editing}`, {
+      method: "PUT", headers: hdrsLocal(), body: JSON.stringify(form),
+    });
+    setSaving(false);
+    if (r.ok) { toast({ title: "Амжилттай хадгалагдлаа" }); setEditing(null); refetch(); }
+    else toast({ title: "Алдаа гарлаа", variant: "destructive" });
+  };
+
+  if (isLoading) return <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-3 mb-2">
+        <div className="p-2.5 bg-amber-600/20 rounded-xl"><KeyRound className="w-5 h-5 text-amber-400" /></div>
+        <div>
+          <h2 className="font-bold text-white">Нэвтрэлтийн тохиргоо</h2>
+          <p className="text-slate-500 text-xs">Роль бүрийн нэвтрэх нэр, нууц үгийг өөрчлөх</p>
+        </div>
+      </div>
+
+      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl px-4 py-3 text-xs text-amber-300">
+        Анхааруулга: Нууц үгийг мартвал дахин нэвтрэх боломжгүй болно. Заавал аюулгүй газарт хадгалаарай.
+      </div>
+
+      <div className="space-y-2">
+        {creds.map((c: any) => (
+          <div key={c.role} className="bg-slate-800/50 border border-white/10 rounded-2xl p-4">
+            {editing === c.role ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-bold text-white">{ROLE_LABELS[c.role] ?? c.role}</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-amber-600/20 text-amber-400 font-bold">{c.role}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Нэвтрэх нэр</label>
+                    <input
+                      value={form.username}
+                      onChange={e => setForm(p => ({ ...p, username: e.target.value }))}
+                      className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+                      placeholder="Нэвтрэх нэр"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1 block">Нууц үг</label>
+                    <div className="relative">
+                      <input
+                        type={showPw[c.role] ? "text" : "password"}
+                        value={form.password}
+                        onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                        className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 pr-10 text-sm text-white outline-none focus:border-amber-500/50"
+                        placeholder="Нууц үг"
+                      />
+                      <button onClick={() => setShowPw(p => ({ ...p, [c.role]: !p[c.role] }))} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
+                        {showPw[c.role] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <button onClick={cancelEdit} className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-bold transition-all">Цуцлах</button>
+                  <button onClick={save} disabled={saving} className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold transition-all disabled:opacity-50">
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Хадгалах
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-xl bg-slate-700 flex items-center justify-center">
+                    <KeyRound className="w-4 h-4 text-slate-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-bold text-white">{ROLE_LABELS[c.role] ?? c.role}</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-400 font-bold">{c.role}</span>
+                    </div>
+                    <p className="text-xs text-slate-500 mt-0.5">Нэвтрэх нэр: <span className="text-slate-300 font-mono">{c.username}</span></p>
+                  </div>
+                </div>
+                <button onClick={() => startEdit(c)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-700 hover:bg-amber-600/20 hover:border-amber-500/30 border border-transparent text-slate-400 hover:text-amber-400 text-xs font-bold transition-all">
+                  <Pencil className="w-3.5 h-3.5" /> Засах
+                </button>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const TABS: { key: Tab; label: string; icon: any }[] = [
-  { key: "attendance",  label: "Ирц / ХАБЭА",         icon: UserCheck   },
-  { key: "project",    label: "Төслийн явц",           icon: TrendingUp  },
-  { key: "production", label: "Үйлдвэрлэлийн явц",    icon: Factory     },
-  { key: "norm",       label: "Норм",                  icon: BookOpen    },
-  { key: "kpi",        label: "KPI / OEE",             icon: Gauge       },
-  { key: "ai",         label: "AI Агент",              icon: Bot         },
-  { key: "meeting",    label: "Онлайн хурал",          icon: Video       },
-  { key: "website",    label: "Вэбсайт",               icon: Globe       },
+  { key: "attendance",   label: "Ирц / ХАБЭА",         icon: UserCheck   },
+  { key: "project",     label: "Төслийн явц",           icon: TrendingUp  },
+  { key: "production",  label: "Үйлдвэрлэлийн явц",    icon: Factory     },
+  { key: "norm",        label: "Норм",                  icon: BookOpen    },
+  { key: "kpi",         label: "KPI / OEE",             icon: Gauge       },
+  { key: "ai",          label: "AI Агент",              icon: Bot         },
+  { key: "meeting",     label: "Онлайн хурал",          icon: Video       },
+  { key: "website",     label: "Вэбсайт",               icon: Globe       },
+  { key: "credentials", label: "Нэвтрэлт",              icon: KeyRound    },
 ];
 
 export default function AdminDashboard() {
@@ -1312,8 +1434,9 @@ export default function AdminDashboard() {
         {tab === "norm"        && <NormTab />}
         {tab === "kpi"         && <KpiTab />}
         {tab === "ai"          && <AiAgentTab />}
-        {tab === "meeting"     && <MeetingTab />}
-        {tab === "website"     && <WebsiteTab />}
+        {tab === "meeting"      && <MeetingTab />}
+        {tab === "website"      && <WebsiteTab />}
+        {tab === "credentials"  && <CredentialsTab />}
       </main>
     </div>
   );

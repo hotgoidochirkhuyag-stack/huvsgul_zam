@@ -87,11 +87,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.use(express.urlencoded({ extended: true }));
 
   // ============ ADMIN AUTH API ============
-  app.post("/api/admin/login", (req, res) => {
+  app.post("/api/admin/login", async (req, res) => {
     const { username, password, role } = req.body;
     const cleanRole = (role || "").toString().toUpperCase();
 
-    const users: Record<string, { u: string; p: string }> = {
+    const defaults: Record<string, { u: string; p: string }> = {
       ADMIN:      { u: "admin", p: "admin" },
       BOARD:      { u: "admin", p: "admin" },
       PROJECT:    { u: "admin", p: "admin" },
@@ -103,11 +103,43 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       LAB:        { u: "admin", p: "admin" },
     };
 
-    const targetUser = users[cleanRole];
-    if (targetUser && username === targetUser.u && password === targetUser.p) {
+    // DB-ээс тухайн роль-ын нэвтрэлт хайх, олдохгүй бол default ашиглах
+    const [dbCred] = await db.select().from(schema.roleCredentials).where(eq(schema.roleCredentials.role, cleanRole));
+    const cred = dbCred
+      ? { u: dbCred.username, p: dbCred.password }
+      : defaults[cleanRole];
+
+    if (cred && username === cred.u && password === cred.p) {
       return res.json({ success: true, token: "authenticated", role: cleanRole });
     }
     return res.status(401).json({ message: "Нэр эсвэл нууц үг буруу" });
+  });
+
+  // ====== Нэвтрэлтийн тохиргоо авах (admin only) ======
+  app.get("/api/admin/credentials", requireAdmin, async (_req, res) => {
+    const ALL_ROLES = ["ADMIN","BOARD","PROJECT","ENGINEER","HR","SUPERVISOR","MECHANIC","WAREHOUSE","LAB"];
+    const rows = await db.select().from(schema.roleCredentials);
+    const map = Object.fromEntries(rows.map(r => [r.role, { username: r.username, password: r.password }]));
+    const result = ALL_ROLES.map(role => ({
+      role,
+      username: map[role]?.username ?? "admin",
+      password: map[role]?.password ?? "admin",
+    }));
+    res.json(result);
+  });
+
+  // ====== Нэвтрэлт шинэчлэх (admin only) ======
+  app.put("/api/admin/credentials/:role", requireAdmin, async (req, res) => {
+    const role = req.params.role.toUpperCase();
+    const { username, password } = req.body;
+    if (!username || !password) return res.status(400).json({ error: "Нэр болон нууц үг шаардлагатай" });
+    const [existing] = await db.select().from(schema.roleCredentials).where(eq(schema.roleCredentials.role, role));
+    if (existing) {
+      await db.update(schema.roleCredentials).set({ username, password, updatedAt: new Date() }).where(eq(schema.roleCredentials.role, role));
+    } else {
+      await db.insert(schema.roleCredentials).values({ role, username, password });
+    }
+    res.json({ success: true });
   });
 
   // ============ WEBSITE API ============
