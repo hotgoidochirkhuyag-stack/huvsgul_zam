@@ -15,6 +15,7 @@ import {
   ShieldAlert, LogIn, LogOut,
 } from "lucide-react";
 import LogoutButton from "@/components/LogoutButton";
+import NotificationBell from "@/components/NotificationBell";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
 import { useToast } from "@/hooks/use-toast";
 
@@ -1527,6 +1528,7 @@ export default function AdminDashboard() {
             <FileText className="w-4 h-4" />
             Оны тайлан
           </button>
+          <NotificationBell role="ADMIN" />
           <LogoutButton />
         </div>
       </header>

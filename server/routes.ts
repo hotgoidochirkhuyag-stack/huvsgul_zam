@@ -401,6 +401,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const data = schema.insertProjectOrderSchema.parse(req.body);
       const [row] = await db.insert(schema.projectOrders).values(data).returning();
+      // Борлуулалтын албанд мэдэгдэл явуулна
+      await db.insert(schema.notifications).values({
+        toRole: "SALES",
+        title: "Шинэ захиалга ирлээ",
+        body: `${row.clientName} — ${row.productType} ${row.quantity}${row.unit ?? "м³"} · ${row.deliveryDate ?? ""}`,
+        sourceType: "project_order",
+        sourceId: row.id,
+      });
       res.json(row);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -432,6 +440,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const data = schema.insertProjectContractSchema.parse(req.body);
       const [row] = await db.insert(schema.projectContracts).values(data).returning();
+      // Борлуулалтын алба + Администраторт мэдэгдэл явуулна
+      await db.insert(schema.notifications).values([
+        { toRole: "SALES", title: "Шинэ гэрээ байгуулагдлаа", body: `${row.clientName} — ${row.workType} · ${Number(row.amount??0).toLocaleString()}₮`, sourceType: "contract", sourceId: row.id },
+        { toRole: "ADMIN", title: "Шинэ гэрээ байгуулагдлаа", body: `${row.clientName} — ${row.workType} · ${Number(row.amount??0).toLocaleString()}₮`, sourceType: "contract", sourceId: row.id },
+      ]);
       res.json(row);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -2052,6 +2065,58 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       console.error("annual-report error:", e);
       res.status(500).json({ error: e.message });
     }
+  });
+
+  // ===================== МЭДЭГДЛИЙН СИСТЕМ =====================
+  app.get("/api/notifications", async (req, res) => {
+    try {
+      const token = req.headers["x-admin-token"];
+      const role  = (req.query.role as string || "").toUpperCase();
+      if (token !== "authenticated" || !role) return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+      const rows = await db.select().from(schema.notifications)
+        .where(eq(schema.notifications.toRole, role))
+        .orderBy(desc(schema.notifications.createdAt))
+        .limit(50);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/notifications/:id/read", async (req, res) => {
+    try {
+      const token = req.headers["x-admin-token"];
+      if (token !== "authenticated") return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+      await db.update(schema.notifications)
+        .set({ isRead: true })
+        .where(eq(schema.notifications.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/notifications/read-all", async (req, res) => {
+    try {
+      const token = req.headers["x-admin-token"];
+      const { role } = req.body;
+      if (token !== "authenticated" || !role) return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+      await db.update(schema.notifications)
+        .set({ isRead: true })
+        .where(eq(schema.notifications.toRole, role.toUpperCase()));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Борлуулалтын алба → "Гэрээ баталгаажлаа" → Хяналтын инженерт мэдэгдэл
+  app.post("/api/notifications/contract-confirmed", async (req, res) => {
+    try {
+      const token = req.headers["x-admin-token"];
+      if (token !== "authenticated") return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+      const { orderId, customerName, productType, quantity, unit, deliveryDate } = req.body;
+      // Хяналтын инженер + Администраторт ажлын захиалга болгон явуулна
+      await db.insert(schema.notifications).values([
+        { toRole: "SUPERVISOR", title: "Гэрээ баталгаажлаа — Ажлын захиалга", body: `${customerName} — ${productType} ${quantity}${unit??""} · ${deliveryDate??""}`, sourceType: "project_order", sourceId: orderId },
+        { toRole: "ADMIN",     title: "Гэрээ баталгаажлаа",                    body: `${customerName} — ${productType} ${quantity}${unit??""} · Нийлүүлэлтэд шилжлээ`, sourceType: "project_order", sourceId: orderId },
+      ]);
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   // ===================== БОРЛУУЛАЛТЫН ЗАХИАЛГА =====================

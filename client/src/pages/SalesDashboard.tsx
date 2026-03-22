@@ -4,9 +4,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   TrendingUp, LogOut, Plus, Search, CheckCircle2,
   Clock, Truck, XCircle, Calculator, BarChart3,
-  ChevronDown, ChevronUp, Loader2, AlertCircle,
-  Building2, PackageCheck, Hammer
+  Loader2, AlertCircle, PackageCheck, Hammer, Send
 } from "lucide-react";
+import NotificationBell from "@/components/NotificationBell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -338,7 +338,11 @@ function NewOrderModal({ onClose, configs }: { onClose: () => void; configs: Pro
 }
 
 // ── Захиалгын мөр ─────────────────────────────────────────────────────────────
-function OrderRow({ order, onStatusChange }: { order: SalesOrder; onStatusChange: (id: number, status: string) => void }) {
+function OrderRow({ order, onStatusChange, onContractConfirm }: {
+  order: SalesOrder;
+  onStatusChange: (id: number, status: string) => void;
+  onContractConfirm: (order: SalesOrder) => void;
+}) {
   const s = STATUS_MAP[order.status ?? "pending"] ?? STATUS_MAP.pending;
   const StatusIcon = s.icon;
   const margin = order.pricePerUnit && order.costPerUnit
@@ -346,46 +350,78 @@ function OrderRow({ order, onStatusChange }: { order: SalesOrder; onStatusChange
     : null;
 
   return (
-    <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center gap-3"
+    <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 flex flex-col gap-3"
       data-testid={`order-row-${order.id}`}>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 mb-1 flex-wrap">
-          <span className="font-bold text-white text-sm">{order.customerName}</span>
-          <Badge className={`text-xs border ${s.color}`}>
-            <StatusIcon size={10} className="mr-1" />{s.label}
-          </Badge>
-          {margin !== null && (
-            <Badge className={`text-xs border ${margin >= 0 ? "bg-green-500/20 text-green-300 border-green-500/30" : "bg-red-500/20 text-red-300 border-red-500/30"}`}>
-              {margin >= 0 ? "+" : ""}{margin}% ашиг
+      <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-1 flex-wrap">
+            <span className="font-bold text-white text-sm">{order.customerName}</span>
+            <Badge className={`text-xs border ${s.color}`}>
+              <StatusIcon size={10} className="mr-1" />{s.label}
             </Badge>
-          )}
-        </div>
-        <p className="text-xs text-slate-400">
-          {PRODUCTS.find(p => p.value === order.product)?.label ?? order.product} —{" "}
-          <span className="text-amber-300 font-bold">{fmt(order.quantity ?? 0)} {order.unit}</span>
-          {order.location && ` · ${order.location}`}
-          {order.deliveryDate && ` · ${order.deliveryDate}`}
-        </p>
-        {(order.pricePerUnit || order.costPerUnit) && (
-          <p className="text-xs text-slate-500 mt-1">
-            {order.costPerUnit ? `Өртөг: ${fmt(order.costPerUnit)}₮` : ""}
-            {order.pricePerUnit ? ` · Борлуулалт: ${fmt(order.pricePerUnit)}₮` : ""}
-            {order.pricePerUnit && order.quantity ? ` · Нийт орлого: ${fmt(Math.round(order.pricePerUnit * order.quantity))}₮` : ""}
+            {margin !== null && (
+              <Badge className={`text-xs border ${margin >= 0 ? "bg-green-500/20 text-green-300 border-green-500/30" : "bg-red-500/20 text-red-300 border-red-500/30"}`}>
+                {margin >= 0 ? "+" : ""}{margin}% ашиг
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-slate-400">
+            {PRODUCTS.find(p => p.value === order.product)?.label ?? order.product} —{" "}
+            <span className="text-amber-300 font-bold">{fmt(order.quantity ?? 0)} {order.unit}</span>
+            {order.location && ` · ${order.location}`}
+            {order.deliveryDate && ` · ${order.deliveryDate}`}
           </p>
-        )}
-        {order.confirmedBy && <p className="text-xs text-slate-600 mt-0.5">Борлуулагч: {order.confirmedBy}</p>}
+          {(order.pricePerUnit || order.costPerUnit) && (
+            <p className="text-xs text-slate-500 mt-1">
+              {order.costPerUnit ? `Өртөг: ${fmt(order.costPerUnit)}₮` : ""}
+              {order.pricePerUnit ? ` · Борлуулалт: ${fmt(order.pricePerUnit)}₮` : ""}
+              {order.pricePerUnit && order.quantity ? ` · Нийт: ${fmt(Math.round(order.pricePerUnit * order.quantity))}₮` : ""}
+            </p>
+          )}
+          {order.confirmedBy && <p className="text-xs text-slate-600 mt-0.5">Борлуулагч: {order.confirmedBy}</p>}
+        </div>
+        <div className="shrink-0">
+          <select
+            className="bg-slate-800 border border-slate-600 text-white rounded-lg px-2 py-1.5 text-xs"
+            value={order.status ?? "pending"}
+            onChange={e => onStatusChange(order.id, e.target.value)}
+            data-testid={`select-status-${order.id}`}>
+            {Object.entries(STATUS_MAP).map(([k, v]) => (
+              <option key={k} value={k}>{v.label}</option>
+            ))}
+          </select>
+        </div>
       </div>
-      <div className="shrink-0">
-        <select
-          className="bg-slate-800 border border-slate-600 text-white rounded-lg px-2 py-1.5 text-xs"
-          value={order.status ?? "pending"}
-          onChange={e => onStatusChange(order.id, e.target.value)}
-          data-testid={`select-status-${order.id}`}>
-          {Object.entries(STATUS_MAP).map(([k, v]) => (
-            <option key={k} value={k}>{v.label}</option>
-          ))}
-        </select>
-      </div>
+
+      {/* Гэрээний урсгал */}
+      {order.status === "pending" && (
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
+          <Button size="sm"
+            className="bg-blue-600/20 hover:bg-blue-600/40 text-blue-300 border border-blue-500/30 text-xs h-7"
+            onClick={() => { onStatusChange(order.id, "confirmed"); }}
+            data-testid={`btn-send-contract-${order.id}`}>
+            <Send size={11} className="mr-1" /> Гэрээ явуулах
+          </Button>
+          <span className="text-xs text-slate-600">→ Харилцагчид цахим гэрээ явуулж баталгаажуулна</span>
+        </div>
+      )}
+      {order.status === "confirmed" && (
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
+          <Button size="sm"
+            className="bg-green-600/20 hover:bg-green-600/40 text-green-300 border border-green-500/30 text-xs h-7"
+            onClick={() => onContractConfirm(order)}
+            data-testid={`btn-confirm-contract-${order.id}`}>
+            <CheckCircle2 size={11} className="mr-1" /> Гэрээ баталгаажлаа → Үйлдвэрт явуулах
+          </Button>
+          <span className="text-xs text-slate-600">→ Хяналтын инженерт ажлын захиалга явна</span>
+        </div>
+      )}
+      {order.status === "in_production" && (
+        <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
+          <Hammer size={12} className="text-purple-400" />
+          <span className="text-xs text-purple-400">Үйлдвэрлэлд шилжсэн — Хяналтын инженерт мэдэгдсэн</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -516,6 +552,37 @@ export default function SalesDashboard() {
     onError: (e: any) => toast({ title: "Алдаа", description: e.message, variant: "destructive" }),
   });
 
+  const contractConfirm = useMutation({
+    mutationFn: async (order: SalesOrder) => {
+      // Статусыг "in_production" болгох
+      await fetch(`/api/sales/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-token": "authenticated" },
+        body: JSON.stringify({ status: "in_production" }),
+      });
+      // Хяналтын инженер + Администраторт мэдэгдэл явуулах
+      const prod = PRODUCTS.find(p => p.value === order.product);
+      await fetch("/api/notifications/contract-confirmed", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-token": "authenticated" },
+        body: JSON.stringify({
+          orderId: order.id,
+          customerName: order.customerName,
+          productType: prod?.label ?? order.product,
+          quantity: order.quantity,
+          unit: order.unit,
+          deliveryDate: order.deliveryDate,
+        }),
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/sales/orders"] });
+      qc.invalidateQueries({ queryKey: ["/api/sales/profitability-summary"] });
+      toast({ title: "Гэрээ баталгаажлаа — Хяналтын инженерт мэдэгдэл явуулсан ✓" });
+    },
+    onError: (e: any) => toast({ title: "Алдаа", description: e.message, variant: "destructive" }),
+  });
+
   const filteredOrders = orders.filter(o => {
     const matchSearch = !search ||
       o.customerName.toLowerCase().includes(search.toLowerCase()) ||
@@ -551,6 +618,7 @@ export default function SalesDashboard() {
               {confirmedCount} үйлдвэрлэлд
             </Badge>
           )}
+          <NotificationBell role="SALES" />
           <Button size="sm" variant="ghost" className="text-slate-400 hover:text-white"
             onClick={logout} data-testid="btn-logout">
             <LogOut size={15} className="mr-1" /> Гарах
@@ -621,7 +689,8 @@ export default function SalesDashboard() {
               <div className="space-y-2">
                 {filteredOrders.map(o => (
                   <OrderRow key={o.id} order={o}
-                    onStatusChange={(id, status) => updateStatus.mutate({ id, status })} />
+                    onStatusChange={(id, status) => updateStatus.mutate({ id, status })}
+                    onContractConfirm={(order) => contractConfirm.mutate(order)} />
                 ))}
               </div>
             )}

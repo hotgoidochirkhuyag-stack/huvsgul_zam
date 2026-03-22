@@ -11,6 +11,7 @@ import {
 import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
 import LogoutButton from "@/components/LogoutButton";
+import NotificationBell from "@/components/NotificationBell";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
@@ -1050,7 +1051,10 @@ export default function ProjectDashboard() {
           <h1 className="text-2xl md:text-3xl font-bold text-white">Төслийн хөгжүүлэлт</h1>
           <p className="text-slate-400 mt-1">Захиалга · Гэрээ · Борлуулалт — Хөвсгөл Зам ХХК</p>
         </div>
-        <LogoutButton />
+        <div className="flex items-center gap-2">
+          <NotificationBell role="PROJECT" />
+          <LogoutButton />
+        </div>
       </header>
 
       {/* Tabs */}

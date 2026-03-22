@@ -8,6 +8,7 @@ import {
   Camera, Image as ImageIcon, Upload, ChevronUp, Printer
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
+import NotificationBell from "@/components/NotificationBell";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -380,12 +381,15 @@ export default function SupervisorDashboard() {
               <p className="text-xs text-slate-500">Хөвсгөл Зам ХХК</p>
             </div>
           </div>
-          <button
-            onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-xl text-sm transition-all"
-          >
-            <LogOut className="w-4 h-4" /> Гарах
-          </button>
+          <div className="flex items-center gap-2">
+            <NotificationBell role="SUPERVISOR" />
+            <button
+              onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-xl text-sm transition-all"
+            >
+              <LogOut className="w-4 h-4" /> Гарах
+            </button>
+          </div>
         </div>
       </div>
 

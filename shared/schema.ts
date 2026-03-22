@@ -732,6 +732,19 @@ export const activityLogs = pgTable("activity_logs", {
 });
 export type ActivityLog = typeof activityLogs.$inferSelect;
 
+// ===================== МЭДЭГДЛИЙН СИСТЕМ =====================
+export const notifications = pgTable("notifications", {
+  id:         serial("id").primaryKey(),
+  toRole:     text("to_role").notNull(),          // SALES | SUPERVISOR | ADMIN | PROJECT
+  title:      text("title").notNull(),
+  body:       text("body").notNull(),
+  sourceType: text("source_type").notNull(),       // project_order | contract | request
+  sourceId:   integer("source_id"),
+  isRead:     boolean("is_read").default(false),
+  createdAt:  timestamp("created_at").defaultNow(),
+});
+export type Notification = typeof notifications.$inferSelect;
+
 // ===================== БОРЛУУЛАЛТЫН ЗАХИАЛГА =====================
 export const salesOrders = pgTable("sales_orders", {
   id:            serial("id").primaryKey(),
