@@ -110,7 +110,7 @@ function NewOrderModal({ onClose, configs }: { onClose: () => void; configs: Pro
 
       const resp = await fetch("/api/sales/calculate-cost", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": "authenticated" },
+        headers: { "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" },
         body: JSON.stringify({ plant: selectedProduct.plant, aiMaterialCosts }),
       });
       const data = await resp.json();
@@ -127,7 +127,7 @@ function NewOrderModal({ onClose, configs }: { onClose: () => void; configs: Pro
     mutationFn: async (body: any) => {
       const r = await fetch("/api/sales/orders", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": "authenticated" },
+        headers: { "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" },
         body: JSON.stringify(body),
       });
       if (!r.ok) throw new Error(await r.text());
@@ -431,7 +431,7 @@ function ProfitPanel() {
   const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/sales/profitability-summary"],
     queryFn: () => fetch("/api/sales/profitability-summary", {
-      headers: { "x-admin-token": "authenticated" }
+      headers: { "x-admin-token": localStorage.getItem("adminToken") ?? "" }
     }).then(r => r.json()),
     refetchInterval: 30000,
   });
@@ -522,7 +522,7 @@ export default function SalesDashboard() {
   const { data: orders = [], isLoading: ordersLoading } = useQuery<SalesOrder[]>({
     queryKey: ["/api/sales/orders"],
     queryFn: () => fetch("/api/sales/orders", {
-      headers: { "x-admin-token": "authenticated" }
+      headers: { "x-admin-token": localStorage.getItem("adminToken") ?? "" }
     }).then(r => r.json()),
     refetchInterval: 15000,
   });
@@ -530,7 +530,7 @@ export default function SalesDashboard() {
   const { data: configs = [] } = useQuery<ProductionCostConfig[]>({
     queryKey: ["/api/sales/cost-config"],
     queryFn: () => fetch("/api/sales/cost-config", {
-      headers: { "x-admin-token": "authenticated" }
+      headers: { "x-admin-token": localStorage.getItem("adminToken") ?? "" }
     }).then(r => r.json()),
   });
 
@@ -538,7 +538,7 @@ export default function SalesDashboard() {
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       const r = await fetch(`/api/sales/orders/${id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-admin-token": "authenticated" },
+        headers: { "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" },
         body: JSON.stringify({ status }),
       });
       if (!r.ok) throw new Error(await r.text());
@@ -557,14 +557,14 @@ export default function SalesDashboard() {
       // Статусыг "in_production" болгох
       await fetch(`/api/sales/orders/${order.id}`, {
         method: "PATCH",
-        headers: { "Content-Type": "application/json", "x-admin-token": "authenticated" },
+        headers: { "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" },
         body: JSON.stringify({ status: "in_production" }),
       });
       // Хяналтын инженер + Администраторт мэдэгдэл явуулах
       const prod = PRODUCTS.find(p => p.value === order.product);
       await fetch("/api/notifications/contract-confirmed", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-admin-token": "authenticated" },
+        headers: { "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" },
         body: JSON.stringify({
           orderId: order.id,
           customerName: order.customerName,

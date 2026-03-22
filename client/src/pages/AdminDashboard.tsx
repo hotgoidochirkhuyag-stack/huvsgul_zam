@@ -1387,7 +1387,7 @@ function CredentialsTab() {
   const [showPw, setShowPw]   = useState<Record<string, boolean>>({});
   const [saving, setSaving]   = useState(false);
 
-  const startEdit = (c: any) => { setEditing(c.role); setForm({ username: c.username, password: c.password }); };
+  const startEdit = (c: any) => { setEditing(c.role); setForm({ username: c.username, password: "" }); };
   const cancelEdit = () => setEditing(null);
 
   const save = async () => {
@@ -1471,8 +1471,13 @@ function CredentialsTab() {
                     <div className="flex items-center gap-2">
                       <span className="text-sm font-bold text-white">{ROLE_LABELS[c.role] ?? c.role}</span>
                       <span className="text-[10px] px-2 py-0.5 rounded bg-slate-700 text-slate-400 font-bold">{c.role}</span>
+                      {c.passwordSet && <span className="text-[10px] px-2 py-0.5 rounded bg-green-900/40 text-green-400 font-bold">bcrypt</span>}
                     </div>
-                    <p className="text-xs text-slate-500 mt-0.5">Нэвтрэх нэр: <span className="text-slate-300 font-mono">{c.username}</span></p>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Нэвтрэх нэр: <span className="text-slate-300 font-mono">{c.username}</span>
+                      <span className="mx-2 text-slate-700">·</span>
+                      Нууц үг: <span className="text-slate-500 font-mono">{c.passwordHint}</span>
+                    </p>
                   </div>
                 </div>
                 <button onClick={() => startEdit(c)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-slate-700 hover:bg-amber-600/20 hover:border-amber-500/30 border border-transparent text-slate-400 hover:text-amber-400 text-xs font-bold transition-all">

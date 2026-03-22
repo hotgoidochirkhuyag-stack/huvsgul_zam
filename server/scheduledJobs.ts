@@ -1,6 +1,6 @@
 import { db } from "./db.js";
 import * as schema from "../shared/schema.js";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, lte, gt } from "drizzle-orm";
 
 // ============================================================
 //  ГЭРЧИЛГЭЭНИЙ ХУГАЦАА ШАЛГАХ — өдөр бүр 23:00 цагт
@@ -47,6 +47,37 @@ export async function runCertExpiryCheck() {
 }
 
 // ============================================================
+//  АГУУЛАХЫН БАРАА ДУТАГДАЛ ШАЛГАХ — өдөр бүр 08:00 цагт
+// ============================================================
+
+export async function runLowStockCheck() {
+  try {
+    const items = await db
+      .select()
+      .from(schema.warehouseItems)
+      .where(
+        lte(schema.warehouseItems.quantity, schema.warehouseItems.minQuantity)
+      );
+
+    for (const item of items) {
+      await db.insert(schema.notifications).values({
+        toRole:     "ADMIN",
+        title:      `⚠️ Агуулах: ${item.name} дутагдалтай`,
+        body:       `Одоогийн үлдэгдэл: ${item.quantity} ${item.unit} — хамгийн бага хэмжээ: ${item.minQuantity} ${item.unit}. Нөөц нэмэх шаардлагатай.`,
+        sourceType: "request",
+        sourceId:   item.id,
+      });
+    }
+
+    console.log(
+      `[scheduler] Агуулахын шалгалт: ${items.length} бараа дутагдалтай мэдэгдэл илгээлээ.`
+    );
+  } catch (err) {
+    console.error("[scheduler] Агуулахын шалгалтад алдаа:", err);
+  }
+}
+
+// ============================================================
 //  23:00 цагт автоматаар ажиллуулах хуваарь
 // ============================================================
 
@@ -59,21 +90,28 @@ function msUntilNextRun(hour: number, minute = 0): number {
 }
 
 export function startScheduledJobs() {
-  const TARGET_HOUR   = 23;
-  const TARGET_MINUTE = 0;
-  const ONE_DAY_MS    = 24 * 60 * 60 * 1000;
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-  function scheduleNext() {
-    const delay = msUntilNextRun(TARGET_HOUR, TARGET_MINUTE);
-    const nextTime = new Date(Date.now() + delay);
-    console.log(`[scheduler] Гэрчилгээний шалгалт: ${nextTime.toLocaleString("mn-MN")} цагт ажиллана.`);
-
+  // 23:00 — Гэрчилгээний хугацаа шалгалт
+  function scheduleCertCheck() {
+    const delay = msUntilNextRun(23, 0);
+    console.log(`[scheduler] Гэрчилгээний шалгалт: ${new Date(Date.now() + delay).toLocaleString("mn-MN")} цагт.`);
     setTimeout(async () => {
       await runCertExpiryCheck();
-      // Дараах өдрийн 23:00-д дахин хуваарилна
       setInterval(runCertExpiryCheck, ONE_DAY_MS);
     }, delay);
   }
 
-  scheduleNext();
+  // 08:00 — Агуулахын дутагдал шалгалт
+  function scheduleLowStockCheck() {
+    const delay = msUntilNextRun(8, 0);
+    console.log(`[scheduler] Агуулахын шалгалт: ${new Date(Date.now() + delay).toLocaleString("mn-MN")} цагт.`);
+    setTimeout(async () => {
+      await runLowStockCheck();
+      setInterval(runLowStockCheck, ONE_DAY_MS);
+    }, delay);
+  }
+
+  scheduleCertCheck();
+  scheduleLowStockCheck();
 }

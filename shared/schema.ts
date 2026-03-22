@@ -745,6 +745,22 @@ export const notifications = pgTable("notifications", {
 });
 export type Notification = typeof notifications.$inferSelect;
 
+// ===================== ХАРИЛЦАГЧ =====================
+export const customers = pgTable("customers", {
+  id:           serial("id").primaryKey(),
+  name:         text("name").notNull(),
+  phone:        text("phone"),
+  email:        text("email"),
+  address:      text("address"),
+  company:      text("company"),
+  contactPerson: text("contact_person"),
+  notes:        text("notes"),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+export const insertCustomerSchema = createInsertSchema(customers).omit({ id: true, createdAt: true });
+export type Customer       = typeof customers.$inferSelect;
+export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
+
 // ===================== БОРЛУУЛАЛТЫН ЗАХИАЛГА =====================
 export const salesOrders = pgTable("sales_orders", {
   id:            serial("id").primaryKey(),

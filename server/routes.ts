@@ -5,7 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { storage } from "./storage.js";
 import { db } from "./db.js";
 import * as schema from "../shared/schema.js";
-import { eq, desc, and, gte, lte, sql } from "drizzle-orm";
+import { eq, desc, and, gte, lte, sql, lt } from "drizzle-orm";
 import { z } from "zod";
 import { calculateEmployeeKpi, calculateTeamKpi, seedDefaultKpiConfigs } from "./kpiEngine.js";
 import { syncNormsFromOrder, syncNormsBySection, ZZBND_NORMS, NORM_SECTIONS } from "./normAgent.js";
@@ -14,6 +14,36 @@ import { v2 as cloudinary } from "cloudinary";
 import { Readable } from "stream";
 import path from "path";
 import fs from "fs";
+import bcrypt from "bcrypt";
+import jwt from "jsonwebtoken";
+
+// ======= JWT / AUTH HELPERS =======
+const JWT_SECRET  = process.env.SESSION_SECRET || "hvl-zam-erp-2025";
+const SALT_ROUNDS = 10;
+
+interface AuthPayload { role: string; username: string; }
+
+function signToken(payload: AuthPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: "12h" });
+}
+
+function verifyToken(token: string): AuthPayload | null {
+  try { return jwt.verify(token, JWT_SECRET) as AuthPayload; }
+  catch { return null; }
+}
+
+/** Нууц үг шалгах: bcrypt hash эсвэл plaintext (урьд оруулсан legacy нууц үгд) */
+async function checkPassword(input: string, stored: string): Promise<boolean> {
+  if (stored.startsWith("$2b$") || stored.startsWith("$2a$")) {
+    return bcrypt.compare(input, stored);
+  }
+  return input === stored;
+}
+
+// Express request-д authRole / authUser талбар нэмэх
+declare module "express-serve-static-core" {
+  interface Request { authRole?: string; authUser?: string; }
+}
 
 // ======= CLOUDINARY тохиргоо =======
 const hasCloudinary = !!(
@@ -77,9 +107,34 @@ const uploadMiddleware = multer({
 
 // ============ ADMIN AUTH MIDDLEWARE ============
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
-  const token = req.headers["x-admin-token"];
-  if (token === "authenticated") return next();
-  return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+  const token = (req.headers["x-admin-token"] as string) || "";
+  if (!token) return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+
+  // Legacy token (шилжилтийн үе — хуучин client-д зориулсан)
+  if (token === "authenticated") {
+    req.authRole = "ADMIN";
+    req.authUser = "legacy";
+    return next();
+  }
+
+  const payload = verifyToken(token);
+  if (!payload) return res.status(401).json({ message: "Токен хүчингүй буюу хугацаа дууссан байна" });
+
+  req.authRole = payload.role;
+  req.authUser = payload.username;
+  return next();
+}
+
+/** Тодорхой роль шаардах middleware (requireAdmin дотор ажиллана) */
+function requireRole(...roles: string[]) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    requireAdmin(req, res, () => {
+      if (!roles.includes(req.authRole ?? "")) {
+        return res.status(403).json({ message: `Уг үйлдэлд зөвхөн ${roles.join(" / ")} роль хандах эрхтэй` });
+      }
+      next();
+    });
+  };
 }
 
 export async function registerRoutes(httpServer: Server, app: Express): Promise<Server> {
@@ -117,9 +172,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       ? { u: dbCred.username, p: dbCred.password }
       : defaults[cleanRole];
 
-    if (cred && username === cred.u && password === cred.p) {
+    if (cred && username === cred.u && (await checkPassword(password, cred.p))) {
+      const token = signToken({ role: cleanRole, username });
       await logActivity(cleanRole, username, "НЭВТЭРСЭН", `${cleanRole} самбарт нэвтэрсэн`, ip);
-      return res.json({ success: true, token: "authenticated", role: cleanRole });
+      return res.json({ success: true, token, role: cleanRole });
     }
     await logActivity(cleanRole, username || "?", "НЭВТРЭЛТ АМЖИЛТГҮЙ", `Буруу нууц үг оруулсан — роль: ${cleanRole}`, ip);
     return res.status(401).json({ message: "Нэр эсвэл нууц үг буруу" });
@@ -145,28 +201,35 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // ====== Нэвтрэлтийн тохиргоо авах (admin only) ======
-  app.get("/api/admin/credentials", requireAdmin, async (_req, res) => {
+  app.get("/api/admin/credentials", requireRole("ADMIN"), async (_req, res) => {
     const ALL_ROLES = ["ADMIN","BOARD","PROJECT","ENGINEER","HR","SUPERVISOR","MECHANIC","WAREHOUSE","LAB","SALES"];
     const rows = await db.select().from(schema.roleCredentials);
-    const map = Object.fromEntries(rows.map(r => [r.role, { username: r.username, password: r.password }]));
-    const result = ALL_ROLES.map(role => ({
-      role,
-      username: map[role]?.username ?? "admin",
-      password: map[role]?.password ?? "admin",
-    }));
+    const map = Object.fromEntries(rows.map(r => [r.role, r]));
+    const result = ALL_ROLES.map(role => {
+      const stored = map[role];
+      return {
+        role,
+        username: stored?.username ?? "admin",
+        // Bcrypt hash буцааж болохгүй — ★★★★★★★★ маскаар харуулна
+        passwordSet: stored ? (stored.password.startsWith("$2b$") || stored.password.startsWith("$2a$") ? true : false) : false,
+        passwordHint: stored ? "••••••••" : "(default: admin)",
+      };
+    });
     res.json(result);
   });
 
-  // ====== Нэвтрэлт шинэчлэх (admin only) ======
-  app.put("/api/admin/credentials/:role", requireAdmin, async (req, res) => {
+  // ====== Нэвтрэлт шинэчлэх (ADMIN роль шаардана) ======
+  app.put("/api/admin/credentials/:role", requireRole("ADMIN"), async (req, res) => {
     const role = req.params.role.toUpperCase();
     const { username, password } = req.body;
     if (!username || !password) return res.status(400).json({ error: "Нэр болон нууц үг шаардлагатай" });
+    // Нууц үгийг bcrypt-ээр хаш хийж хадгална
+    const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
     const [existing] = await db.select().from(schema.roleCredentials).where(eq(schema.roleCredentials.role, role));
     if (existing) {
-      await db.update(schema.roleCredentials).set({ username, password, updatedAt: new Date() }).where(eq(schema.roleCredentials.role, role));
+      await db.update(schema.roleCredentials).set({ username, password: hashedPassword, updatedAt: new Date() }).where(eq(schema.roleCredentials.role, role));
     } else {
-      await db.insert(schema.roleCredentials).values({ role, username, password });
+      await db.insert(schema.roleCredentials).values({ role, username, password: hashedPassword });
     }
     res.json({ success: true });
   });
@@ -472,9 +535,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/project-documents", async (req, res) => {
-    const token = req.headers["x-admin-token"];
-    if (token !== "authenticated") return res.status(401).json({ error: "Unauthorized" });
+  app.post("/api/project-documents", requireAdmin, async (req, res) => {
     try {
       const data = schema.insertProjectDocumentSchema.parse(req.body);
       const [doc] = await db.insert(schema.projectDocuments).values(data).returning();
@@ -482,9 +543,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
-  app.delete("/api/project-documents/:id", async (req, res) => {
-    const token = req.headers["x-admin-token"];
-    if (token !== "authenticated") return res.status(401).json({ error: "Unauthorized" });
+  app.delete("/api/project-documents/:id", requireAdmin, async (req, res) => {
     try {
       await db.delete(schema.projectDocuments).where(eq(schema.projectDocuments.id, parseInt(req.params.id)));
       res.json({ ok: true });
@@ -665,7 +724,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // =====================================================
 
   // ============ EMPLOYEES ============
-  app.get("/api/erp/employees", requireAdmin, async (_req, res) => {
+  app.get("/api/erp/employees", requireRole("HR", "ADMIN"), async (_req, res) => {
     res.json(await db.select().from(schema.employees).orderBy(schema.employees.name));
   });
   app.post("/api/erp/employees", requireAdmin, async (req, res) => {
@@ -973,9 +1032,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     res.json(rows);
   });
 
-  app.post("/api/erp/tasks", async (req, res) => {
-    const token = req.headers["x-admin-token"];
-    if (token !== "authenticated") return res.status(401).json({ message: "Зөвшөөрөлгүй" });
+  app.post("/api/erp/tasks", requireAdmin, async (req, res) => {
     const { employeeId, workFrontId, date, location, workType, equipment, notes, assignedBy } = req.body;
     if (!employeeId || !date || !location || !workType)
       return res.status(400).json({ message: "Заавал талбарууд дутуу байна" });
@@ -1438,6 +1495,14 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const data = schema.insertLabResultSchema.parse(req.body);
       const [row] = await db.insert(schema.labResults).values(data).returning();
+      // Туршилт амжилтгүй бол SALES + SUPERVISOR-т автомат мэдэгдэл
+      if (data.status === "fail") {
+        const failMsg = `Лабораторийн туршилт АМЖИЛТГҮЙ: ${data.testType ?? "туршилт"} — ${data.sampleId ?? ""}`;
+        await db.insert(schema.notifications).values([
+          { toRole: "SALES",      title: "⚠️ Лаб дүн: АМЖИЛТГҮЙ", body: failMsg, sourceType: "lab_result", sourceId: row.id },
+          { toRole: "SUPERVISOR", title: "⚠️ Лаб дүн: АМЖИЛТГҮЙ", body: failMsg, sourceType: "lab_result", sourceId: row.id },
+        ]);
+      }
       res.json(row);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -2081,10 +2146,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.patch("/api/notifications/:id/read", async (req, res) => {
+  app.patch("/api/notifications/:id/read", requireAdmin, async (req, res) => {
     try {
-      const token = req.headers["x-admin-token"];
-      if (token !== "authenticated") return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
       await db.update(schema.notifications)
         .set({ isRead: true })
         .where(eq(schema.notifications.id, parseInt(req.params.id)));
@@ -2092,11 +2155,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  app.post("/api/notifications/read-all", async (req, res) => {
+  app.post("/api/notifications/read-all", requireAdmin, async (req, res) => {
     try {
-      const token = req.headers["x-admin-token"];
       const { role } = req.body;
-      if (token !== "authenticated" || !role) return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+      if (!role) return res.status(400).json({ message: "Role шаардлагатай" });
       await db.update(schema.notifications)
         .set({ isRead: true })
         .where(eq(schema.notifications.toRole, role.toUpperCase()));
@@ -2105,12 +2167,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   // Борлуулалтын алба → "Гэрээ баталгаажлаа" → Хяналтын инженерт мэдэгдэл
-  app.post("/api/notifications/contract-confirmed", async (req, res) => {
+  app.post("/api/notifications/contract-confirmed", requireAdmin, async (req, res) => {
     try {
-      const token = req.headers["x-admin-token"];
-      if (token !== "authenticated") return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
       const { orderId, customerName, productType, quantity, unit, deliveryDate } = req.body;
-      // Хяналтын инженер + Администраторт ажлын захиалга болгон явуулна
       await db.insert(schema.notifications).values([
         { toRole: "SUPERVISOR", title: "Гэрээ баталгаажлаа — Ажлын захиалга", body: `${customerName} — ${productType} ${quantity}${unit??""} · ${deliveryDate??""}`, sourceType: "project_order", sourceId: orderId },
         { toRole: "ADMIN",     title: "Гэрээ баталгаажлаа",                    body: `${customerName} — ${productType} ${quantity}${unit??""} · Нийлүүлэлтэд шилжлээ`, sourceType: "project_order", sourceId: orderId },
@@ -2477,6 +2536,47 @@ ${cert.testResults ? `
         plantProgress,
         marginPct: totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 100) : 0,
       });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ============ ХАРИЛЦАГЧ (CUSTOMERS) ============
+  app.get("/api/customers", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.customers).orderBy(desc(schema.customers.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.get("/api/customers/:id", requireAdmin, async (req, res) => {
+    try {
+      const [row] = await db.select().from(schema.customers).where(eq(schema.customers.id, parseInt(req.params.id)));
+      if (!row) return res.status(404).json({ error: "Харилцагч олдсонгүй" });
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/customers", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertCustomerSchema.parse(req.body);
+      const [row] = await db.insert(schema.customers).values(data).returning();
+      res.status(201).json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.put("/api/customers/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const data = schema.insertCustomerSchema.partial().parse(req.body);
+      const [row] = await db.update(schema.customers).set(data).where(eq(schema.customers.id, id)).returning();
+      if (!row) return res.status(404).json({ error: "Харилцагч олдсонгүй" });
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  app.delete("/api/customers/:id", requireRole("ADMIN"), async (req, res) => {
+    try {
+      await db.delete(schema.customers).where(eq(schema.customers.id, parseInt(req.params.id)));
+      res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
