@@ -1,6 +1,7 @@
 import express from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes.js";
+import { startScheduledJobs } from "./scheduledJobs.js";
 import path from "path";
 import fs from "fs";
 
@@ -38,6 +39,8 @@ async function startServer() {
   const PORT = process.env.PORT || 5000;
   httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`[express] сервер ${PORT} порт дээр ажиллаж байна.`);
+    // Өдөр бүр 23:00 цагт гэрчилгээний хугацааг шалгана
+    startScheduledJobs();
   });
 }
 

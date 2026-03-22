@@ -1634,13 +1634,13 @@ function LabTab() {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-white font-bold">Тохирлын гэрчилгээний бүртгэл</h3>
-              <p className="text-slate-400 text-xs mt-0.5">Хугацаа дуусахаас 30 хоногийн өмнө Администраторт мэдэгдэл автоматаар очно</p>
+              <p className="text-slate-400 text-xs mt-0.5">Хугацаа дуусахаас 30 хоногийн өмнө <strong className="text-amber-400">23:00 цагт автоматаар</strong> мэдэгдэл илгээнэ · Гараар шалгах боломжтой</p>
             </div>
             <div className="flex gap-2">
               <button onClick={() => checkExpiry.mutate()} disabled={checkExpiry.isPending}
                 className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-xl transition-all">
                 <RefreshCw size={13} className={checkExpiry.isPending ? "animate-spin" : ""} />
-                Хугацаа шалгах
+                Гараар шалгах
               </button>
               <button onClick={() => { setEditCert(null); setCertForm(blankCert); setShowCertForm(true); }}
                 className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-xl transition-all">
