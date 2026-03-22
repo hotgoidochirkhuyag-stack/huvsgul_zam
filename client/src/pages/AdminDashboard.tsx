@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useLocation } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import {
   BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid,
@@ -12,14 +12,15 @@ import {
   Sparkles, FileText, ChevronRight, Video, Loader2, Globe,
   MapPin, Ruler, Calendar, Building2, DollarSign, Pencil, Save, X, ImageIcon,
   Plus, Trash2, Download, FolderOpen, KeyRound, Eye, EyeOff, Check, ScrollText,
-  ShieldAlert, LogIn, LogOut,
+  ShieldAlert, LogIn, LogOut, Award, FlaskConical, FileBarChart2, Printer, QrCode,
 } from "lucide-react";
+import { QRCodeSVG } from "qrcode.react";
 import LogoutButton from "@/components/LogoutButton";
 import NotificationBell from "@/components/NotificationBell";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
 import { useToast } from "@/hooks/use-toast";
 
-type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "website" | "credentials" | "logs";
+type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "website" | "credentials" | "logs" | "lab";
 
 function hdrs() {
   return {
@@ -1486,12 +1487,559 @@ function CredentialsTab() {
   );
 }
 
+/* ══════════════════════ LAB — CERTIFICATES & COMPLIANCE ══════════════════════ */
+
+const CERT_TYPES = [
+  { value: "iso9001",  label: "ISO 9001 — Чанарын менежмент" },
+  { value: "iso14001", label: "ISO 14001 — Байгаль орчин" },
+  { value: "iso45001", label: "ISO 45001 — Хөдөлмөрийн аюулгүй байдал" },
+  { value: "gost",     label: "ГОСТ — Оросын стандарт" },
+  { value: "mns",      label: "МНС — Монголын үндэсний стандарт" },
+  { value: "local",    label: "Дотоодын гэрчилгээ" },
+  { value: "other",    label: "Бусад" },
+];
+
+const PRODUCT_LABELS: Record<string, string> = {
+  concrete_m200:  "Бетон M200",
+  concrete_m300:  "Бетон M300",
+  concrete_m400:  "Бетон M400",
+  asphalt:        "Асфальт бетон",
+  crushed_stone:  "Бутлуурын чулуу",
+};
+
+function getDaysUntilExpiry(dateStr: string) {
+  const exp = new Date(dateStr);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function LabTab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [subTab, setSubTab] = useState<"certs" | "quality" | "report">("certs");
+
+  /* ── Compliance certificates ── */
+  const { data: certs = [], isLoading: lc } = useQuery<any[]>({
+    queryKey: ["/api/lab/certificates"],
+    queryFn: () => fetch("/api/lab/certificates", { headers: hdrs() }).then(r => r.json()),
+  });
+
+  const [showCertForm, setShowCertForm] = useState(false);
+  const [editCert, setEditCert] = useState<any>(null);
+  const blankCert = { certNumber: "", certType: "iso9001", issuedBy: "", issuedDate: "", expiryDate: "", standardRef: "", scope: "", notes: "", isActive: true };
+  const [certForm, setCertForm] = useState(blankCert);
+
+  const saveCert = useMutation({
+    mutationFn: async () => {
+      const url = editCert ? `/api/lab/certificates/${editCert.id}` : "/api/lab/certificates";
+      const method = editCert ? "PATCH" : "POST";
+      const r = await fetch(url, { method, headers: hdrs(), body: JSON.stringify(certForm) });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/lab/certificates"] });
+      toast({ title: editCert ? "Гэрчилгээ шинэчлэгдлээ" : "Гэрчилгээ нэмэгдлээ ✓" });
+      setShowCertForm(false); setEditCert(null); setCertForm(blankCert);
+    },
+    onError: (e: any) => toast({ title: "Алдаа", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteCert = useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(`/api/lab/certificates/${id}`, { method: "DELETE", headers: hdrs() });
+      if (!r.ok) throw new Error(await r.text());
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/lab/certificates"] }); toast({ title: "Устгагдлаа" }); },
+  });
+
+  const checkExpiry = useMutation({
+    mutationFn: () => fetch("/api/lab/certificates/check-expiry", { method: "POST", headers: hdrs() }).then(r => r.json()),
+    onSuccess: (d: any) => toast({ title: `Шалгалт дууслаа — ${d.reminded} мэдэгдэл явуулав` }),
+  });
+
+  /* ── Quality certificates (batch) ── */
+  const { data: qcerts = [], isLoading: lq } = useQuery<any[]>({
+    queryKey: ["/api/lab/quality-certs"],
+    queryFn: () => fetch("/api/lab/quality-certs", { headers: hdrs() }).then(r => r.json()),
+  });
+
+  const [showQForm, setShowQForm] = useState(false);
+  const [printCert, setPrintCert] = useState<any>(null);
+  const blankQ = { batchNumber: "", productType: "concrete_m200", productName: "", quantity: 0, unit: "м³", customerName: "", deliveryDate: "", location: "", compliancePct: 100, isCompliant: true, certNumber: "", issuedBy: "Чанарын хяналтын инженер", standardRef: "МНС ISO 9001:2015", issuedDate: new Date().toISOString().slice(0, 10), notes: "" };
+  const [qForm, setQForm] = useState<any>(blankQ);
+
+  const saveQCert = useMutation({
+    mutationFn: async () => {
+      const payload = { ...qForm, quantity: Number(qForm.quantity), isCompliant: Number(qForm.compliancePct) >= 100 };
+      const r = await fetch("/api/lab/quality-certs", { method: "POST", headers: hdrs(), body: JSON.stringify(payload) });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/lab/quality-certs"] });
+      qc.invalidateQueries({ queryKey: ["/api/lab/compliance-report"] });
+      toast({ title: "Чанарын гэрчилгээ бүртгэгдлээ ✓" });
+      setShowQForm(false); setQForm(blankQ);
+    },
+    onError: (e: any) => toast({ title: "Алдаа", description: e.message, variant: "destructive" }),
+  });
+
+  const deleteQCert = useMutation({
+    mutationFn: async (id: number) => {
+      const r = await fetch(`/api/lab/quality-certs/${id}`, { method: "DELETE", headers: hdrs() });
+      if (!r.ok) throw new Error(await r.text());
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/lab/quality-certs"] }); qc.invalidateQueries({ queryKey: ["/api/lab/compliance-report"] }); toast({ title: "Устгагдлаа" }); },
+  });
+
+  /* ── Compliance report ── */
+  const { data: report, isLoading: lr } = useQuery<any>({
+    queryKey: ["/api/lab/compliance-report"],
+    queryFn: () => fetch("/api/lab/compliance-report", { headers: hdrs() }).then(r => r.json()),
+  });
+
+  /* Print quality cert sheet */
+  function printQualityCert(cert: any) {
+    const url = `/api/public/quality-cert/${cert.id}`;
+    const w = window.open(url, "_blank", "width=800,height=1000");
+    if (w) setTimeout(() => w.print(), 800);
+  }
+
+  const activeCert = certs.find((c: any) => c.isActive);
+  const baseUrl = window.location.origin;
+
+  return (
+    <div className="space-y-4">
+      {/* Sub-tab nav */}
+      <div className="flex gap-1 bg-slate-900/60 border border-white/10 rounded-2xl p-1 w-fit">
+        {([
+          { key: "certs",   label: "Тохирлын гэрчилгээ", icon: Award },
+          { key: "quality", label: "Чанарын гэрчилгээ",  icon: FlaskConical },
+          { key: "report",  label: "ТУЗ тайлан",          icon: FileBarChart2 },
+        ] as const).map(({ key, label, icon: Icon }) => (
+          <button key={key} onClick={() => setSubTab(key)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
+              subTab === key ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"
+            }`}>
+            <Icon size={14} />{label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── 1. ТОХИРЛЫН ГЭРЧИЛГЭЭНИЙ БҮРТГЭЛ ── */}
+      {subTab === "certs" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-white font-bold">Тохирлын гэрчилгээний бүртгэл</h3>
+              <p className="text-slate-400 text-xs mt-0.5">Хугацаа дуусахаас 30 хоногийн өмнө Администраторт мэдэгдэл автоматаар очно</p>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={() => checkExpiry.mutate()} disabled={checkExpiry.isPending}
+                className="flex items-center gap-2 px-3 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-xl transition-all">
+                <RefreshCw size={13} className={checkExpiry.isPending ? "animate-spin" : ""} />
+                Хугацаа шалгах
+              </button>
+              <button onClick={() => { setEditCert(null); setCertForm(blankCert); setShowCertForm(true); }}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-xl transition-all">
+                <Plus size={14} /> Гэрчилгээ нэмэх
+              </button>
+            </div>
+          </div>
+
+          {/* Add/Edit form */}
+          {showCertForm && (
+            <div className="bg-slate-900/80 border border-amber-500/30 rounded-2xl p-5">
+              <h4 className="text-amber-400 font-bold mb-4">{editCert ? "Гэрчилгээ засах" : "Шинэ гэрчилгээ нэмэх"}</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {[
+                  { k: "certNumber",  label: "Гэрчилгээний дугаар", placeholder: "ISO-2024-001" },
+                  { k: "issuedBy",    label: "Олгосон байгууллага",  placeholder: "MCS Certification" },
+                  { k: "issuedDate",  label: "Олгосон огноо",        placeholder: "2024-01-15", type: "date" },
+                  { k: "expiryDate",  label: "Дуусах огноо",         placeholder: "2027-01-14", type: "date" },
+                  { k: "standardRef", label: "Стандарт лавлагаа",    placeholder: "МNS ISO 9001:2015" },
+                  { k: "scope",       label: "Хамрах хүрээ",         placeholder: "Авто замын бүтээц, бетон, асфальт" },
+                ].map(({ k, label, placeholder, type }) => (
+                  <div key={k}>
+                    <label className="text-slate-400 text-xs mb-1 block">{label}</label>
+                    <input type={type || "text"} value={(certForm as any)[k] || ""} onChange={e => setCertForm(p => ({ ...p, [k]: e.target.value }))}
+                      placeholder={placeholder}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                  </div>
+                ))}
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Гэрчилгээний төрөл</label>
+                  <select value={certForm.certType} onChange={e => setCertForm(p => ({ ...p, certType: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none">
+                    {CERT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Тэмдэглэл</label>
+                  <input value={certForm.notes || ""} onChange={e => setCertForm(p => ({ ...p, notes: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4 justify-end">
+                <button onClick={() => { setShowCertForm(false); setEditCert(null); setCertForm(blankCert); }}
+                  className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-xl">Болих</button>
+                <button onClick={() => saveCert.mutate()} disabled={saveCert.isPending}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm rounded-xl transition-all">
+                  {saveCert.isPending ? "Хадгалж байна..." : "Хадгалах"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* Certs table */}
+          {lc ? <div className="text-center py-10 text-slate-500">Уншиж байна...</div> : certs.length === 0 ? (
+            <div className="text-center py-12 text-slate-500 bg-slate-900/40 rounded-2xl border border-white/5">
+              <Award className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>Тохирлын гэрчилгээ бүртгэгдээгүй байна</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {certs.map((c: any) => {
+                const days = getDaysUntilExpiry(c.expiryDate);
+                const expired = days <= 0;
+                const warning = days > 0 && days <= 30;
+                return (
+                  <div key={c.id} className={`bg-slate-900/60 border rounded-2xl p-4 flex items-start gap-4 ${
+                    expired ? "border-red-500/40" : warning ? "border-amber-500/40" : "border-white/10"
+                  }`}>
+                    <div className={`p-2.5 rounded-xl ${expired ? "bg-red-500/20" : warning ? "bg-amber-500/20" : "bg-green-500/20"}`}>
+                      <Award className={`w-5 h-5 ${expired ? "text-red-400" : warning ? "text-amber-400" : "text-green-400"}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-white font-bold text-sm">{c.certNumber}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                          expired ? "bg-red-500/20 text-red-400" : warning ? "bg-amber-500/20 text-amber-400" : "bg-green-500/20 text-green-400"
+                        }`}>
+                          {expired ? "Хугацаа дууссан" : warning ? `${days} хоног үлдсэн ⚠️` : `${days} хоног үлдсэн`}
+                        </span>
+                        <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 rounded-full text-xs">
+                          {CERT_TYPES.find(t => t.value === c.certType)?.label.split(" — ")[0] ?? c.certType.toUpperCase()}
+                        </span>
+                        {!c.isActive && <span className="px-2 py-0.5 bg-slate-600/40 text-slate-400 rounded-full text-xs">Идэвхгүй</span>}
+                      </div>
+                      <p className="text-slate-400 text-xs mt-1">Олгосон: {c.issuedBy} · {c.issuedDate} — {c.expiryDate}</p>
+                      {c.standardRef && <p className="text-slate-500 text-xs">{c.standardRef}</p>}
+                      {c.scope && <p className="text-slate-500 text-xs">{c.scope}</p>}
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button onClick={() => { setEditCert(c); setCertForm({ certNumber: c.certNumber, certType: c.certType, issuedBy: c.issuedBy, issuedDate: c.issuedDate, expiryDate: c.expiryDate, standardRef: c.standardRef || "", scope: c.scope || "", notes: c.notes || "", isActive: c.isActive }); setShowCertForm(true); }}
+                        className="p-2 bg-slate-700 hover:bg-amber-600/20 text-slate-400 hover:text-amber-400 rounded-lg transition-all">
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => { if (confirm("Устгах уу?")) deleteCert.mutate(c.id); }}
+                        className="p-2 bg-slate-700 hover:bg-red-600/20 text-slate-400 hover:text-red-400 rounded-lg transition-all">
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 2. ЧАНАРЫН ГЭРЧИЛГЭЭ (Batch) ── */}
+      {subTab === "quality" && (
+        <div className="space-y-4">
+          {/* Print preview modal */}
+          {printCert && (
+            <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={() => setPrintCert(null)}>
+              <div className="bg-[#0f172a] border border-amber-500/30 rounded-2xl p-6 max-w-lg w-full" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-amber-400 font-bold">Чанарын гэрчилгээний хуудас</h3>
+                  <button onClick={() => setPrintCert(null)} className="text-slate-400 hover:text-white"><X size={18} /></button>
+                </div>
+                {/* QR code preview */}
+                <div className="bg-white rounded-xl p-4 flex items-start gap-4">
+                  <div className="shrink-0">
+                    <QRCodeSVG value={`${baseUrl}/api/public/quality-cert/${printCert.id}`} size={120} level="H" />
+                    <p className="text-center text-xs text-gray-500 mt-1">Скан хийн харах</p>
+                  </div>
+                  <div className="text-gray-800 text-sm space-y-1.5">
+                    <p className="font-bold text-base text-gray-900">Хөвсгөл зам ХХК</p>
+                    <p><span className="text-gray-500">Партийн №:</span> <strong>{printCert.batchNumber}</strong></p>
+                    <p><span className="text-gray-500">Бүтээгдэхүүн:</span> {printCert.productName}</p>
+                    <p><span className="text-gray-500">Тоо хэмжээ:</span> {printCert.quantity} {printCert.unit}</p>
+                    {printCert.customerName && <p><span className="text-gray-500">Харилцагч:</span> {printCert.customerName}</p>}
+                    {printCert.standardRef && <p><span className="text-gray-500">Стандарт:</span> {printCert.standardRef}</p>}
+                    <p><span className="text-gray-500">Тохирлын хувь:</span> <strong className="text-green-600">{printCert.compliancePct}%</strong></p>
+                    {activeCert && <p><span className="text-gray-500">Тохирлын гэрчилгээ:</span> {activeCert.certNumber}</p>}
+                  </div>
+                </div>
+                <div className="flex gap-2 mt-4">
+                  <button onClick={() => printQualityCert(printCert)}
+                    className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl transition-all">
+                    <Printer size={15} /> Хэвлэх
+                  </button>
+                  <button onClick={() => window.open(`/api/public/quality-cert/${printCert.id}`, "_blank")}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-slate-700 hover:bg-slate-600 text-slate-300 rounded-xl transition-all text-sm">
+                    <QrCode size={15} /> QR харах
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-white font-bold">Чанарын гэрчилгээ бүртгэл</h3>
+              <p className="text-slate-400 text-xs mt-0.5">Захиалга / партийн чанарын гэрчилгээ — QR кодтой хэвлэнэ</p>
+            </div>
+            <button onClick={() => setShowQForm(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold rounded-xl transition-all">
+              <Plus size={14} /> Гэрчилгээ бүртгэх
+            </button>
+          </div>
+
+          {showQForm && (
+            <div className="bg-slate-900/80 border border-amber-500/30 rounded-2xl p-5">
+              <h4 className="text-amber-400 font-bold mb-4">Шинэ чанарын гэрчилгээ</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Партийн дугаар *</label>
+                  <input value={qForm.batchNumber} onChange={e => setQForm((p: any) => ({ ...p, batchNumber: e.target.value, productName: p.productName || PRODUCT_LABELS[p.productType] }))}
+                    placeholder={`BATCH-${new Date().getFullYear()}-${String(qcerts.length + 1).padStart(3, "0")}`}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Бүтээгдэхүүний төрөл *</label>
+                  <select value={qForm.productType} onChange={e => setQForm((p: any) => ({ ...p, productType: e.target.value, productName: PRODUCT_LABELS[e.target.value] || "" }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none">
+                    {Object.entries(PRODUCT_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Тоо хэмжээ</label>
+                  <div className="flex gap-2">
+                    <input type="number" value={qForm.quantity} onChange={e => setQForm((p: any) => ({ ...p, quantity: e.target.value }))}
+                      className="flex-1 bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                    <select value={qForm.unit} onChange={e => setQForm((p: any) => ({ ...p, unit: e.target.value }))}
+                      className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none">
+                      <option value="м³">м³</option><option value="тн">тн</option>
+                    </select>
+                  </div>
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Тохирлын хувь (%)</label>
+                  <input type="number" min={0} max={100} value={qForm.compliancePct} onChange={e => setQForm((p: any) => ({ ...p, compliancePct: Number(e.target.value), isCompliant: Number(e.target.value) >= 100 }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Харилцагч</label>
+                  <input value={qForm.customerName} onChange={e => setQForm((p: any) => ({ ...p, customerName: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Нийлүүлэлтийн огноо</label>
+                  <input type="date" value={qForm.deliveryDate} onChange={e => setQForm((p: any) => ({ ...p, deliveryDate: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Гэрчилгээний №</label>
+                  <select value={qForm.certNumber} onChange={e => setQForm((p: any) => ({ ...p, certNumber: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none">
+                    <option value="">— Сонгох —</option>
+                    {certs.map((c: any) => <option key={c.id} value={c.certNumber}>{c.certNumber} ({c.certType.toUpperCase()})</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Стандарт лавлагаа</label>
+                  <input value={qForm.standardRef} onChange={e => setQForm((p: any) => ({ ...p, standardRef: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Байршил / объект</label>
+                  <input value={qForm.location} onChange={e => setQForm((p: any) => ({ ...p, location: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                </div>
+                <div>
+                  <label className="text-slate-400 text-xs mb-1 block">Олгосон огноо</label>
+                  <input type="date" value={qForm.issuedDate} onChange={e => setQForm((p: any) => ({ ...p, issuedDate: e.target.value }))}
+                    className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-white text-sm focus:border-amber-500 outline-none" />
+                </div>
+              </div>
+              <div className="flex gap-2 mt-4 justify-end">
+                <button onClick={() => { setShowQForm(false); setQForm(blankQ); }} className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm rounded-xl">Болих</button>
+                <button onClick={() => saveQCert.mutate()} disabled={saveQCert.isPending}
+                  className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold text-sm rounded-xl">
+                  {saveQCert.isPending ? "Хадгалж байна..." : "Бүртгэх"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {lq ? <div className="text-center py-10 text-slate-500">Уншиж байна...</div> : qcerts.length === 0 ? (
+            <div className="text-center py-12 text-slate-500 bg-slate-900/40 rounded-2xl border border-white/5">
+              <FlaskConical className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p>Чанарын гэрчилгээ байхгүй байна</p>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-2xl border border-white/10">
+              <table className="w-full">
+                <thead className="bg-slate-800/60">
+                  <tr>
+                    {["Партийн №", "Бүтээгдэхүүн", "Тоо хэмжээ", "Харилцагч", "Огноо", "Тохирол", ""].map(h => (
+                      <th key={h} className="text-left p-3 text-slate-400 text-xs uppercase tracking-wider">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {qcerts.map((q: any) => (
+                    <tr key={q.id} className="border-t border-white/5 hover:bg-white/[0.02]">
+                      <td className="p-3 text-white text-sm font-mono">{q.batchNumber}</td>
+                      <td className="p-3 text-slate-300 text-sm">{q.productName || PRODUCT_LABELS[q.productType]}</td>
+                      <td className="p-3 text-slate-300 text-sm">{q.quantity} {q.unit}</td>
+                      <td className="p-3 text-slate-400 text-sm">{q.customerName || "—"}</td>
+                      <td className="p-3 text-slate-400 text-sm">{q.deliveryDate || q.issuedDate || "—"}</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+                          q.isCompliant ? "bg-green-500/20 text-green-400" : "bg-red-500/20 text-red-400"
+                        }`}>{q.compliancePct ?? 100}%</span>
+                      </td>
+                      <td className="p-3">
+                        <div className="flex gap-1.5">
+                          <button onClick={() => setPrintCert(q)}
+                            className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-600/20 hover:bg-amber-600/40 text-amber-400 text-xs rounded-lg transition-all font-bold">
+                            <QrCode size={12} /> QR хэвлэх
+                          </button>
+                          <button onClick={() => { if (confirm("Устгах уу?")) deleteQCert.mutate(q.id); }}
+                            className="p-1.5 bg-slate-700 hover:bg-red-600/20 text-slate-400 hover:text-red-400 rounded-lg transition-all">
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── 3. ТУЗ ТАЙЛАН ── */}
+      {subTab === "report" && (
+        <div className="space-y-6">
+          <div>
+            <h3 className="text-white font-bold">ТУЗ-ын тайлан — Чанарын тохирлын хяналт</h3>
+            <p className="text-slate-400 text-xs mt-0.5">Нийт үйлдвэрлэсэн бүтээгдэхүүний хэдэн хувь нь "Тохирлын гэрчилгээ"-ний шаардлагад 100% нийцсэн</p>
+          </div>
+
+          {lr ? <div className="text-center py-10 text-slate-500">Уншиж байна...</div> : !report ? null : (
+            <>
+              {/* KPI cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-4 text-center">
+                  <p className="text-slate-400 text-xs mb-1">Нийт парти</p>
+                  <p className="text-3xl font-black text-white">{report.total}</p>
+                </div>
+                <div className="bg-slate-900/60 border border-green-500/20 rounded-2xl p-4 text-center">
+                  <p className="text-slate-400 text-xs mb-1">100% нийцсэн</p>
+                  <p className="text-3xl font-black text-green-400">{report.compliant}</p>
+                </div>
+                <div className="bg-slate-900/60 border border-red-500/20 rounded-2xl p-4 text-center">
+                  <p className="text-slate-400 text-xs mb-1">Нийцээгүй</p>
+                  <p className="text-3xl font-black text-red-400">{report.nonCompliant}</p>
+                </div>
+                <div className={`rounded-2xl p-4 text-center border ${
+                  report.compliancePct >= 95 ? "bg-green-500/10 border-green-500/30" :
+                  report.compliancePct >= 80 ? "bg-amber-500/10 border-amber-500/30" : "bg-red-500/10 border-red-500/30"
+                }`}>
+                  <p className="text-slate-400 text-xs mb-1">Тохирлын хувь</p>
+                  <p className={`text-3xl font-black ${
+                    report.compliancePct >= 95 ? "text-green-400" :
+                    report.compliancePct >= 80 ? "text-amber-400" : "text-red-400"
+                  }`}>{report.compliancePct}%</p>
+                </div>
+              </div>
+
+              {/* Progress bar */}
+              <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-5">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-white font-bold text-sm">Нийт тохирлын түвшин</span>
+                  <span className="text-slate-400 text-xs">Зорилт: 95%+</span>
+                </div>
+                <div className="w-full h-4 bg-slate-700 rounded-full overflow-hidden">
+                  <div className={`h-full rounded-full transition-all ${
+                    report.compliancePct >= 95 ? "bg-green-500" : report.compliancePct >= 80 ? "bg-amber-500" : "bg-red-500"
+                  }`} style={{ width: `${Math.min(100, report.compliancePct)}%` }} />
+                </div>
+                <div className="flex justify-between text-xs text-slate-500 mt-1">
+                  <span>0%</span><span className="text-amber-400">95% зорилт</span><span>100%</span>
+                </div>
+              </div>
+
+              {/* By product type */}
+              {Object.keys(report.byProduct ?? {}).length > 0 && (
+                <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+                  <div className="p-4 border-b border-white/10">
+                    <h4 className="text-white font-bold text-sm">Бүтээгдэхүүний төрлөөр</h4>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="bg-slate-800/50">
+                        <tr>
+                          {["Бүтээгдэхүүн", "Нийт парти", "100% нийцсэн", "Тохирлын %"].map(h => (
+                            <th key={h} className="text-left p-3 text-slate-400 text-xs uppercase tracking-wider">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(report.byProduct).map(([prod, stats]: [string, any]) => {
+                          const pct = stats.total > 0 ? Math.round((stats.compliant / stats.total) * 100) : 0;
+                          return (
+                            <tr key={prod} className="border-t border-white/5 hover:bg-white/[0.02]">
+                              <td className="p-3 text-white text-sm">{PRODUCT_LABELS[prod] ?? prod}</td>
+                              <td className="p-3 text-slate-300 text-sm">{stats.total}</td>
+                              <td className="p-3 text-green-400 font-bold">{stats.compliant}</td>
+                              <td className="p-3">
+                                <div className="flex items-center gap-2">
+                                  <div className="flex-1 h-2 bg-slate-700 rounded-full overflow-hidden">
+                                    <div className={`h-full rounded-full ${pct >= 95 ? "bg-green-500" : pct >= 80 ? "bg-amber-500" : "bg-red-500"}`}
+                                      style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className={`text-xs font-bold w-10 text-right ${pct >= 95 ? "text-green-400" : pct >= 80 ? "text-amber-400" : "text-red-400"}`}>{pct}%</span>
+                                </div>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {report.total === 0 && (
+                <div className="text-center py-12 text-slate-500 bg-slate-900/40 rounded-2xl border border-white/5">
+                  <FileBarChart2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
+                  <p>"Чанарын гэрчилгээ" табаас партийн бүртгэл нэмнэ үү</p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "attendance",   label: "Ирц / ХАБЭА",         icon: UserCheck   },
   { key: "project",     label: "Төслийн явц",           icon: TrendingUp  },
   { key: "production",  label: "Үйлдвэрлэлийн явц",    icon: Factory     },
   { key: "norm",        label: "Норм",                  icon: BookOpen    },
   { key: "kpi",         label: "KPI / OEE",             icon: Gauge       },
+  { key: "lab",         label: "Гэрчилгээ & Тохирол",  icon: Award       },
   { key: "ai",          label: "AI Агент",              icon: Bot         },
   { key: "meeting",     label: "Онлайн хурал",          icon: Video       },
   { key: "website",     label: "Вэбсайт",               icon: Globe       },
@@ -1560,6 +2108,7 @@ export default function AdminDashboard() {
         {tab === "production"  && <ProductionTab />}
         {tab === "norm"        && <NormTab />}
         {tab === "kpi"         && <KpiTab />}
+        {tab === "lab"         && <LabTab />}
         {tab === "ai"          && <AiAgentTab />}
         {tab === "meeting"      && <MeetingTab />}
         {tab === "website"      && <WebsiteTab />}

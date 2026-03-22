@@ -781,6 +781,55 @@ export const insertProductionCostConfigSchema = createInsertSchema(productionCos
 export type ProductionCostConfig       = typeof productionCostConfig.$inferSelect;
 export type InsertProductionCostConfig = z.infer<typeof insertProductionCostConfigSchema>;
 
+// ===================== ТОХИРЛЫН ГЭРЧИЛГЭЭ / CERTIFICATES & COMPLIANCE =====================
+
+export const complianceCertificates = pgTable("compliance_certificates", {
+  id:             serial("id").primaryKey(),
+  certNumber:     text("cert_number").notNull(),          // Гэрчилгээний дугаар
+  certType:       text("cert_type").notNull(),            // iso9001 | iso14001 | gost | local | other
+  issuedBy:       text("issued_by").notNull(),            // Олгосон байгууллага
+  issuedDate:     text("issued_date").notNull(),          // Олгосон огноо
+  expiryDate:     text("expiry_date").notNull(),          // Дуусах огноо
+  scope:          text("scope"),                          // Хамрах хүрээ (product types)
+  productTypes:   text("product_types").array(),          // ["concrete","asphalt","crushing"]
+  standardRef:    text("standard_ref"),                   // МNS ISO 9001:2015 etc
+  filePath:       text("file_path"),                      // Хадгалсан файл
+  reminderSent:   boolean("reminder_sent").default(false),
+  notes:          text("notes"),
+  isActive:       boolean("is_active").default(true),
+  createdAt:      timestamp("created_at").defaultNow(),
+});
+export const insertComplianceCertSchema = createInsertSchema(complianceCertificates).omit({ id: true, createdAt: true, reminderSent: true });
+export type ComplianceCert       = typeof complianceCertificates.$inferSelect;
+export type InsertComplianceCert = z.infer<typeof insertComplianceCertSchema>;
+
+// ===================== ЧАНАРЫН ГЭРЧИЛГЭЭ (Quality Certificate per batch) =====================
+
+export const qualityCertificates = pgTable("quality_certificates", {
+  id:             serial("id").primaryKey(),
+  orderId:        integer("order_id"),                    // salesOrders.id
+  batchNumber:    text("batch_number").notNull(),         // Партийн дугаар
+  productType:    text("product_type").notNull(),         // concrete_m200 | asphalt | crushed_stone
+  productName:    text("product_name").notNull(),         // Хүний уншдаг нэр
+  quantity:       real("quantity").notNull(),
+  unit:           text("unit").default("м³"),
+  customerName:   text("customer_name"),
+  deliveryDate:   text("delivery_date"),
+  location:       text("location"),
+  testResults:    text("test_results"),                   // JSON string of lab tests
+  compliancePct:  real("compliance_pct").default(100),    // Тохирлын хувь
+  isCompliant:    boolean("is_compliant").default(true),  // 100% нийцсэн эсэх
+  certNumber:     text("cert_number"),                    // complianceCertificates.certNumber
+  issuedBy:       text("issued_by"),                      // Гэрчилгээ олгосон
+  standardRef:    text("standard_ref"),                   // МNS ISO стандарт
+  issuedDate:     text("issued_date"),
+  notes:          text("notes"),
+  createdAt:      timestamp("created_at").defaultNow(),
+});
+export const insertQualityCertSchema = createInsertSchema(qualityCertificates).omit({ id: true, createdAt: true });
+export type QualityCert       = typeof qualityCertificates.$inferSelect;
+export type InsertQualityCert = z.infer<typeof insertQualityCertSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;

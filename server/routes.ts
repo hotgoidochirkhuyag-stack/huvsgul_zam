@@ -2119,6 +2119,208 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ===================== ТОХИРЛЫН ГЭРЧИЛГЭЭ / CERTIFICATES & COMPLIANCE =====================
+
+  // Гэрчилгээний жагсаалт
+  app.get("/api/lab/certificates", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.complianceCertificates)
+        .orderBy(desc(schema.complianceCertificates.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Гэрчилгээ нэмэх
+  app.post("/api/lab/certificates", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertComplianceCertSchema.parse(req.body);
+      const [row] = await db.insert(schema.complianceCertificates).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Гэрчилгээ засах
+  app.patch("/api/lab/certificates/:id", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertComplianceCertSchema.partial().parse(req.body);
+      const [row] = await db.update(schema.complianceCertificates)
+        .set(data)
+        .where(eq(schema.complianceCertificates.id, parseInt(req.params.id)))
+        .returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Гэрчилгээ устгах
+  app.delete("/api/lab/certificates/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.complianceCertificates)
+        .where(eq(schema.complianceCertificates.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Хугацаа дуусах мэдэгдэл шалгах (30 хоногийн өмнө)
+  app.post("/api/lab/certificates/check-expiry", requireAdmin, async (_req, res) => {
+    try {
+      const today = new Date();
+      const in30  = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+      const certs = await db.select().from(schema.complianceCertificates)
+        .where(eq(schema.complianceCertificates.isActive, true));
+
+      const expiring = certs.filter(c => {
+        const exp = new Date(c.expiryDate);
+        return exp <= in30 && exp > today && !c.reminderSent;
+      });
+
+      for (const cert of expiring) {
+        const daysLeft = Math.ceil((new Date(cert.expiryDate).getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+        await db.insert(schema.notifications).values({
+          toRole:     "ADMIN",
+          title:      `⚠️ Гэрчилгээ дуусах дөхлөө — ${cert.certNumber}`,
+          body:       `${cert.certType.toUpperCase()} гэрчилгээ ${daysLeft} хоногийн дараа дуусна. Олгосон: ${cert.issuedBy}. Дуусах огноо: ${cert.expiryDate}`,
+          sourceType: "request",
+          sourceId:   cert.id,
+        });
+        await db.update(schema.complianceCertificates)
+          .set({ reminderSent: true })
+          .where(eq(schema.complianceCertificates.id, cert.id));
+      }
+
+      res.json({ checked: certs.length, reminded: expiring.length });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ТУЗ тайлан — Чанарын гэрчилгээний тохирлын хувь (batch tracking)
+  app.get("/api/lab/compliance-report", requireAdmin, async (_req, res) => {
+    try {
+      const batches = await db.select().from(schema.qualityCertificates)
+        .orderBy(desc(schema.qualityCertificates.createdAt));
+      const total     = batches.length;
+      const compliant = batches.filter(b => b.isCompliant).length;
+      const pct       = total > 0 ? Math.round((compliant / total) * 100) : 0;
+
+      // Бүтээгдэхүүний төрлөөр
+      const byProduct: Record<string, { total: number; compliant: number }> = {};
+      for (const b of batches) {
+        if (!byProduct[b.productType]) byProduct[b.productType] = { total: 0, compliant: 0 };
+        byProduct[b.productType].total++;
+        if (b.isCompliant) byProduct[b.productType].compliant++;
+      }
+
+      res.json({ total, compliant, nonCompliant: total - compliant, compliancePct: pct, byProduct, batches });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Чанарын гэрчилгээ (партийн) жагсаалт
+  app.get("/api/lab/quality-certs", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.qualityCertificates)
+        .orderBy(desc(schema.qualityCertificates.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Чанарын гэрчилгээ нэмэх
+  app.post("/api/lab/quality-certs", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertQualityCertSchema.parse(req.body);
+      const [row] = await db.insert(schema.qualityCertificates).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Чанарын гэрчилгээ устгах
+  app.delete("/api/lab/quality-certs/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.qualityCertificates)
+        .where(eq(schema.qualityCertificates.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Нийтийн QR хуудас — гэрчилгээний стандарт үзүүлэлтүүд
+  app.get("/api/public/quality-cert/:id", async (req, res) => {
+    try {
+      const [cert] = await db.select().from(schema.qualityCertificates)
+        .where(eq(schema.qualityCertificates.id, parseInt(req.params.id)));
+      if (!cert) return res.status(404).send("Гэрчилгээ олдсонгүй");
+
+      // Компанийн тохирлын гэрчилгээнүүдийг авах
+      const compliance = await db.select().from(schema.complianceCertificates)
+        .where(eq(schema.complianceCertificates.isActive, true));
+
+      const html = `<!DOCTYPE html><html lang="mn"><head><meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Чанарын гэрчилгээ — ${cert.batchNumber}</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { font-family: 'Arial', sans-serif; background:#f8fafc; color:#0f172a; padding:24px; }
+  .header { background:#0f172a; color:white; padding:24px; border-radius:12px; margin-bottom:20px; display:flex; justify-content:space-between; align-items:center; }
+  .company { font-size:18px; font-weight:bold; }
+  .sub { font-size:12px; color:#94a3b8; margin-top:4px; }
+  .badge { background:#d97706; color:white; padding:6px 14px; border-radius:20px; font-size:13px; font-weight:bold; }
+  .section { background:white; border-radius:12px; padding:20px; margin-bottom:16px; border:1px solid #e2e8f0; }
+  .section-title { font-size:14px; font-weight:bold; color:#0f172a; margin-bottom:12px; border-bottom:2px solid #d97706; padding-bottom:8px; }
+  .row { display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid #f1f5f9; font-size:13px; }
+  .label { color:#64748b; }
+  .value { font-weight:bold; color:#0f172a; }
+  .pass { color:#16a34a; }
+  .cert-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .cert-card { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px; font-size:12px; }
+  .cert-num { font-weight:bold; color:#1d4ed8; font-size:14px; }
+  footer { text-align:center; font-size:11px; color:#94a3b8; margin-top:20px; }
+</style></head><body>
+<div class="header">
+  <div>
+    <div class="company">Хөвсгөл зам ХХК</div>
+    <div class="sub">Зам гүүр, барилга угсралтын Хөвсгөл зам ХХК</div>
+  </div>
+  <div class="badge">✓ ЧАНАРЫН ГЭРЧИЛГЭЭ</div>
+</div>
+
+<div class="section">
+  <div class="section-title">📦 Бүтээгдэхүүний мэдээлэл</div>
+  <div class="row"><span class="label">Партийн дугаар</span><span class="value">${cert.batchNumber}</span></div>
+  <div class="row"><span class="label">Бүтээгдэхүүний нэр</span><span class="value">${cert.productName}</span></div>
+  <div class="row"><span class="label">Тоо хэмжээ</span><span class="value">${cert.quantity} ${cert.unit}</span></div>
+  ${cert.customerName ? `<div class="row"><span class="label">Харилцагч</span><span class="value">${cert.customerName}</span></div>` : ''}
+  ${cert.deliveryDate ? `<div class="row"><span class="label">Нийлүүлэлтийн огноо</span><span class="value">${cert.deliveryDate}</span></div>` : ''}
+  ${cert.location ? `<div class="row"><span class="label">Хүргэлтийн байршил</span><span class="value">${cert.location}</span></div>` : ''}
+  <div class="row"><span class="label">Тохирлын хувь</span><span class="value pass">${cert.compliancePct ?? 100}%</span></div>
+  ${cert.standardRef ? `<div class="row"><span class="label">Стандарт</span><span class="value">${cert.standardRef}</span></div>` : ''}
+  ${cert.issuedDate ? `<div class="row"><span class="label">Олгосон огноо</span><span class="value">${cert.issuedDate}</span></div>` : ''}
+  ${cert.issuedBy ? `<div class="row"><span class="label">Чанарын хяналт</span><span class="value">${cert.issuedBy}</span></div>` : ''}
+</div>
+
+${compliance.length > 0 ? `
+<div class="section">
+  <div class="section-title">🏅 Компанийн тохирлын гэрчилгээнүүд</div>
+  <div class="cert-grid">
+    ${compliance.map(c => `
+    <div class="cert-card">
+      <div class="cert-num">${c.certType.toUpperCase()}</div>
+      <div>${c.certNumber}</div>
+      <div style="color:#64748b; margin-top:4px;">${c.issuedBy}</div>
+      <div style="color:#64748b;">${c.standardRef || ''}</div>
+      <div style="margin-top:6px;">Дуусах: <strong>${c.expiryDate}</strong></div>
+    </div>`).join('')}
+  </div>
+</div>` : ''}
+
+${cert.testResults ? `
+<div class="section">
+  <div class="section-title">🔬 Лабораторийн туршилтын дүн</div>
+  ${(() => { try { const t = JSON.parse(cert.testResults!); return Object.entries(t).map(([k,v]) => `<div class="row"><span class="label">${k}</span><span class="value pass">${v}</span></div>`).join(''); } catch { return `<p style="color:#64748b;font-size:13px;">${cert.testResults}</p>`; } })()}
+</div>` : ''}
+
+<footer>Энэ гэрчилгээ QR кодоор баталгаажсан · Хөвсгөл зам ХХК © ${new Date().getFullYear()}</footer>
+</body></html>`;
+      res.setHeader("Content-Type", "text/html; charset=utf-8");
+      res.send(html);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ===================== БОРЛУУЛАЛТЫН ЗАХИАЛГА =====================
   const requireSales = (req: any, res: any, next: any) => {
     const token = req.headers["x-admin-token"];
