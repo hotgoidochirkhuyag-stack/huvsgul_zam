@@ -2637,11 +2637,17 @@ ${cert.testResults ? `
         "meeting_reports"
       );
 
+      // Cloudinary raw/upload URL-д өргөтгөл алга байвал нэмнэ
+      let fileUrl = secure_url;
+      if (ext && !fileUrl.split("?")[0].endsWith("." + ext)) {
+        fileUrl = fileUrl + "." + ext;
+      }
+
       const [row] = await db.insert(schema.meetingReports).values({
         title: title.trim(),
         description: description?.trim() || null,
         category: category || "other",
-        fileUrl: secure_url,
+        fileUrl,
         cloudinaryId: public_id,
         fileName: req.file.originalname,
         fileType: ext,

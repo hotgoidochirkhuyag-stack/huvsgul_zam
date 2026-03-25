@@ -736,6 +736,15 @@ const REPORT_CAT: Record<string, string> = {
   safety: "ХАБЭА тайлан", lab: "Лабораторийн тайлан", hr: "ХР / Хүний нөөц", other: "Бусад",
 };
 
+function getReportViewUrl(fileUrl: string, fileType: string): string {
+  const t = (fileType || "").toLowerCase();
+  const officeTypes = ["docx", "doc", "xlsx", "xls", "pptx", "ppt"];
+  if (officeTypes.includes(t)) {
+    return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}`;
+  }
+  return fileUrl;
+}
+
 function ReportTab() {
   const { data: _rptOrdersRaw } = useQuery<any>({ queryKey: ["/api/project/orders"],    queryFn: () => fetch("/api/project/orders",    { headers: hdrs() }).then(r => r.json()) });
   const orders: any[] = Array.isArray(_rptOrdersRaw) ? _rptOrdersRaw : [];
@@ -937,15 +946,25 @@ function ReportTab() {
                     {r.createdAt && <span className="text-slate-600 text-xs">{new Date(r.createdAt).toLocaleDateString("mn-MN")}</span>}
                   </div>
                 </div>
-                <a
-                  href={r.fileUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  data-testid={`link-report-view-${r.id}`}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-300 text-xs font-bold transition-all flex-shrink-0"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" /> Нээх
-                </a>
+                <div className="flex gap-2 flex-shrink-0">
+                  <a
+                    href={getReportViewUrl(r.fileUrl, r.fileType)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    data-testid={`link-report-view-${r.id}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-300 text-xs font-bold transition-all"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" /> Нээх
+                  </a>
+                  <a
+                    href={r.fileUrl}
+                    download
+                    data-testid={`link-report-download-${r.id}`}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-700/60 hover:bg-slate-600/60 border border-white/10 text-slate-300 text-xs font-bold transition-all"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </a>
+                </div>
               </div>
             ))}
           </div>
