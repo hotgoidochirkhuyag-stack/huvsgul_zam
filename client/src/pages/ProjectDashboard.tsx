@@ -6,7 +6,7 @@ import {
   Phone, Calendar, ChevronDown, ChevronUp, HelpCircle,
   ShoppingCart, FileText, BarChart3, Plus, X, Edit2,
   CheckCircle2, Clock, AlertTriangle, TrendingUp, Banknote,
-  Package, FileSignature, Printer,
+  Package, FileSignature, Printer, Download, ExternalLink,
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
@@ -731,11 +731,19 @@ function ContractsTab() {
 // ─── REPORT TAB ───────────────────────────────────────────────────
 const PIE_COLORS = ["#22c55e", "#3b82f6", "#a855f7", "#f59e0b", "#ef4444"];
 
+const REPORT_CAT: Record<string, string> = {
+  monthly: "Сарын тайлан", project: "Төслийн тайлан", financial: "Санхүүгийн тайлан",
+  safety: "ХАБЭА тайлан", lab: "Лабораторийн тайлан", hr: "ХР / Хүний нөөц", other: "Бусад",
+};
+
 function ReportTab() {
   const { data: _rptOrdersRaw } = useQuery<any>({ queryKey: ["/api/project/orders"],    queryFn: () => fetch("/api/project/orders",    { headers: hdrs() }).then(r => r.json()) });
   const orders: any[] = Array.isArray(_rptOrdersRaw) ? _rptOrdersRaw : [];
   const { data: _rptContractsRaw } = useQuery<any>({ queryKey: ["/api/project/contracts"], queryFn: () => fetch("/api/project/contracts", { headers: hdrs() }).then(r => r.json()) });
   const contracts: any[] = Array.isArray(_rptContractsRaw) ? _rptContractsRaw : [];
+
+  const { data: _mrRaw } = useQuery<any>({ queryKey: ["/api/meeting-reports"], queryFn: () => fetch("/api/meeting-reports", { headers: hdrs() }).then(r => r.json()) });
+  const meetingReports: any[] = Array.isArray(_mrRaw) ? _mrRaw : [];
 
   const totalOrderAmt    = orders.reduce((s: number, o: any) => s + (o.amount    || 0), 0);
   const totalContractAmt = contracts.reduce((s: number, c: any) => s + (c.amount || 0), 0);
@@ -889,6 +897,59 @@ function ReportTab() {
             </tr>
           </tbody>
         </table>
+      </div>
+
+      {/* ── Байршуулсан тайлангийн жагсаалт ── */}
+      <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+        <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <h3 className="text-sm font-bold text-slate-300 flex items-center gap-2">
+            <FileText className="w-4 h-4 text-amber-400" />
+            Байршуулсан тайлангууд
+            {meetingReports.length > 0 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 text-xs font-bold">{meetingReports.length}</span>
+            )}
+          </h3>
+          <ReportUploadButton role="PROJECT" />
+        </div>
+        {meetingReports.length === 0 ? (
+          <div className="p-10 text-center text-slate-500 text-sm">
+            <Download className="w-8 h-8 mx-auto mb-2 opacity-30" />
+            Тайлан байршуулаагүй байна
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5">
+            {meetingReports.map((r: any) => (
+              <div key={r.id} className="flex items-center gap-4 p-4 hover:bg-white/5 transition-all">
+                <div className="p-2 rounded-xl bg-amber-500/10 flex-shrink-0">
+                  <FileText className="w-5 h-5 text-amber-400" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-white font-semibold text-sm truncate">{r.title}</span>
+                    <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 text-xs flex-shrink-0">
+                      {REPORT_CAT[r.category] ?? r.category}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 mt-1 flex-wrap">
+                    {r.description && <span className="text-slate-400 text-xs truncate max-w-[240px]">{r.description}</span>}
+                    {r.meetingDate && <span className="text-slate-500 text-xs flex items-center gap-1"><Calendar className="w-3 h-3" />{r.meetingDate}</span>}
+                    <span className="text-slate-600 text-xs">{r.uploadedByRole} · {r.uploadedBy}</span>
+                    {r.createdAt && <span className="text-slate-600 text-xs">{new Date(r.createdAt).toLocaleDateString("mn-MN")}</span>}
+                  </div>
+                </div>
+                <a
+                  href={r.fileUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  data-testid={`link-report-view-${r.id}`}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/30 text-blue-300 text-xs font-bold transition-all flex-shrink-0"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" /> Нээх
+                </a>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
