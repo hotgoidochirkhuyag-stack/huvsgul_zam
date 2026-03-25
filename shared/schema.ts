@@ -846,6 +846,26 @@ export const insertQualityCertSchema = createInsertSchema(qualityCertificates).o
 export type QualityCert       = typeof qualityCertificates.$inferSelect;
 export type InsertQualityCert = z.infer<typeof insertQualityCertSchema>;
 
+// ===================== ХУРЛЫН ТАЙЛАН (Meeting Reports) =====================
+export const meetingReports = pgTable("meeting_reports", {
+  id:             serial("id").primaryKey(),
+  title:          text("title").notNull(),
+  description:    text("description"),
+  category:       text("category").default("other"),  // monthly | project | financial | safety | lab | hr | other
+  fileUrl:        text("file_url").notNull(),
+  cloudinaryId:   text("cloudinary_id"),
+  fileName:       text("file_name"),
+  fileType:       text("file_type"),                  // pdf | xlsx | docx | pptx | image
+  uploadedBy:     text("uploaded_by").notNull(),
+  uploadedByRole: text("uploaded_by_role").notNull(), // ADMIN | SUPERVISOR | SALES | PROJECT | ...
+  meetingDate:    text("meeting_date"),
+  isShared:       boolean("is_shared").default(true),
+  createdAt:      timestamp("created_at").defaultNow(),
+});
+export const insertMeetingReportSchema = createInsertSchema(meetingReports).omit({ id: true, createdAt: true });
+export type MeetingReport       = typeof meetingReports.$inferSelect;
+export type InsertMeetingReport = z.infer<typeof insertMeetingReportSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;

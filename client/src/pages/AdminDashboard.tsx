@@ -13,6 +13,7 @@ import {
   MapPin, Ruler, Calendar, Building2, DollarSign, Pencil, Save, X, ImageIcon,
   Plus, Trash2, Download, FolderOpen, KeyRound, Eye, EyeOff, Check, ScrollText,
   ShieldAlert, LogIn, LogOut, Award, FlaskConical, FileBarChart2, Printer, QrCode,
+  Upload, Paperclip, Link2, FileSpreadsheet, Presentation, Users,
 } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import LogoutButton from "@/components/LogoutButton";
@@ -702,77 +703,274 @@ function AiAgentTab() {
 }
 
 /* ══════════════════════ 7. ОНЛАЙН ХУРАЛ ══════════════════════ */
+const REPORT_CATEGORIES = [
+  { value: "monthly",   label: "Сарын тайлан",        color: "blue"   },
+  { value: "project",   label: "Төслийн тайлан",       color: "indigo" },
+  { value: "financial", label: "Санхүүгийн тайлан",    color: "amber"  },
+  { value: "safety",    label: "ХАБЭА тайлан",         color: "red"    },
+  { value: "lab",       label: "Лабораторийн тайлан",  color: "teal"   },
+  { value: "hr",        label: "ХР / Хүний нөөц",      color: "purple" },
+  { value: "other",     label: "Бусад",                color: "slate"  },
+];
+
+const ROLE_LABEL: Record<string, string> = {
+  ADMIN: "Администратор", SUPERVISOR: "Хяналтын инженер", SALES: "Борлуулалт",
+  PROJECT: "Төслийн менежер", ENGINEER: "Инженер", HR: "ХР",
+  MECHANIC: "Механик", WAREHOUSE: "Агуулах", LAB: "Лаборатори", BOARD: "ТУЗ",
+};
+
+function fileIcon(type: string | null) {
+  if (!type) return <FileText className="w-5 h-5 text-slate-400" />;
+  if (["xlsx","xls"].includes(type)) return <FileSpreadsheet className="w-5 h-5 text-green-400" />;
+  if (["pptx","ppt"].includes(type)) return <Presentation className="w-5 h-5 text-orange-400" />;
+  if (["docx","doc"].includes(type)) return <FileText className="w-5 h-5 text-blue-400" />;
+  if (type === "pdf") return <FileText className="w-5 h-5 text-red-400" />;
+  return <Paperclip className="w-5 h-5 text-slate-400" />;
+}
+
 function MeetingTab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
   const [mode, setMode] = useState<MeetingMode>("CONFERENCE_HALL");
+  const [subTab, setSubTab] = useState<"meeting"|"reports">("reports");
+
+  // Upload form state
+  const [uploadOpen, setUploadOpen]   = useState(false);
+  const [uploading, setUploading]     = useState(false);
+  const [rTitle, setRTitle]           = useState("");
+  const [rDesc, setRDesc]             = useState("");
+  const [rCat, setRCat]               = useState("other");
+  const [rDate, setRDate]             = useState("");
+  const [rFile, setRFile]             = useState<File | null>(null);
+
+  const token = () => localStorage.getItem("adminToken") ?? "";
+
+  const { data: _rRaw, isLoading: rLoading } = useQuery<any>({
+    queryKey: ["/api/meeting-reports"],
+    queryFn: () => fetch("/api/meeting-reports", { headers: { "x-admin-token": token() } }).then(r => r.json()),
+    enabled: subTab === "reports",
+  });
+  const reports: any[] = Array.isArray(_rRaw) ? _rRaw : [];
+
+  const deleteMut = useMutation({
+    mutationFn: (id: number) => fetch(`/api/meeting-reports/${id}`, {
+      method: "DELETE", headers: { "x-admin-token": token() },
+    }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/meeting-reports"] }); toast({ title: "Устгагдлаа" }); },
+  });
+
+  const handleUpload = async () => {
+    if (!rFile || !rTitle.trim()) {
+      toast({ title: "Гарчиг болон файл шаардлагатай", variant: "destructive" }); return;
+    }
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", rFile);
+    fd.append("title", rTitle.trim());
+    fd.append("description", rDesc);
+    fd.append("category", rCat);
+    fd.append("meetingDate", rDate);
+    try {
+      const r = await fetch("/api/meeting-reports", { method: "POST", headers: { "x-admin-token": token() }, body: fd });
+      const data = await r.json();
+      if (!r.ok) throw new Error(data.error ?? "Upload failed");
+      toast({ title: "Тайлан амжилттай оруулагдлаа!" });
+      qc.invalidateQueries({ queryKey: ["/api/meeting-reports"] });
+      setUploadOpen(false);
+      setRTitle(""); setRDesc(""); setRCat("other"); setRDate(""); setRFile(null);
+    } catch (e: any) {
+      toast({ title: "Алдаа: " + e.message, variant: "destructive" });
+    } finally { setUploading(false); }
+  };
 
   const MODES: { key: MeetingMode; label: string; sub: string; icon: any; bg: string; border: string; active: string }[] = [
-    {
-      key:    "CONFERENCE_HALL",
-      label:  "Ажлын явцтай танилцах",
-      sub:    "Инженер, оператор, механик, лаборатори болон бусад ажилтнуудтай хамтарсан хурал",
-      icon:   Video,
-      bg:     "bg-blue-600/20",
-      border: "border-blue-500/20",
-      active: "bg-blue-600 border-blue-500",
-    },
-    {
-      key:    "BOARD_DIRECTOR",
-      label:  "ТУЗ / Захирал",
-      sub:    "ТУЗ-ын гишүүд, Захирал болон удирдлагын зөвлөлийн хаалттай хурал",
-      icon:   Video,
-      bg:     "bg-amber-600/20",
-      border: "border-amber-500/20",
-      active: "bg-amber-600 border-amber-500",
-    },
+    { key: "CONFERENCE_HALL", label: "Ажлын явцтай танилцах", sub: "Инженер, оператор, механик, лаборатори болон бусад ажилтнуудтай хамтарсан хурал", icon: Video, bg: "bg-blue-600/20", border: "border-blue-500/20", active: "bg-blue-600 border-blue-500" },
+    { key: "BOARD_DIRECTOR",  label: "ТУЗ / Захирал", sub: "ТУЗ-ын гишүүд, Захирал болон удирдлагын зөвлөлийн хаалттай хурал", icon: Video, bg: "bg-amber-600/20", border: "border-amber-500/20", active: "bg-amber-600 border-amber-500" },
   ];
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3 mb-1">
-        <div className="p-2.5 bg-indigo-600/20 rounded-xl">
-          <Video className="w-5 h-5 text-indigo-400" />
+      {/* Sub-tab header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-indigo-600/20 rounded-xl">
+            <Video className="w-5 h-5 text-indigo-400" />
+          </div>
+          <div>
+            <h2 className="font-bold text-white">Онлайн хурал / Тайлан</h2>
+            <p className="text-slate-500 text-xs">Видео хурал эхлүүлэх болон тайлан хуваалцах</p>
+          </div>
         </div>
-        <div>
-          <h2 className="font-bold text-white">Онлайн хурал / Видео холболт</h2>
-          <p className="text-slate-500 text-xs">Хурлын горим сонгоод хурал эхлүүлнэ үү</p>
+        <div className="flex bg-slate-800 rounded-xl p-1 gap-1">
+          {([["reports","📄 Тайлан",], ["meeting","📹 Видео хурал"]] as [string,string][]).map(([k,l]) => (
+            <button key={k} onClick={() => setSubTab(k as any)}
+              className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${subTab === k ? "bg-amber-600 text-white" : "text-slate-400 hover:text-white"}`}
+            >{l}</button>
+          ))}
         </div>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {MODES.map(m => {
-          const Icon = m.icon;
-          const isActive = mode === m.key;
-          return (
-            <button
-              key={m.key}
-              onClick={() => setMode(m.key)}
-              className={`p-5 rounded-2xl border text-left transition-all hover:scale-[1.01] ${
-                isActive ? `${m.active} text-white` : `${m.bg} ${m.border} hover:border-white/20`
-              }`}
+      {/* ── REPORTS SUB-TAB ── */}
+      {subTab === "reports" && (
+        <div className="space-y-4">
+          {/* Upload button */}
+          <div className="flex items-center justify-between">
+            <p className="text-xs text-slate-400">Бүх ажилтнуудын оруулсан тайлангуудын жагсаалт</p>
+            <button onClick={() => setUploadOpen(v => !v)}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold transition-all"
+              data-testid="button-upload-report"
             >
-              <div className="flex items-start gap-3">
-                <div className={`p-2.5 rounded-xl ${isActive ? "bg-white/20" : m.bg}`}>
-                  <Icon className="w-5 h-5 text-white" />
+              <Upload className="w-4 h-4" /> Тайлан оруулах
+            </button>
+          </div>
+
+          {/* Upload form */}
+          {uploadOpen && (
+            <div className="bg-slate-800/80 border border-amber-500/20 rounded-2xl p-5 space-y-4">
+              <p className="text-sm font-bold text-amber-400 mb-2">📎 Шинэ тайлан оруулах</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Гарчиг *</label>
+                  <input value={rTitle} onChange={e => setRTitle(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+                    placeholder="Тайлангийн нэр..." data-testid="input-report-title" />
                 </div>
                 <div>
-                  <p className="font-black text-white text-base mb-1">{m.label}</p>
-                  <p className={`text-xs leading-relaxed ${isActive ? "text-white/70" : "text-slate-500"}`}>{m.sub}</p>
+                  <label className="text-xs text-slate-400 mb-1 block">Ангилал</label>
+                  <select value={rCat} onChange={e => setRCat(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+                    data-testid="select-report-category">
+                    {REPORT_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Тэмдэглэл</label>
+                  <input value={rDesc} onChange={e => setRDesc(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50"
+                    placeholder="Тайлбар, огноо эсвэл бусад..." />
+                </div>
+                <div>
+                  <label className="text-xs text-slate-400 mb-1 block">Хурлын огноо (заавал биш)</label>
+                  <input type="date" value={rDate} onChange={e => setRDate(e.target.value)}
+                    className="w-full bg-slate-900 border border-white/10 rounded-xl px-3 py-2 text-sm text-white outline-none focus:border-amber-500/50" />
                 </div>
               </div>
-              {isActive && (
-                <div className="mt-3 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-                  <span className="text-xs text-white/70 font-semibold">Сонгогдсон</span>
+              <div>
+                <label className="text-xs text-slate-400 mb-1 block">Файл (PDF, Excel, Word, PPT, Зураг) *</label>
+                <div className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer transition-all ${rFile ? "border-amber-500/50 bg-amber-500/5" : "border-white/10 hover:border-amber-500/30"}`}
+                  onClick={() => document.getElementById("rFileInput")?.click()}>
+                  <input id="rFileInput" type="file"
+                    accept=".pdf,.xlsx,.xls,.docx,.doc,.pptx,.ppt,.jpg,.jpeg,.png,.webp"
+                    className="hidden" onChange={e => setRFile(e.target.files?.[0] ?? null)}
+                    data-testid="input-report-file" />
+                  {rFile ? (
+                    <div className="flex items-center justify-center gap-2 text-amber-400">
+                      <Paperclip className="w-4 h-4" />
+                      <span className="text-sm font-medium">{rFile.name}</span>
+                      <span className="text-xs text-slate-500">({(rFile.size / 1024 / 1024).toFixed(1)} MB)</span>
+                    </div>
+                  ) : (
+                    <div className="text-slate-500 text-sm">
+                      <Upload className="w-6 h-6 mx-auto mb-1 opacity-50" />
+                      Файл сонгохын тулд дарна уу
+                    </div>
+                  )}
                 </div>
-              )}
-            </button>
-          );
-        })}
-      </div>
+              </div>
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setUploadOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-bold">Цуцлах</button>
+                <button onClick={handleUpload} disabled={uploading}
+                  className="flex items-center gap-2 px-5 py-2 rounded-xl bg-amber-600 hover:bg-amber-500 text-white text-sm font-bold disabled:opacity-50"
+                  data-testid="button-submit-report">
+                  {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                  {uploading ? "Оруулж байна..." : "Хадгалах"}
+                </button>
+              </div>
+            </div>
+          )}
 
-      <div className="bg-slate-900/60 rounded-2xl border border-white/10 p-5">
-        <FactoryControl mode={mode} />
-      </div>
+          {/* Reports list */}
+          {rLoading ? (
+            <div className="flex items-center justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-amber-400" /></div>
+          ) : reports.length === 0 ? (
+            <div className="text-center py-16 text-slate-500">
+              <FolderOpen className="w-10 h-10 mx-auto mb-3 opacity-30" />
+              <p className="text-sm">Тайлан байхгүй байна. Эхний тайланг оруулна уу.</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {reports.map((r: any) => {
+                const cat = REPORT_CATEGORIES.find(c => c.value === r.category) ?? REPORT_CATEGORIES[6];
+                return (
+                  <div key={r.id} className="flex items-center gap-3 bg-slate-800/50 border border-white/10 rounded-2xl px-4 py-3 hover:border-white/20 transition-all group"
+                    data-testid={`row-report-${r.id}`}>
+                    <div className="shrink-0">{fileIcon(r.fileType)}</div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-sm font-bold text-white truncate">{r.title}</span>
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full bg-${cat.color}-900/40 text-${cat.color}-300 font-bold shrink-0`}>{cat.label}</span>
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-slate-700 text-slate-400 font-bold shrink-0">{ROLE_LABEL[r.uploadedByRole] ?? r.uploadedByRole}</span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-0.5 text-xs text-slate-500">
+                        <span>{r.uploadedBy}</span>
+                        {r.description && <span>· {r.description}</span>}
+                        {r.meetingDate && <span className="text-amber-400/70">· 📅 {r.meetingDate}</span>}
+                        <span>· {new Date(r.createdAt).toLocaleDateString("mn-MN")}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <a href={r.fileUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs font-bold transition-all"
+                        data-testid={`link-open-report-${r.id}`}>
+                        <Link2 className="w-3 h-3" /> Нээх
+                      </a>
+                      <a href={r.fileUrl} download={r.fileName ?? r.title}
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-green-600/20 hover:bg-green-600/40 text-green-400 text-xs font-bold transition-all"
+                        data-testid={`link-download-report-${r.id}`}>
+                        <Download className="w-3 h-3" /> Татах
+                      </a>
+                      <button onClick={() => { if (confirm("Устгах уу?")) deleteMut.mutate(r.id); }}
+                        className="p-1.5 rounded-lg hover:bg-red-600/20 text-slate-600 hover:text-red-400 transition-all opacity-0 group-hover:opacity-100"
+                        data-testid={`button-delete-report-${r.id}`}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── MEETING SUB-TAB ── */}
+      {subTab === "meeting" && (
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {MODES.map(m => {
+              const Icon = m.icon;
+              const isActive = mode === m.key;
+              return (
+                <button key={m.key} onClick={() => setMode(m.key)}
+                  className={`p-5 rounded-2xl border text-left transition-all hover:scale-[1.01] ${isActive ? `${m.active} text-white` : `${m.bg} ${m.border} hover:border-white/20`}`}>
+                  <div className="flex items-start gap-3">
+                    <div className={`p-2.5 rounded-xl ${isActive ? "bg-white/20" : m.bg}`}><Icon className="w-5 h-5 text-white" /></div>
+                    <div>
+                      <p className="font-black text-white text-base mb-1">{m.label}</p>
+                      <p className={`text-xs leading-relaxed ${isActive ? "text-white/70" : "text-slate-500"}`}>{m.sub}</p>
+                    </div>
+                  </div>
+                  {isActive && <div className="mt-3 flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-white animate-pulse" /><span className="text-xs text-white/70 font-semibold">Сонгогдсон</span></div>}
+                </button>
+              );
+            })}
+          </div>
+          <div className="bg-slate-900/60 rounded-2xl border border-white/10 p-5">
+            <FactoryControl mode={mode} />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

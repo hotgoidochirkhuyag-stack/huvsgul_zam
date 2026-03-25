@@ -105,6 +105,41 @@ const uploadMiddleware = multer({
   },
 });
 
+// ======= DOCUMENT UPLOAD — PDF/Excel/Word/PPT/Image хадгалах =======
+async function uploadDocument(
+  buffer: Buffer,
+  originalname: string,
+  folder: string
+): Promise<{ secure_url: string; public_id: string }> {
+  if (hasCloudinary) {
+    return new Promise((resolve, reject) => {
+      const stream = cloudinary.uploader.upload_stream(
+        { folder, resource_type: "auto", use_filename: true, unique_filename: true },
+        (err, result) => {
+          if (err || !result) return reject(err ?? new Error("Cloudinary upload failed"));
+          resolve({ secure_url: result.secure_url, public_id: result.public_id });
+        }
+      );
+      Readable.from(buffer).pipe(stream);
+    });
+  } else {
+    const ext = path.extname(originalname) || ".bin";
+    const safeName = `${folder.replace(/\//g, "_")}_${Date.now()}${ext}`;
+    const filepath = path.join(LOCAL_UPLOAD_DIR, safeName);
+    fs.writeFileSync(filepath, buffer);
+    return { secure_url: `/uploads/${safeName}`, public_id: `local/${safeName}` };
+  }
+}
+
+const docUploadMiddleware = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB
+  fileFilter: (_req, file, cb) => {
+    const allowed = /pdf|xlsx|xls|docx|doc|pptx|ppt|jpeg|jpg|png|webp/i;
+    cb(null, allowed.test(path.extname(file.originalname)));
+  },
+});
+
 // ============ ADMIN AUTH MIDDLEWARE ============
 function requireAdmin(req: Request, res: Response, next: NextFunction) {
   const token = (req.headers["x-admin-token"] as string) || "";
@@ -2576,6 +2611,61 @@ ${cert.testResults ? `
   app.delete("/api/customers/:id", requireRole("ADMIN"), async (req, res) => {
     try {
       await db.delete(schema.customers).where(eq(schema.customers.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ============ ХУРЛЫН ТАЙЛАН (MEETING REPORTS) ============
+  app.get("/api/meeting-reports", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.meetingReports)
+        .orderBy(desc(schema.meetingReports.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/meeting-reports", requireAdmin, docUploadMiddleware.single("file"), async (req, res) => {
+    try {
+      if (!req.file) return res.status(400).json({ error: "Файл оруулаагүй байна" });
+      const { title, description, category, meetingDate } = req.body;
+      if (!title?.trim()) return res.status(400).json({ error: "Гарчиг шаардлагатай" });
+
+      const ext = path.extname(req.file.originalname).toLowerCase().replace(".", "");
+      const { secure_url, public_id } = await uploadDocument(
+        req.file.buffer,
+        req.file.originalname,
+        "meeting_reports"
+      );
+
+      const [row] = await db.insert(schema.meetingReports).values({
+        title: title.trim(),
+        description: description?.trim() || null,
+        category: category || "other",
+        fileUrl: secure_url,
+        cloudinaryId: public_id,
+        fileName: req.file.originalname,
+        fileType: ext,
+        uploadedBy: req.authUser ?? "admin",
+        uploadedByRole: req.authRole ?? "ADMIN",
+        meetingDate: meetingDate || null,
+        isShared: true,
+      }).returning();
+
+      res.status(201).json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/meeting-reports/:id", requireAdmin, async (req, res) => {
+    try {
+      const [row] = await db.select().from(schema.meetingReports)
+        .where(eq(schema.meetingReports.id, parseInt(req.params.id)));
+      if (!row) return res.status(404).json({ error: "Тайлан олдсонгүй" });
+      if (row.cloudinaryId && hasCloudinary) {
+        const rtype = ["pdf","xlsx","xls","docx","doc","pptx","ppt"].includes(row.fileType ?? "")
+          ? "raw" : "image";
+        await cloudinary.uploader.destroy(row.cloudinaryId, { resource_type: rtype }).catch(() => {});
+      }
+      await db.delete(schema.meetingReports).where(eq(schema.meetingReports.id, parseInt(req.params.id)));
       res.json({ ok: true });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });

@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import NotificationBell from "@/components/NotificationBell";
+import ReportUploadButton from "@/components/ReportUploadButton";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
 
@@ -382,6 +383,7 @@ export default function SupervisorDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <ReportUploadButton role="SUPERVISOR" />
             <NotificationBell role="SUPERVISOR" />
             <button
               onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}

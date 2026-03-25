@@ -7,6 +7,7 @@ import {
   Loader2, AlertCircle, PackageCheck, Hammer, Send
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
+import ReportUploadButton from "@/components/ReportUploadButton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -618,6 +619,7 @@ export default function SalesDashboard() {
               {confirmedCount} үйлдвэрлэлд
             </Badge>
           )}
+          <ReportUploadButton role="SALES" />
           <NotificationBell role="SALES" />
           <Button size="sm" variant="ghost" className="text-slate-400 hover:text-white"
             onClick={logout} data-testid="btn-logout">

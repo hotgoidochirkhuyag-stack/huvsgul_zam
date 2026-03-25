@@ -12,6 +12,7 @@ import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
 import LogoutButton from "@/components/LogoutButton";
 import NotificationBell from "@/components/NotificationBell";
+import ReportUploadButton from "@/components/ReportUploadButton";
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
   ResponsiveContainer, PieChart, Pie, Cell, Legend,
@@ -1052,6 +1053,7 @@ export default function ProjectDashboard() {
           <p className="text-slate-400 mt-1">Захиалга · Гэрээ · Борлуулалт — Хөвсгөл Зам ХХК</p>
         </div>
         <div className="flex items-center gap-2">
+          <ReportUploadButton role="PROJECT" />
           <NotificationBell role="PROJECT" />
           <LogoutButton />
         </div>
