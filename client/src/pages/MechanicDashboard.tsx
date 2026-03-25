@@ -64,16 +64,18 @@ export default function MechanicDashboard() {
   };
   const [form, setForm] = useState(emptyForm);
 
-  const { data: vehicles = [], isLoading } = useQuery<any[]>({
+  const { data: _vehiclesRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/erp/vehicles"],
     queryFn: () => fetch("/api/erp/vehicles", { headers: getHeaders() }).then(r => r.json()),
   });
+  const vehicles: any[] = Array.isArray(_vehiclesRaw) ? _vehiclesRaw : [];
 
-  const { data: inspections = [], isLoading: inspLoading } = useQuery<any[]>({
+  const { data: _inspRaw, isLoading: inspLoading } = useQuery<any>({
     queryKey: ["/api/erp/vehicle-inspections"],
     queryFn: () => fetch("/api/erp/vehicle-inspections", { headers: getHeaders() }).then(r => r.json()),
     enabled: tab === "inspections",
   });
+  const inspections: any[] = Array.isArray(_inspRaw) ? _inspRaw : [];
 
   const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
 
