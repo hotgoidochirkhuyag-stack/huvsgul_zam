@@ -738,9 +738,11 @@ const REPORT_CAT: Record<string, string> = {
 
 function getReportViewUrl(fileUrl: string, fileType: string): string {
   const t = (fileType || "").toLowerCase();
-  const officeTypes = ["docx", "doc", "xlsx", "xls", "pptx", "ppt"];
-  if (officeTypes.includes(t)) {
-    return `https://docs.google.com/viewer?url=${encodeURIComponent(fileUrl)}`;
+  if (["docx", "doc", "pptx", "ppt"].includes(t)) {
+    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
+  }
+  if (["xlsx", "xls"].includes(t)) {
+    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
   }
   return fileUrl;
 }

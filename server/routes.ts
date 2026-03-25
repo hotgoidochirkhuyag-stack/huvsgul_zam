@@ -114,7 +114,7 @@ async function uploadDocument(
   if (hasCloudinary) {
     return new Promise((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
-        { folder, resource_type: "auto", use_filename: true, unique_filename: true },
+        { folder, resource_type: "raw", use_filename: true, unique_filename: true },
         (err, result) => {
           if (err || !result) return reject(err ?? new Error("Cloudinary upload failed"));
           resolve({ secure_url: result.secure_url, public_id: result.public_id });
@@ -2637,17 +2637,11 @@ ${cert.testResults ? `
         "meeting_reports"
       );
 
-      // Cloudinary raw/upload URL-д өргөтгөл алга байвал нэмнэ
-      let fileUrl = secure_url;
-      if (ext && !fileUrl.split("?")[0].endsWith("." + ext)) {
-        fileUrl = fileUrl + "." + ext;
-      }
-
       const [row] = await db.insert(schema.meetingReports).values({
         title: title.trim(),
         description: description?.trim() || null,
         category: category || "other",
-        fileUrl,
+        fileUrl: secure_url,
         cloudinaryId: public_id,
         fileName: req.file.originalname,
         fileType: ext,
