@@ -17,6 +17,7 @@ import SupervisorDashboard from "@/pages/SupervisorDashboard";
 import MechanicDashboard from "@/pages/MechanicDashboard";
 import WarehouseDashboard from "@/pages/WarehouseDashboard";
 import CheckIn from "@/pages/CheckIn";
+import QRPrint from "@/pages/QRPrint";
 import EquipmentInspection from "@/pages/EquipmentInspection";
 import LabQCDashboard from "@/pages/LabQCDashboard";
 import AnnualReport from "@/pages/AnnualReport";
@@ -59,6 +60,7 @@ function Router() {
 
       {/* Нийтийн хуудсууд (нэвтрэлт шаардахгүй) */}
       <Route path="/checkin" component={CheckIn} />
+      <Route path="/qr-print" component={QRPrint} />
       <Route path="/vehicle-inspection" component={EquipmentInspection} />
       <Route path="/manual" component={UserManual} />
 
