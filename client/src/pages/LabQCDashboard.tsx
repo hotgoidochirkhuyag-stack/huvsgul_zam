@@ -91,16 +91,18 @@ function NormEditorTab({ token, role, canEdit }: { token: string; role: string; 
   const [showLog, setShowLog]       = useState(false);
   const qc = useQueryClient();
 
-  const { data: norms = [], isLoading } = useQuery<NormConfig[]>({
+  const { data: _normsRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/norm-configs"],
     queryFn: () => fetch("/api/norm-configs", { headers: { "x-admin-token": token } }).then(r => r.json()),
   });
+  const norms: NormConfig[] = Array.isArray(_normsRaw) ? _normsRaw : [];
 
-  const { data: auditLog = [], isLoading: logLoading } = useQuery<NormAuditEntry[]>({
+  const { data: _logRaw, isLoading: logLoading } = useQuery<any>({
     queryKey: ["/api/norm-audit-log"],
     queryFn: () => fetch("/api/norm-audit-log", { headers: { "x-admin-token": token } }).then(r => r.json()),
     enabled: showLog,
   });
+  const auditLog: NormAuditEntry[] = Array.isArray(_logRaw) ? _logRaw : [];
 
   const handleSave = async (norm: NormConfig) => {
     const rawVal = editValues[norm.id];
@@ -351,10 +353,11 @@ export default function LabQCDashboard() {
   };
   const [form, setForm] = useState(emptyForm);
 
-  const { data: results = [], isLoading, refetch } = useQuery<any[]>({
+  const { data: _resultsRaw, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/lab-results"],
     queryFn: () => fetch("/api/lab-results", { headers: getHeaders() }).then(r => r.json()),
   });
+  const results: any[] = Array.isArray(_resultsRaw) ? _resultsRaw : [];
 
   const createResult = useMutation({
     mutationFn: (data: any) => fetch("/api/lab-results", {

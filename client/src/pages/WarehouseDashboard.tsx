@@ -1344,11 +1344,12 @@ function OrdersTab({ allItems, token }: { allItems: WarehouseItem[]; token: stri
   });
   const setF = (k: string, v: string) => setForm(p => ({ ...p, [k]: v }));
 
-  const { data: orders = [], isLoading } = useQuery<WarehouseOrder[]>({
+  const { data: _ordersRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/warehouse/orders"],
     queryFn: () => fetch("/api/warehouse/orders", { headers: hdrs }).then(r => r.json()),
     refetchInterval: 30000,
   });
+  const orders: WarehouseOrder[] = Array.isArray(_ordersRaw) ? _ordersRaw : [];
 
   const createMut = useMutation({
     mutationFn: async () => {

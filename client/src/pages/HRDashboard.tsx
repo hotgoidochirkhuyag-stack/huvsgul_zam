@@ -48,16 +48,18 @@ export default function HRDashboard() {
     return MN_REG.test(val.toUpperCase()) ? "" : "Буруу формат. Жишээ: АА12345678 (2 үсэг + 8 цифр)";
   };
 
-  const { data: employees = [], isLoading } = useQuery<any[]>({
+  const { data: _empRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/erp/employees"],
     queryFn: () => fetch("/api/erp/employees", { headers: getAdminHeaders() }).then(r => r.json()),
   });
+  const employees: any[] = Array.isArray(_empRaw) ? _empRaw : [];
 
-  const { data: attendanceList = [], isLoading: attLoading } = useQuery<any[]>({
+  const { data: _attRaw, isLoading: attLoading } = useQuery<any>({
     queryKey: ["/api/erp/attendance", today],
     queryFn: () => fetch(`/api/erp/attendance?date=${today}`, { headers: getAdminHeaders() }).then(r => r.json()),
     enabled: tab === "attendance",
   });
+  const attendanceList: any[] = Array.isArray(_attRaw) ? _attRaw : [];
 
   const addEmployee = useMutation({
     mutationFn: () => fetch("/api/erp/employees", {
@@ -603,10 +605,11 @@ function CertsTab({ employees, qc, toast }: { employees: any[]; qc: any; toast: 
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ employeeId: "", certType: "driver_b", certName: "", certNumber: "", issuedBy: "", issuedDate: "", expiryDate: "", notes: "" });
 
-  const { data: certs = [] } = useQuery<any[]>({
+  const { data: _certsRaw } = useQuery<any>({
     queryKey: ["/api/employee-certificates"],
     queryFn: () => fetch("/api/employee-certificates", { headers: hdrs() }).then(r => r.json()),
   });
+  const certs: any[] = Array.isArray(_certsRaw) ? _certsRaw : [];
   const addMut = useMutation({
     mutationFn: (d: any) => fetch("/api/employee-certificates", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/employee-certificates"] }); setShowForm(false); toast({ title: "Гэрчилгээ нэмэгдлээ" }); },
@@ -724,10 +727,11 @@ function TrainingsTab({ employees, qc, toast }: { employees: any[]; qc: any; toa
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ employeeId: "", trainingType: "хабэа_ерөнхий", trainingName: "ХАБЭА ерөнхий сургалт", completedDate: "", nextDueDate: "", conductedBy: "", hoursCompleted: "", passed: true, notes: "" });
 
-  const { data: trainings = [] } = useQuery<any[]>({
+  const { data: _trainRaw } = useQuery<any>({
     queryKey: ["/api/employee-trainings"],
     queryFn: () => fetch("/api/employee-trainings", { headers: hdrs() }).then(r => r.json()),
   });
+  const trainings: any[] = Array.isArray(_trainRaw) ? _trainRaw : [];
   const addMut = useMutation({
     mutationFn: (d: any) => fetch("/api/employee-trainings", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/employee-trainings"] }); setShowForm(false); toast({ title: "Сургалт нэмэгдлээ" }); },
@@ -850,10 +854,11 @@ function SkillsTab({ employees, qc, toast }: { employees: any[]; qc: any; toast:
   const [viewMode, setViewMode] = useState<"list" | "matrix">("matrix");
   const [form, setForm] = useState({ employeeId: "", vehicleType: "Экскаватор", skillLevel: "мэргэжлийн", certifiedBy: "", validFrom: "", validUntil: "", notes: "" });
 
-  const { data: skills = [] } = useQuery<any[]>({
+  const { data: _skillsRaw } = useQuery<any>({
     queryKey: ["/api/employee-skills"],
     queryFn: () => fetch("/api/employee-skills", { headers: hdrs() }).then(r => r.json()),
   });
+  const skills: any[] = Array.isArray(_skillsRaw) ? _skillsRaw : [];
   const addMut = useMutation({
     mutationFn: (d: any) => fetch("/api/employee-skills", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/employee-skills"] }); setShowForm(false); toast({ title: "Чадвар нэмэгдлээ" }); },

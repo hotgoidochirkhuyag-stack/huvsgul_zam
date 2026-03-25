@@ -271,11 +271,12 @@ function InspectionTab({ vehicles }: { vehicles: Vehicle[] }) {
   };
 
   const todayStr = today();
-  const { data: allInspections = [], isLoading, refetch } = useQuery<VehicleInspection[]>({
+  const { data: _inspRaw, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/erp/vehicle-inspections-today"],
     queryFn: () => fetch(`/api/erp/vehicle-inspections?date=${todayStr}`, { headers: hdrs() }).then(r => r.json()),
     refetchInterval: 30_000,
   });
+  const allInspections: VehicleInspection[] = Array.isArray(_inspRaw) ? _inspRaw : [];
   const inspections = useMemo(() => [...allInspections].sort((a, b) =>
     new Date(b.createdAt ?? 0).getTime() - new Date(a.createdAt ?? 0).getTime()), [allInspections]);
   const passedCount = inspections.filter(i => i.passed).length;
@@ -626,22 +627,25 @@ function BreakdownTab({ vehicles }: { vehicles: Vehicle[] }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const { data: allBreakdowns = [], isLoading, refetch } = useQuery<BreakdownRequest[]>({
+  const { data: _bdRaw, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/erp/breakdowns"],
     queryFn: () => fetch("/api/erp/breakdowns", { headers: hdrs() }).then(r => r.json()),
     refetchInterval: 30_000,
   });
+  const allBreakdowns: BreakdownRequest[] = Array.isArray(_bdRaw) ? _bdRaw : [];
 
-  const { data: allEmployees = [] } = useQuery<Employee[]>({
+  const { data: _empRaw } = useQuery<any>({
     queryKey: ["/api/erp/employees"],
     queryFn: () => fetch("/api/erp/employees", { headers: hdrs() }).then(r => r.json()),
   });
+  const allEmployees: Employee[] = Array.isArray(_empRaw) ? _empRaw : [];
 
-  const { data: todayInspections = [] } = useQuery<VehicleInspection[]>({
+  const { data: _todayInspRaw } = useQuery<any>({
     queryKey: ["/api/erp/vehicle-inspections-today"],
     queryFn: () => fetch(`/api/erp/vehicle-inspections?date=${today()}`, { headers: hdrs() }).then(r => r.json()),
     refetchInterval: 30_000,
   });
+  const todayInspections: VehicleInspection[] = Array.isArray(_todayInspRaw) ? _todayInspRaw : [];
 
   // Өнөөдөр үзлэг хийсэн хүмүүс (давхардлыг арилгана) + тэдний техник мэдээлэлтэй
   const todayOperators = useMemo(() => {
@@ -890,10 +894,11 @@ export default function EngineerDashboard() {
     setLocation("/select-role");
   };
 
-  const { data: vehicles = [], isLoading: vLoad } = useQuery<Vehicle[]>({
+  const { data: _vehRaw, isLoading: vLoad } = useQuery<any>({
     queryKey: ["/api/erp/vehicles"],
     queryFn: () => fetch("/api/erp/vehicles", { headers: hdrs() }).then(r => r.json()),
   });
+  const vehicles: Vehicle[] = Array.isArray(_vehRaw) ? _vehRaw : [];
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
