@@ -125,9 +125,12 @@ export default function ERPReport() {
   });
   const [submittedKpi, setSubmittedKpi] = useState<any>(null);
 
-  const { data: projects = [] } = useQuery<any[]>({ queryKey: ["/api/erp/projects"] });
-  const { data: plants = [] } = useQuery<any[]>({ queryKey: ["/api/erp/plants"] });
-  const { data: kpiConfigs = [] } = useQuery<any[]>({ queryKey: ["/api/erp/kpi-configs"] });
+  const { data: _rptProjRaw } = useQuery<any>({ queryKey: ["/api/erp/projects"] });
+  const projects: any[] = Array.isArray(_rptProjRaw) ? _rptProjRaw : [];
+  const { data: _rptPlantsRaw } = useQuery<any>({ queryKey: ["/api/erp/plants"] });
+  const plants: any[] = Array.isArray(_rptPlantsRaw) ? _rptPlantsRaw : [];
+  const { data: _rptKpiCfgRaw } = useQuery<any>({ queryKey: ["/api/erp/kpi-configs"] });
+  const kpiConfigs: any[] = Array.isArray(_rptKpiCfgRaw) ? _rptKpiCfgRaw : [];
   const foundKpi = kpiConfigs.find((k: any) => k.workType === form.workType);
 
   // QR хайх

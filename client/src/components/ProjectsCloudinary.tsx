@@ -24,9 +24,10 @@ const DOC_CATEGORIES: Record<string, string> = {
 
 function PdfDownloadModal({ onClose }: { onClose: () => void }) {
   const [activeCategory, setActiveCategory] = useState("all");
-  const { data: docs = [], isLoading } = useQuery<ProjectDocument[]>({
+  const { data: _docsRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/project-documents"],
   });
+  const docs: ProjectDocument[] = Array.isArray(_docsRaw) ? _docsRaw : [];
 
   const categories = ["all", ...Array.from(new Set(docs.map(d => d.category)))];
   const filtered = activeCategory === "all" ? docs : docs.filter(d => d.category === activeCategory);

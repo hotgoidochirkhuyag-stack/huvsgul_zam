@@ -86,11 +86,12 @@ export default function MechanicDashboard() {
   const [showHourForm, setShowHourForm] = useState(false);
   const [hourDate, setHourDate] = useState(TODAY);
 
-  const { data: eqLogs = [], refetch: refetchLogs } = useQuery<any[]>({
+  const { data: _eqLogsRaw, refetch: refetchLogs } = useQuery<any>({
     queryKey: ["/api/equipment-logs", hourDate],
     queryFn: () => fetch(`/api/equipment-logs?date=${hourDate}`, { headers: getHeaders() }).then(r => r.json()),
     enabled: tab === "hours",
   });
+  const eqLogs: any[] = Array.isArray(_eqLogsRaw) ? _eqLogsRaw : [];
 
   const createHourLog = useMutation({
     mutationFn: (data: any) => fetch("/api/equipment-logs", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
@@ -132,11 +133,12 @@ export default function MechanicDashboard() {
     queryFn: () => fetch(`/api/fuel-budgets/summary?year=${fuelYear}&month=${fuelMonth}`, { headers: getHeaders() }).then(r => r.json()),
     enabled: tab === "fuel",
   });
-  const { data: allBudgets = [] } = useQuery<any[]>({
+  const { data: _allBudgetsRaw } = useQuery<any>({
     queryKey: ["/api/fuel-budgets"],
     queryFn: () => fetch("/api/fuel-budgets", { headers: getHeaders() }).then(r => r.json()),
     enabled: tab === "fuel",
   });
+  const allBudgets: any[] = Array.isArray(_allBudgetsRaw) ? _allBudgetsRaw : [];
 
   const saveBudget = useMutation({
     mutationFn: (data: any) => {
@@ -154,16 +156,18 @@ export default function MechanicDashboard() {
 
   const MONTHS_MN = ["1-р сар","2-р сар","3-р сар","4-р сар","5-р сар","6-р сар","7-р сар","8-р сар","9-р сар","10-р сар","11-р сар","12-р сар"];
 
-  const { data: allEqLogs = [] } = useQuery<any[]>({
+  const { data: _allEqLogsRaw } = useQuery<any>({
     queryKey: ["/api/equipment-logs/all"],
     queryFn: () => fetch("/api/equipment-logs", { headers: getHeaders() }).then(r => r.json()),
     enabled: tab === "report",
   });
-  const { data: allBudgetsReport = [] } = useQuery<any[]>({
+  const allEqLogs: any[] = Array.isArray(_allEqLogsRaw) ? _allEqLogsRaw : [];
+  const { data: _allBudgetsRptRaw } = useQuery<any>({
     queryKey: ["/api/fuel-budgets/report"],
     queryFn: () => fetch("/api/fuel-budgets", { headers: getHeaders() }).then(r => r.json()),
     enabled: tab === "report",
   });
+  const allBudgetsReport: any[] = Array.isArray(_allBudgetsRptRaw) ? _allBudgetsRptRaw : [];
 
   function handleMechanicPrint() {
     const readyCount   = vehicles.filter((v: any) => v.isReady).length;
@@ -1063,10 +1067,11 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({ vehicleId: "", toType: "TO1", scheduledDate: today, description: "", technicianName: "", hoursAtService: "", cost: "", notes: "" });
 
-  const { data: schedules = [] } = useQuery<any[]>({
+  const { data: _schedsRaw } = useQuery<any>({
     queryKey: ["/api/maintenance-schedules"],
     queryFn: () => fetch("/api/maintenance-schedules", { headers: hdrs() }).then(r => r.json()),
   });
+  const schedules: any[] = Array.isArray(_schedsRaw) ? _schedsRaw : [];
   const addMut = useMutation({
     mutationFn: (d: any) => fetch("/api/maintenance-schedules", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/maintenance-schedules"] }); setShowForm(false); toast({ title: "ТО хуваарь нэмэгдлээ" }); },
@@ -1239,10 +1244,11 @@ function SparePartsTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toas
   const [editId, setEditId] = useState<number | null>(null);
   const [editQty, setEditQty] = useState("");
 
-  const { data: parts = [] } = useQuery<any[]>({
+  const { data: _partsRaw } = useQuery<any>({
     queryKey: ["/api/spare-parts"],
     queryFn: () => fetch("/api/spare-parts", { headers: hdrs() }).then(r => r.json()),
   });
+  const parts: any[] = Array.isArray(_partsRaw) ? _partsRaw : [];
   const addMut = useMutation({
     mutationFn: (d: any) => fetch("/api/spare-parts", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/spare-parts"] }); setShowForm(false); toast({ title: "Сэлбэг нэмэгдлээ" }); },
@@ -1393,15 +1399,17 @@ function AlertsTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toast: a
   const [showDocForm, setShowDocForm] = useState(false);
   const [docForm, setDocForm] = useState({ vehicleId: "", docType: "insurance", docName: "ОСАГО даатгал", docNumber: "", issuedDate: "", expiryDate: "", issuedBy: "", notes: "" });
 
-  const { data: alerts = [], isLoading } = useQuery<any[]>({
+  const { data: _alertsRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/expiry-alerts"],
     queryFn: () => fetch("/api/expiry-alerts", { headers: hdrs() }).then(r => r.json()),
     refetchInterval: 60000,
   });
-  const { data: vdocs = [] } = useQuery<any[]>({
+  const alerts: any[] = Array.isArray(_alertsRaw) ? _alertsRaw : [];
+  const { data: _vdocsRaw } = useQuery<any>({
     queryKey: ["/api/vehicle-documents"],
     queryFn: () => fetch("/api/vehicle-documents", { headers: hdrs() }).then(r => r.json()),
   });
+  const vdocs: any[] = Array.isArray(_vdocsRaw) ? _vdocsRaw : [];
   const addDocMut = useMutation({
     mutationFn: (d: any) => fetch("/api/vehicle-documents", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/vehicle-documents", "/api/expiry-alerts"] }); setShowDocForm(false); toast({ title: "Баримт бичиг нэмэгдлээ" }); },

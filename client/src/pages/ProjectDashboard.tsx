@@ -153,10 +153,11 @@ function TendersTab() {
   const [modal, setModal] = useState<null | "new" | any>(null);
   const [delId, setDelId] = useState<number | null>(null);
 
-  const { data: tenders = [], isLoading, refetch } = useQuery<any[]>({
+  const { data: _tendersRaw2, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/tender-projects"],
     queryFn: () => fetch("/api/tender-projects").then(r => r.json()),
   });
+  const tenders: any[] = Array.isArray(_tendersRaw2) ? _tendersRaw2 : [];
 
   const del = useMutation({
     mutationFn: (id: number) => fetch(`/api/tender-projects/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),
@@ -283,14 +284,16 @@ function RequestsTab() {
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const FILTER_ITEMS = ["Бүгд", "Холбоо барих", "Үнийн санал", "Ажлын байр", "Төслийн мэдээ", "Зөвлөгөө авах"];
 
-  const { data: contacts = [], isLoading: lC } = useQuery<any[]>({
+  const { data: _contactsRaw2, isLoading: lC } = useQuery<any>({
     queryKey: ["/api/contacts"],
     queryFn: () => fetch("/api/contacts", { headers: hdrs() }).then(r => r.json()),
   });
-  const { data: subs = [], isLoading: lS } = useQuery<any[]>({
+  const contacts: any[] = Array.isArray(_contactsRaw2) ? _contactsRaw2 : [];
+  const { data: _subsRaw, isLoading: lS } = useQuery<any>({
     queryKey: ["/api/subscriptions"],
     queryFn: () => fetch("/api/subscriptions", { headers: hdrs() }).then(r => r.json()),
   });
+  const subs: any[] = Array.isArray(_subsRaw) ? _subsRaw : [];
 
   const delContact = useMutation({
     mutationFn: (id: number) => fetch(`/api/contacts/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),
@@ -479,10 +482,11 @@ function OrdersTab() {
   const { toast } = useToast();
   const [modal, setModal] = useState<null | "new" | any>(null);
 
-  const { data: orders = [], isLoading } = useQuery<any[]>({
+  const { data: _projOrdersRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/project/orders"],
     queryFn: () => fetch("/api/project/orders", { headers: hdrs() }).then(r => r.json()),
   });
+  const orders: any[] = Array.isArray(_projOrdersRaw) ? _projOrdersRaw : [];
 
   const del = useMutation({
     mutationFn: (id: number) => fetch(`/api/project/orders/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),
@@ -644,10 +648,11 @@ function ContractsTab() {
   const { toast } = useToast();
   const [modal, setModal] = useState<null | "new" | any>(null);
 
-  const { data: contracts = [], isLoading } = useQuery<any[]>({
+  const { data: _contractsRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/project/contracts"],
     queryFn: () => fetch("/api/project/contracts", { headers: hdrs() }).then(r => r.json()),
   });
+  const contracts: any[] = Array.isArray(_contractsRaw) ? _contractsRaw : [];
 
   const del = useMutation({
     mutationFn: (id: number) => fetch(`/api/project/contracts/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),
@@ -727,8 +732,10 @@ function ContractsTab() {
 const PIE_COLORS = ["#22c55e", "#3b82f6", "#a855f7", "#f59e0b", "#ef4444"];
 
 function ReportTab() {
-  const { data: orders    = [] } = useQuery<any[]>({ queryKey: ["/api/project/orders"],    queryFn: () => fetch("/api/project/orders",    { headers: hdrs() }).then(r => r.json()) });
-  const { data: contracts = [] } = useQuery<any[]>({ queryKey: ["/api/project/contracts"], queryFn: () => fetch("/api/project/contracts", { headers: hdrs() }).then(r => r.json()) });
+  const { data: _rptOrdersRaw } = useQuery<any>({ queryKey: ["/api/project/orders"],    queryFn: () => fetch("/api/project/orders",    { headers: hdrs() }).then(r => r.json()) });
+  const orders: any[] = Array.isArray(_rptOrdersRaw) ? _rptOrdersRaw : [];
+  const { data: _rptContractsRaw } = useQuery<any>({ queryKey: ["/api/project/contracts"], queryFn: () => fetch("/api/project/contracts", { headers: hdrs() }).then(r => r.json()) });
+  const contracts: any[] = Array.isArray(_rptContractsRaw) ? _rptContractsRaw : [];
 
   const totalOrderAmt    = orders.reduce((s: number, o: any) => s + (o.amount    || 0), 0);
   const totalContractAmt = contracts.reduce((s: number, c: any) => s + (c.amount || 0), 0);
@@ -939,10 +946,11 @@ function ContactsTab() {
   const [modal, setModal] = useState<null | "new" | any>(null);
   const [delId, setDelId] = useState<number | null>(null);
 
-  const { data: contacts = [], isLoading } = useQuery<any[]>({
+  const { data: _budContactsRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/budget-contacts"],
     queryFn: () => fetch("/api/budget-contacts", { headers: hdrs() }).then(r => r.json()),
   });
+  const contacts: any[] = Array.isArray(_budContactsRaw) ? _budContactsRaw : [];
 
   const del = useMutation({
     mutationFn: (id: number) => fetch(`/api/budget-contacts/${id}`, { method: "DELETE", headers: hdrs() }).then(r => { if (!r.ok) throw new Error(); }),

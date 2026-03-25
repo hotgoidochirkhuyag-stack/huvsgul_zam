@@ -60,16 +60,18 @@ export default function CheckIn() {
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
   const [report, setReport] = useState({ description: "", quantity: "", unit: "", issues: "" });
 
-  const { data: employees = [] } = useQuery<any[]>({
+  const { data: _checkEmpRaw } = useQuery<any>({
     queryKey: ["/api/checkin/employees"],
     queryFn: () => fetch("/api/checkin/employees").then(r => r.json()),
   });
+  const employees: any[] = Array.isArray(_checkEmpRaw) ? _checkEmpRaw : [];
 
-  const { data: tasks = [], refetch: refetchTasks } = useQuery<any[]>({
+  const { data: _checkTasksRaw, refetch: refetchTasks } = useQuery<any>({
     queryKey: ["/api/checkin/tasks", employee?.id],
     queryFn: () => fetch(`/api/checkin/${employee.id}/tasks`).then(r => r.json()),
     enabled: !!employee && step === "tasks",
   });
+  const tasks: any[] = Array.isArray(_checkTasksRaw) ? _checkTasksRaw : [];
 
   const filtered = useMemo(() =>
     employees.filter(e => !search || e.name.toLowerCase().includes(search.toLowerCase())),

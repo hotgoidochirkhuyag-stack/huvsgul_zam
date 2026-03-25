@@ -33,7 +33,8 @@ function BudgetContactsModal({ onClose }: { onClose: () => void }) {
   const [adding, setAdding]   = useState(false);
   const [form, setForm]       = useState(BLANK_CONTACT);
 
-  const { data: contacts = [], isLoading } = useQuery<any[]>({ queryKey: ["/api/budget-contacts"] });
+  const { data: _contactsRaw, isLoading } = useQuery<any>({ queryKey: ["/api/budget-contacts"] });
+  const contacts: any[] = Array.isArray(_contactsRaw) ? _contactsRaw : [];
 
   const save = useMutation({
     mutationFn: () => {
@@ -129,10 +130,11 @@ function BudgetContactsModal({ onClose }: { onClose: () => void }) {
 
 // ===== Түрээслэх техник modal =====
 function AvailableVehiclesModal({ onClose }: { onClose: () => void }) {
-  const { data: vehicles = [], isLoading } = useQuery<any[]>({
+  const { data: _vehiclesRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/public/available-vehicles"],
     staleTime: 60_000,
   });
+  const vehicles: any[] = Array.isArray(_vehiclesRaw) ? _vehiclesRaw : [];
 
   const byType = vehicles.reduce<Record<string, any[]>>((acc, v) => {
     const t = v.type || "Бусад";
@@ -415,10 +417,11 @@ const PROG_CLR = (p: number) =>
   p === 100 ? "bg-green-500" : p >= 60 ? "bg-blue-500" : p >= 30 ? "bg-amber-500" : "bg-red-400";
 
 function TenderProjectsModal({ onClose }: { onClose: () => void }) {
-  const { data: tenders = [], isLoading } = useQuery<any[]>({
+  const { data: _tendersRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/tender-projects"],
     queryFn: () => fetch("/api/tender-projects").then(r => r.json()),
   });
+  const tenders: any[] = Array.isArray(_tendersRaw) ? _tendersRaw : [];
   const done   = tenders.filter((t: any) => t.progress === 100).length;
   const active = tenders.filter((t: any) => t.progress > 0 && t.progress < 100).length;
   return (

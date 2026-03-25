@@ -61,10 +61,11 @@ function StatCard({
 
 /* ══════════════════════ 1. ИРЕЦ / ХАБЭА ══════════════════════ */
 function AttendanceTab() {
-  const { data: rows = [], isLoading } = useQuery<any[]>({
+  const { data: _rowsRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/erp/attendance"],
     queryFn: () => fetch("/api/erp/attendance", { headers: hdrs() }).then(r => r.json()),
   });
+  const rows: any[] = Array.isArray(_rowsRaw) ? _rowsRaw : [];
 
   const total = rows.length;
   const checkedIn = rows.filter(r => r.checkIn).length;
@@ -155,14 +156,16 @@ function AttendanceTab() {
 
 /* ══════════════════════ 2. ТӨСЛИЙН ЯВЦ ══════════════════════ */
 function ProjectTab() {
-  const { data: reports = [], isLoading: lr } = useQuery<any[]>({
+  const { data: _reportsRaw, isLoading: lr } = useQuery<any>({
     queryKey: ["/api/erp/daily-reports"],
     queryFn: () => fetch("/api/erp/daily-reports", { headers: hdrs() }).then(r => r.json()),
   });
-  const { data: projects = [] } = useQuery<any[]>({
+  const reports: any[] = Array.isArray(_reportsRaw) ? _reportsRaw : [];
+  const { data: _projRaw } = useQuery<any>({
     queryKey: ["/api/erp/projects"],
     queryFn: () => fetch("/api/erp/projects").then(r => r.json()),
   });
+  const projects: any[] = Array.isArray(_projRaw) ? _projRaw : [];
 
   /* Quantity by date */
   const byDate: Record<string, { date: string; гүйцэтгэл: number }> = {};
@@ -241,14 +244,16 @@ function ProjectTab() {
 
 /* ══════════════════════ 3. ҮЙЛДВЭРЛЭЛИЙН ЯВЦ ══════════════════════ */
 function ProductionTab() {
-  const { data: logs = [], isLoading } = useQuery<any[]>({
+  const { data: _logsRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/erp/production-logs"],
     queryFn: () => fetch("/api/erp/production-logs", { headers: hdrs() }).then(r => r.json()),
   });
-  const { data: plants = [] } = useQuery<any[]>({
+  const logs: any[] = Array.isArray(_logsRaw) ? _logsRaw : [];
+  const { data: _adminPlantsRaw } = useQuery<any>({
     queryKey: ["/api/erp/plants"],
     queryFn: () => fetch("/api/erp/plants").then(r => r.json()),
   });
+  const plants: any[] = Array.isArray(_adminPlantsRaw) ? _adminPlantsRaw : [];
 
   const byDate: Record<string, { date: string; гаралт: number }> = {};
   logs.forEach((l: any) => {
@@ -317,10 +322,11 @@ function ProductionTab() {
 
 /* ══════════════════════ 4. НОРМ ══════════════════════ */
 function NormTab() {
-  const { data: kpis = [], isLoading: lk } = useQuery<any[]>({
+  const { data: _kpisRaw, isLoading: lk } = useQuery<any>({
     queryKey: ["/api/erp/kpi-configs"],
     queryFn: () => fetch("/api/erp/kpi-configs").then(r => r.json()),
   });
+  const kpis: any[] = Array.isArray(_kpisRaw) ? _kpisRaw : [];
 
   return (
     <div className="space-y-6">
@@ -365,10 +371,11 @@ function NormTab() {
 
 /* ══════════════════════ 5. KPI / OEE ══════════════════════ */
 function KpiTab() {
-  const { data: kpiTeam = [], isLoading } = useQuery<any[]>({
+  const { data: _kpiTeamRaw2, isLoading } = useQuery<any>({
     queryKey: ["/api/erp/kpi-team"],
     queryFn: () => fetch("/api/erp/kpi-team", { headers: hdrs() }).then(r => r.json()),
   });
+  const kpiTeam: any[] = Array.isArray(_kpiTeamRaw2) ? _kpiTeamRaw2 : [];
 
   const topPerformers = [...kpiTeam].sort((a, b) => (b.kpiPct ?? 0) - (a.kpiPct ?? 0)).slice(0, 10);
   const barData = topPerformers.map((e: any) => ({
@@ -480,10 +487,11 @@ function AiAgentTab() {
     queryFn: () => fetch("/api/erp/norm-catalog", { headers: hdrs() }).then(r => r.json()),
   });
 
-  const { data: kpiList = [] } = useQuery<any[]>({
+  const { data: _kpiListRaw } = useQuery<any>({
     queryKey: ["/api/erp/kpi-configs"],
     queryFn: () => fetch("/api/erp/kpi-configs", { headers: hdrs() }).then(r => r.json()),
   });
+  const kpiList: any[] = Array.isArray(_kpiListRaw) ? _kpiListRaw : [];
 
   const syncNorm = useMutation({
     mutationFn: (section: string) =>
@@ -980,10 +988,11 @@ function WebsiteTab() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
-  const { data: projects = [], isLoading } = useQuery<any[]>({
+  const { data: _websiteProjRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/projects"],
     queryFn: () => fetch("/api/projects").then(r => r.json()),
   });
+  const projects: any[] = Array.isArray(_websiteProjRaw) ? _websiteProjRaw : [];
 
   const updateProject = useMutation({
     mutationFn: ({ id, data }: { id: string; data: any }) =>
@@ -1197,10 +1206,11 @@ function StatsImageDescriptions() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editDesc, setEditDesc] = useState("");
 
-  const { data: images = [], isLoading } = useQuery<any[]>({
+  const { data: _imagesRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/stats"],
     queryFn: () => fetch("/api/stats").then(r => r.json()),
   });
+  const images: any[] = Array.isArray(_imagesRaw) ? _imagesRaw : [];
 
   const updateDesc = useMutation({
     mutationFn: ({ publicId, description }: { publicId: string; description: string }) =>
@@ -1308,10 +1318,11 @@ function PdfDocumentsManager() {
   const [showForm, setShowForm] = useState(false);
   const { toast } = useToast();
 
-  const { data: docs = [], isLoading } = useQuery<any[]>({
+  const { data: _docsRaw2, isLoading } = useQuery<any>({
     queryKey: ["/api/project-documents"],
     queryFn: () => fetch("/api/project-documents").then(r => r.json()),
   });
+  const docs: any[] = Array.isArray(_docsRaw2) ? _docsRaw2 : [];
 
   const addDoc = useMutation({
     mutationFn: async () => {
@@ -1461,11 +1472,12 @@ function ActivityLogsTab() {
   const hdrsLocal = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
   const [roleFilter, setRoleFilter] = useState("ALL");
 
-  const { data: logs = [], isLoading, refetch } = useQuery<any[]>({
+  const { data: _actLogsRaw, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/admin/activity-logs", roleFilter],
     queryFn: () => fetch(`/api/admin/activity-logs?role=${roleFilter}&limit=300`, { headers: hdrsLocal() }).then(r => r.json()),
     refetchInterval: 30000,
   });
+  const logs: any[] = Array.isArray(_actLogsRaw) ? _actLogsRaw : [];
 
   const fmt = (ts: string) => {
     const d = new Date(ts);
@@ -1575,10 +1587,11 @@ function CredentialsTab() {
   const { toast } = useToast();
   const hdrsLocal = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
 
-  const { data: creds = [], isLoading, refetch } = useQuery<any[]>({
+  const { data: _credsRaw, isLoading, refetch } = useQuery<any>({
     queryKey: ["/api/admin/credentials"],
     queryFn: () => fetch("/api/admin/credentials", { headers: hdrsLocal() }).then(r => r.json()),
   });
+  const creds: any[] = Array.isArray(_credsRaw) ? _credsRaw : [];
 
   const [editing, setEditing] = useState<string | null>(null);
   const [form, setForm]       = useState({ username: "", password: "" });
@@ -1723,10 +1736,11 @@ function LabTab() {
   const [subTab, setSubTab] = useState<"certs" | "quality" | "report">("certs");
 
   /* ── Compliance certificates ── */
-  const { data: certs = [], isLoading: lc } = useQuery<any[]>({
+  const { data: _certsLabRaw, isLoading: lc } = useQuery<any>({
     queryKey: ["/api/lab/certificates"],
     queryFn: () => fetch("/api/lab/certificates", { headers: hdrs() }).then(r => r.json()),
   });
+  const certs: any[] = Array.isArray(_certsLabRaw) ? _certsLabRaw : [];
 
   const [showCertForm, setShowCertForm] = useState(false);
   const [editCert, setEditCert] = useState<any>(null);
@@ -1763,10 +1777,11 @@ function LabTab() {
   });
 
   /* ── Quality certificates (batch) ── */
-  const { data: qcerts = [], isLoading: lq } = useQuery<any[]>({
+  const { data: _qcertsRaw, isLoading: lq } = useQuery<any>({
     queryKey: ["/api/lab/quality-certs"],
     queryFn: () => fetch("/api/lab/quality-certs", { headers: hdrs() }).then(r => r.json()),
   });
+  const qcerts: any[] = Array.isArray(_qcertsRaw) ? _qcertsRaw : [];
 
   const [showQForm, setShowQForm] = useState(false);
   const [printCert, setPrintCert] = useState<any>(null);

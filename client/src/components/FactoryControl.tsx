@@ -41,10 +41,11 @@ export function FactoryControl({ mode }: { mode: MeetingMode }) {
 
   const token = localStorage.getItem("adminToken") ?? "";
 
-  const { data: allEmployees = [], isLoading } = useQuery<Employee[]>({
+  const { data: _allEmpRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/erp/employees"],
     queryFn:  () => fetch("/api/erp/employees", { headers: { "Content-Type": "application/json", "x-admin-token": token } }).then(r => r.json()),
   });
+  const allEmployees: Employee[] = Array.isArray(_allEmpRaw) ? _allEmpRaw : [];
 
   const employees = useMemo(() => allEmployees.filter(e => cfg.departments.includes(e.department)), [allEmployees, mode]);
   const filtered  = useMemo(() => {

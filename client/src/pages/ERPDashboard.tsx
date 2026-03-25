@@ -46,11 +46,16 @@ export default function ERPDashboard() {
   const [selectedQrEmployee, setSelectedQrEmployee] = useState<any>(null);
 
   const { data: summary } = useQuery<any>({ queryKey: ["/api/erp/summary"], queryFn: () => fetch("/api/erp/summary", { headers: getAdminHeaders() }).then(r => r.json()) });
-  const { data: kpiTeam = [], isLoading: kpiLoading } = useQuery<any[]>({ queryKey: ["/api/erp/kpi-team"], queryFn: () => fetch("/api/erp/kpi-team", { headers: getAdminHeaders() }).then(r => r.json()), enabled: tab === "kpi" });
-  const { data: employees = [] } = useQuery<any[]>({ queryKey: ["/api/erp/employees"], queryFn: () => fetch("/api/erp/employees", { headers: getAdminHeaders() }).then(r => r.json()), enabled: tab === "employees" });
-  const { data: erpProjects = [] } = useQuery<any[]>({ queryKey: ["/api/erp/projects"], queryFn: () => fetch("/api/erp/projects").then(r => r.json()) });
-  const { data: plants = [] } = useQuery<any[]>({ queryKey: ["/api/erp/plants"], queryFn: () => fetch("/api/erp/plants").then(r => r.json()), enabled: tab === "plants" });
-  const { data: kpiConfigs = [] } = useQuery<any[]>({ queryKey: ["/api/erp/kpi-configs"], queryFn: () => fetch("/api/erp/kpi-configs").then(r => r.json()) });
+  const { data: _kpiTeamRaw, isLoading: kpiLoading } = useQuery<any>({ queryKey: ["/api/erp/kpi-team"], queryFn: () => fetch("/api/erp/kpi-team", { headers: getAdminHeaders() }).then(r => r.json()), enabled: tab === "kpi" });
+  const kpiTeam: any[] = Array.isArray(_kpiTeamRaw) ? _kpiTeamRaw : [];
+  const { data: _erpEmpRaw } = useQuery<any>({ queryKey: ["/api/erp/employees"], queryFn: () => fetch("/api/erp/employees", { headers: getAdminHeaders() }).then(r => r.json()), enabled: tab === "employees" });
+  const employees: any[] = Array.isArray(_erpEmpRaw) ? _erpEmpRaw : [];
+  const { data: _erpProjRaw } = useQuery<any>({ queryKey: ["/api/erp/projects"], queryFn: () => fetch("/api/erp/projects").then(r => r.json()) });
+  const erpProjects: any[] = Array.isArray(_erpProjRaw) ? _erpProjRaw : [];
+  const { data: _plantsRaw } = useQuery<any>({ queryKey: ["/api/erp/plants"], queryFn: () => fetch("/api/erp/plants").then(r => r.json()), enabled: tab === "plants" });
+  const plants: any[] = Array.isArray(_plantsRaw) ? _plantsRaw : [];
+  const { data: _kpiCfgRaw } = useQuery<any>({ queryKey: ["/api/erp/kpi-configs"], queryFn: () => fetch("/api/erp/kpi-configs").then(r => r.json()) });
+  const kpiConfigs: any[] = Array.isArray(_kpiCfgRaw) ? _kpiCfgRaw : [];
 
   const addEmployee = useMutation({
     mutationFn: () => fetch("/api/erp/employees", { method: "POST", headers: getAdminHeaders(), body: JSON.stringify({ ...newEmp, salaryBase: parseFloat(newEmp.salaryBase) || 0 }) }).then(r => r.json()),
@@ -88,11 +93,12 @@ export default function ERPDashboard() {
   });
 
   const today = new Date().toISOString().slice(0, 10);
-  const { data: attendanceList = [] } = useQuery<any[]>({
+  const { data: _attListRaw } = useQuery<any>({
     queryKey: ["/api/erp/attendance", today],
     queryFn: () => fetch(`/api/erp/attendance?date=${today}`, { headers: getAdminHeaders() }).then(r => r.json()),
     enabled: tab === "attendance",
   });
+  const attendanceList: any[] = Array.isArray(_attListRaw) ? _attListRaw : [];
 
   const TABS: { key: Tab; label: string; icon: any }[] = [
     { key: "kpi", label: "KPI", icon: TrendingUp },

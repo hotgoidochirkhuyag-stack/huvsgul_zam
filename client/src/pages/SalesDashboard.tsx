@@ -520,20 +520,22 @@ export default function SalesDashboard() {
     setLocation("/select-role");
   };
 
-  const { data: orders = [], isLoading: ordersLoading } = useQuery<SalesOrder[]>({
+  const { data: _ordersRaw, isLoading: ordersLoading } = useQuery<any>({
     queryKey: ["/api/sales/orders"],
     queryFn: () => fetch("/api/sales/orders", {
       headers: { "x-admin-token": localStorage.getItem("adminToken") ?? "" }
     }).then(r => r.json()),
     refetchInterval: 15000,
   });
+  const orders: SalesOrder[] = Array.isArray(_ordersRaw) ? _ordersRaw : [];
 
-  const { data: configs = [] } = useQuery<ProductionCostConfig[]>({
+  const { data: _configsRaw } = useQuery<any>({
     queryKey: ["/api/sales/cost-config"],
     queryFn: () => fetch("/api/sales/cost-config", {
       headers: { "x-admin-token": localStorage.getItem("adminToken") ?? "" }
     }).then(r => r.json()),
   });
+  const configs: ProductionCostConfig[] = Array.isArray(_configsRaw) ? _configsRaw : [];
 
   const updateStatus = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {

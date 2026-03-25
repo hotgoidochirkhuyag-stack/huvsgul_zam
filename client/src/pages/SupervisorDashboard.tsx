@@ -41,11 +41,12 @@ function PhotoSection({
   const qc = useQueryClient();
   const qKey = ["/api/photos", entityType, entityId];
 
-  const { data: photos = [], isLoading } = useQuery<any[]>({
+  const { data: _photosRaw, isLoading } = useQuery<any>({
     queryKey: qKey,
     queryFn: () => fetch(`/api/photos/${entityType}/${entityId}`, { headers: getHeaders() }).then(r => r.json()),
     enabled: open,
   });
+  const photos: any[] = Array.isArray(_photosRaw) ? _photosRaw : [];
 
   async function handleUpload(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -231,22 +232,25 @@ export default function SupervisorDashboard() {
   const [pendingPhotoFrontId, setPendingPhotoFrontId] = useState<number | null>(null);
   const [pendingPhotoActId, setPendingPhotoActId] = useState<number | null>(null);
 
-  const { data: employees = [] } = useQuery<any[]>({
+  const { data: _empRaw2 } = useQuery<any>({
     queryKey: ["/api/erp/employees"],
     queryFn: () => fetch("/api/erp/employees", { headers: getHeaders() }).then(r => r.json()),
   });
+  const employees: any[] = Array.isArray(_empRaw2) ? _empRaw2 : [];
 
-  const { data: tasks = [], isLoading: tasksLoading, refetch: refetchTasks } = useQuery<any[]>({
+  const { data: _tasksRaw, isLoading: tasksLoading, refetch: refetchTasks } = useQuery<any>({
     queryKey: ["/api/erp/tasks", filterDate],
     queryFn: () => fetch(`/api/erp/tasks?date=${filterDate}`, { headers: getHeaders() }).then(r => r.json()),
     enabled: tab === "tasks",
   });
+  const tasks: any[] = Array.isArray(_tasksRaw) ? _tasksRaw : [];
 
-  const { data: reports = [], isLoading: reportsLoading, refetch: refetchReports } = useQuery<any[]>({
+  const { data: _reportsRaw, isLoading: reportsLoading, refetch: refetchReports } = useQuery<any>({
     queryKey: ["/api/erp/work-reports", filterDate],
     queryFn: () => fetch(`/api/erp/work-reports?date=${filterDate}`, { headers: getHeaders() }).then(r => r.json()),
     enabled: tab === "reports",
   });
+  const reports: any[] = Array.isArray(_reportsRaw) ? _reportsRaw : [];
 
   const empMap = new Map(employees.map((e: any) => [e.id, e]));
 
@@ -257,10 +261,11 @@ export default function SupervisorDashboard() {
   const [editingFront, setEditingFront] = useState<number | null>(null);
   const [editFrontData, setEditFrontData] = useState<any>({});
 
-  const { data: workFronts = [], refetch: refetchFronts } = useQuery<any[]>({
+  const { data: _frontsRaw, refetch: refetchFronts } = useQuery<any>({
     queryKey: ["/api/work-fronts"],
     queryFn: () => fetch("/api/work-fronts", { headers: getHeaders() }).then(r => r.json()),
   });
+  const workFronts: any[] = Array.isArray(_frontsRaw) ? _frontsRaw : [];
   const frontMap = new Map((workFronts ?? []).map((f: any) => [f.id, f]));
 
   const createFront = useMutation({
@@ -302,11 +307,12 @@ export default function SupervisorDashboard() {
   const [showActForm, setShowActForm] = useState(false);
   const [actForm, setActForm] = useState(emptyAct);
 
-  const { data: hiddenActs = [], refetch: refetchActs } = useQuery<any[]>({
+  const { data: _actsRaw, refetch: refetchActs } = useQuery<any>({
     queryKey: ["/api/hidden-work-acts"],
     queryFn: () => fetch("/api/hidden-work-acts", { headers: getHeaders() }).then(r => r.json()),
     enabled: tab === "acts",
   });
+  const hiddenActs: any[] = Array.isArray(_actsRaw) ? _actsRaw : [];
 
   const createAct = useMutation({
     mutationFn: (data: any) => fetch("/api/hidden-work-acts", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),

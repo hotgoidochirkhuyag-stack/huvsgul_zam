@@ -34,7 +34,7 @@ export default function NotificationBell({ role }: { role: string }) {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  const { data: notifs = [] } = useQuery<Notification[]>({
+  const { data: _notifsRaw } = useQuery<any>({
     queryKey: ["/api/notifications", role],
     queryFn: () =>
       fetch(`/api/notifications?role=${role}`, {
@@ -42,6 +42,7 @@ export default function NotificationBell({ role }: { role: string }) {
       }).then(r => r.json()),
     refetchInterval: 15000,
   });
+  const notifs: Notification[] = Array.isArray(_notifsRaw) ? _notifsRaw : [];
 
   const unread = notifs.filter(n => !n.isRead).length;
 
