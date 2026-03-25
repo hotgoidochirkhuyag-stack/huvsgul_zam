@@ -2624,6 +2624,43 @@ ${cert.testResults ? `
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ── Тайлан файлыг inline харуулах proxy (token query эсвэл header) ──
+  app.get("/api/meeting-reports/:id/view", async (req, res) => {
+    const token = (req.headers["x-admin-token"] as string) || (req.query.token as string) || "";
+    const payload = token === "authenticated" ? { role: "ADMIN" } : verifyToken(token);
+    if (!payload) return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+    try {
+      const [row] = await db.select().from(schema.meetingReports)
+        .where(eq(schema.meetingReports.id, parseInt(req.params.id)));
+      if (!row) return res.status(404).json({ error: "Тайлан олдсонгүй" });
+
+      const MIME: Record<string, string> = {
+        pdf:  "application/pdf",
+        docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        doc:  "application/msword",
+        xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        xls:  "application/vnd.ms-excel",
+        pptx: "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+        ppt:  "application/vnd.ms-powerpoint",
+        jpg:  "image/jpeg", jpeg: "image/jpeg", png: "image/png", webp: "image/webp",
+      };
+      const ext  = (row.fileType || "").toLowerCase();
+      const mime = MIME[ext] || "application/octet-stream";
+      const name = row.fileName || `report.${ext}`;
+
+      const upstream = await fetch(row.fileUrl);
+      if (!upstream.ok) return res.status(502).json({ error: "Файл татахад алдаа гарлаа" });
+
+      const isDownload = req.query.download === "1";
+      res.setHeader("Content-Type", mime);
+      res.setHeader("Content-Disposition", `${isDownload ? "attachment" : "inline"}; filename="${encodeURIComponent(name)}"`);
+      res.setHeader("Cache-Control", "private, max-age=3600");
+
+      const buf = await upstream.arrayBuffer();
+      res.send(Buffer.from(buf));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.post("/api/meeting-reports", requireAdmin, docUploadMiddleware.single("file"), async (req, res) => {
     try {
       if (!req.file) return res.status(400).json({ error: "Файл оруулаагүй байна" });

@@ -736,15 +736,15 @@ const REPORT_CAT: Record<string, string> = {
   safety: "ХАБЭА тайлан", lab: "Лабораторийн тайлан", hr: "ХР / Хүний нөөц", other: "Бусад",
 };
 
-function getReportViewUrl(fileUrl: string, fileType: string): string {
+function getReportViewUrl(id: number, fileUrl: string, fileType: string): string {
   const t = (fileType || "").toLowerCase();
-  if (["docx", "doc", "pptx", "ppt"].includes(t)) {
+  const token = localStorage.getItem("adminToken") || "";
+  // Office файлуудыг Microsoft Online Viewer-ээр нээнэ
+  if (["docx", "doc", "xlsx", "xls", "pptx", "ppt"].includes(t)) {
     return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
   }
-  if (["xlsx", "xls"].includes(t)) {
-    return `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(fileUrl)}`;
-  }
-  return fileUrl;
+  // PDF болон зургийг серверийн proxy-гаар inline харуулна
+  return `/api/meeting-reports/${id}/view?token=${encodeURIComponent(token)}`;
 }
 
 function ReportTab() {
@@ -950,7 +950,7 @@ function ReportTab() {
                 </div>
                 <div className="flex gap-2 flex-shrink-0">
                   <a
-                    href={getReportViewUrl(r.fileUrl, r.fileType)}
+                    href={getReportViewUrl(r.id, r.fileUrl, r.fileType)}
                     target="_blank"
                     rel="noopener noreferrer"
                     data-testid={`link-report-view-${r.id}`}
@@ -959,8 +959,8 @@ function ReportTab() {
                     <ExternalLink className="w-3.5 h-3.5" /> Нээх
                   </a>
                   <a
-                    href={r.fileUrl}
-                    download
+                    href={`/api/meeting-reports/${r.id}/view?token=${encodeURIComponent(localStorage.getItem("adminToken") || "")}&download=1`}
+                    target="_blank"
                     data-testid={`link-report-download-${r.id}`}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-700/60 hover:bg-slate-600/60 border border-white/10 text-slate-300 text-xs font-bold transition-all"
                   >
