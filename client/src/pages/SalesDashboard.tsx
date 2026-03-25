@@ -55,8 +55,9 @@ const STATUS_MAP: Record<string, { label: string; color: string; icon: any }> = 
   cancelled:     { label: "Цуцлагдсан",       color: "bg-red-500/20 text-red-300 border-red-500/30",        icon: XCircle },
 };
 
-function fmt(n: number) {
-  return n.toLocaleString("mn-MN");
+function fmt(n: number | undefined | null) {
+  if (n == null || isNaN(Number(n))) return "0";
+  return Number(n).toLocaleString("mn-MN");
 }
 
 function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
