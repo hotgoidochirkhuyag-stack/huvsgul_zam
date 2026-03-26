@@ -928,11 +928,15 @@ function MeetingTab() {
                       </div>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      <a href={
-                        ["docx","doc","xlsx","xls","pptx","ppt"].includes((r.fileType||"").toLowerCase())
-                          ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(r.fileUrl)}`
-                          : `/api/meeting-reports/${r.id}/view?token=${encodeURIComponent(localStorage.getItem("adminToken")||"")}`
-                      } target="_blank" rel="noopener noreferrer"
+                      <a href={(() => {
+                        const t = (r.fileType||"").toLowerCase();
+                        const tok = localStorage.getItem("adminToken")||"";
+                        const name = encodeURIComponent(r.fileName || `report.${t}`);
+                        const proxyUrl = `${window.location.origin}/api/meeting-reports/${r.id}/view/${name}?token=${encodeURIComponent(tok)}`;
+                        return ["docx","doc","xlsx","xls","pptx","ppt"].includes(t)
+                          ? `https://view.officeapps.live.com/op/view.aspx?src=${encodeURIComponent(proxyUrl)}`
+                          : proxyUrl;
+                      })()} target="_blank" rel="noopener noreferrer"
                         className="flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600/20 hover:bg-blue-600/40 text-blue-400 text-xs font-bold transition-all"
                         data-testid={`link-open-report-${r.id}`}>
                         <Link2 className="w-3 h-3" /> Нээх
