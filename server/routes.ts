@@ -1901,6 +1901,107 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ===================== УР ЧАДВАРЫН САН =====================
+  const SKILL_SEED: { category: string; name: string; sortOrder: number }[] = [
+    { category: "🛣️ Зам барилга",    name: "Зам зураглал (Survey)",                  sortOrder: 1  },
+    { category: "🛣️ Зам барилга",    name: "Газар шорооны ажил (Earthwork)",          sortOrder: 2  },
+    { category: "🛣️ Зам барилга",    name: "Дэвсгэр давхарга тавих (Base course)",   sortOrder: 3  },
+    { category: "🛣️ Зам барилга",    name: "Асфальт бетон хучилт (Asphalt paving)",  sortOrder: 4  },
+    { category: "🛣️ Зам барилга",    name: "Замын тэмдэглэгээ (Road marking)",        sortOrder: 5  },
+    { category: "🛣️ Зам барилга",    name: "Ус зайлуулах шуудуу (Drainage)",          sortOrder: 6  },
+    { category: "🌉 Гүүр барилга",   name: "Гүүрийн суурь (Foundation)",              sortOrder: 7  },
+    { category: "🌉 Гүүр барилга",   name: "Гүүрийн тулгуур (Pier/Abutment)",         sortOrder: 8  },
+    { category: "🌉 Гүүр барилга",   name: "Дам нуруу угсрах (Beam erection)",        sortOrder: 9  },
+    { category: "🌉 Гүүр барилга",   name: "Гүүрийн дэр цутгах (Bridge deck)",        sortOrder: 10 },
+    { category: "🌉 Гүүр барилга",   name: "Гүүрийн ерөнхий угсралт (Assembly)",     sortOrder: 11 },
+    { category: "🏗️ Бетон зуурмаг",  name: "Бетон найрлага тооцоолох (Mix design)",  sortOrder: 12 },
+    { category: "🏗️ Бетон зуурмаг",  name: "Бетон зуурах (Mixing operation)",         sortOrder: 13 },
+    { category: "🏗️ Бетон зуурмаг",  name: "Гулсамал шалгалт (Slump test)",           sortOrder: 14 },
+    { category: "🏗️ Бетон зуурмаг",  name: "Бетон цутгах (Pouring)",                  sortOrder: 15 },
+    { category: "🏗️ Бетон зуурмаг",  name: "Бетоны чанар хяналт (QC)",               sortOrder: 16 },
+    { category: "🏗️ Бетон зуурмаг",  name: "Хатуурал хяналт (Curing)",               sortOrder: 17 },
+    { category: "🧱 Бетон хийцлэл",  name: "Арматур зэрэгцүүлэх (Rebar layout)",     sortOrder: 18 },
+    { category: "🧱 Бетон хийцлэл",  name: "Арматур гагнах (Rebar welding)",           sortOrder: 19 },
+    { category: "🧱 Бетон хийцлэл",  name: "Хэвлэг угсрах (Formwork)",               sortOrder: 20 },
+    { category: "🧱 Бетон хийцлэл",  name: "Хэвлэг задлах (Stripping)",              sortOrder: 21 },
+    { category: "🧱 Бетон хийцлэл",  name: "Төмөр бетон хийц угсралт (RC assembly)", sortOrder: 22 },
+    { category: "🧱 Бетон хийцлэл",  name: "Дефектоскопи шалгалт (Inspection)",      sortOrder: 23 },
+    { category: "⚙️ Техник хэрэгсэл", name: "Экскаватор",                              sortOrder: 24 },
+    { category: "⚙️ Техник хэрэгсэл", name: "Бульдозер",                               sortOrder: 25 },
+    { category: "⚙️ Техник хэрэгсэл", name: "Грейдер",                                 sortOrder: 26 },
+    { category: "⚙️ Техник хэрэгсэл", name: "Автогрейдер",                             sortOrder: 27 },
+    { category: "⚙️ Техник хэрэгсэл", name: "Асфальт угсраалт",                       sortOrder: 28 },
+    { category: "⚙️ Техник хэрэгсэл", name: "Кран",                                    sortOrder: 29 },
+    { category: "⚙️ Техник хэрэгсэл", name: "Компрессор",                              sortOrder: 30 },
+    { category: "⚙️ Техник хэрэгсэл", name: "Думпер",                                  sortOrder: 31 },
+    { category: "⚙️ Техник хэрэгсэл", name: "Бетон насос",                             sortOrder: 32 },
+    { category: "📋 Бусад",           name: "Нормчлол (Estimating)",                   sortOrder: 33 },
+    { category: "📋 Бусад",           name: "ХАБЭА хяналт",                            sortOrder: 34 },
+    { category: "📋 Бусад",           name: "Лабораторийн шинжилгээ",                  sortOrder: 35 },
+    { category: "📋 Бусад",           name: "Өөр",                                     sortOrder: 36 },
+  ];
+
+  // Seed skills хүснэгт хоосон үед
+  (async () => {
+    try {
+      const existing = await db.select({ id: schema.skills.id }).from(schema.skills).limit(1);
+      if (existing.length === 0) {
+        await db.insert(schema.skills).values(SKILL_SEED);
+        console.log("[seed] skills хүснэгтэд", SKILL_SEED.length, "чадвар нэмэгдлээ.");
+      }
+    } catch (e) { console.error("[seed] skills seed алдаа:", e); }
+  })();
+
+  // GET /api/skills — бүх чадварын жагсаалт
+  app.get("/api/skills", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.skills).orderBy(schema.skills.sortOrder);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // POST /api/skills — шинэ чадвар нэмэх (admin)
+  app.post("/api/skills", requireAdmin, async (req, res) => {
+    try {
+      const data = schema.insertSkillSchema.parse(req.body);
+      const [row] = await db.insert(schema.skills).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // GET /api/skill-assessments?employeeId=X — ажилтны үнэлгээ
+  app.get("/api/skill-assessments", requireAdmin, async (req, res) => {
+    try {
+      const empId = req.query.employeeId ? parseInt(req.query.employeeId as string) : null;
+      const rows = empId
+        ? await db.select().from(schema.skillAssessments).where(eq(schema.skillAssessments.employeeId, empId))
+        : await db.select().from(schema.skillAssessments);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // POST /api/skill-assessments/upsert — bulk upsert (ажилтны бүх чадварын үнэлгээг хадгалах)
+  app.post("/api/skill-assessments/upsert", requireAdmin, async (req, res) => {
+    try {
+      const { employeeId, commissionNumber, assessments } = req.body as {
+        employeeId: number;
+        commissionNumber: string;
+        assessments: { skillId: number; level: number }[];
+      };
+      if (!employeeId || !commissionNumber || !Array.isArray(assessments)) {
+        return res.status(400).json({ error: "Буруу өгөгдөл" });
+      }
+      // Устгаж дахин оруулна (upsert)
+      await db.delete(schema.skillAssessments).where(eq(schema.skillAssessments.employeeId, employeeId));
+      if (assessments.length > 0) {
+        await db.insert(schema.skillAssessments).values(
+          assessments.map(a => ({ employeeId, skillId: a.skillId, level: a.level, commissionNumber }))
+        );
+      }
+      res.json({ ok: true, saved: assessments.length });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ===================== ТО ХУВААРЬ =====================
   app.get("/api/maintenance-schedules", requireAdmin, async (req, res) => {
     try {

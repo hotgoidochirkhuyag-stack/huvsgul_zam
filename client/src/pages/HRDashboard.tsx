@@ -906,167 +906,280 @@ const SKILL_LEVELS: Record<string, { label: string; cls: string }> = {
   мэргэшсэн:   { label: "Мэргэшсэн",  cls: "bg-green-500/20 text-green-300"  },
 };
 
+const LEVEL_META: Record<number, { label: string; cls: string; short: string }> = {
+  1: { label: "Шинэ",        short: "1",  cls: "bg-blue-500/20 text-blue-300 border border-blue-500/30"      },
+  2: { label: "Туршлагатай", short: "2",  cls: "bg-yellow-500/20 text-yellow-300 border border-yellow-500/30" },
+  3: { label: "Мэргэшсэн",  short: "3",  cls: "bg-green-500/20 text-green-300 border border-green-500/30"    },
+  4: { label: "Мастер",      short: "4",  cls: "bg-amber-500/20 text-amber-300 border border-amber-500/30"    },
+};
+
 function SkillsTab({ employees, qc, toast }: { employees: any[]; qc: any; toast: any }) {
   const hdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
-  const [showForm, setShowForm] = useState(false);
-  const [viewMode, setViewMode] = useState<"list" | "matrix">("matrix");
-  const [form, setForm] = useState({ employeeId: "", vehicleType: "Экскаватор", skillLevel: "мэргэжлийн", certifiedBy: "", validFrom: "", validUntil: "", notes: "" });
 
-  const { data: _skillsRaw } = useQuery<any>({
-    queryKey: ["/api/employee-skills"],
-    queryFn: () => fetch("/api/employee-skills", { headers: hdrs() }).then(r => r.json()),
+  const [selectedEmpId, setSelectedEmpId] = useState<number | null>(null);
+  const [commissionNumber, setCommissionNumber] = useState("");
+  const [levels, setLevels] = useState<Record<number, number>>({});   // skillId → level (1-4)
+  const [viewEmpId, setViewEmpId] = useState<number | null>(null);
+
+  // 1. Бүх чадварын сан
+  const { data: _skillsRaw, isLoading: loadingSkills } = useQuery<any>({
+    queryKey: ["/api/skills"],
+    queryFn: () => fetch("/api/skills", { headers: hdrs() }).then(r => r.json()),
   });
-  const skills: any[] = Array.isArray(_skillsRaw) ? _skillsRaw : [];
-  const addMut = useMutation({
-    mutationFn: (d: any) => fetch("/api/employee-skills", { method: "POST", headers: hdrs(), body: JSON.stringify(d) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/employee-skills"] }); setShowForm(false); toast({ title: "Чадвар нэмэгдлээ" }); },
+  const allSkills: any[] = Array.isArray(_skillsRaw) ? _skillsRaw : [];
+
+  // 2. Ажилтны одоогийн үнэлгээ
+  const { data: _assRaw, isLoading: loadingAss } = useQuery<any>({
+    queryKey: ["/api/skill-assessments", selectedEmpId],
+    queryFn: () => selectedEmpId
+      ? fetch(`/api/skill-assessments?employeeId=${selectedEmpId}`, { headers: hdrs() }).then(r => r.json())
+      : Promise.resolve([]),
+    enabled: !!selectedEmpId,
   });
-  const delMut = useMutation({
-    mutationFn: (id: number) => fetch(`/api/employee-skills/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/employee-skills"] }),
+  const assessments: any[] = Array.isArray(_assRaw) ? _assRaw : [];
+
+  // assessments ирэхэд levels-д хуулна (зөвхөн шинэ өгөгдөл ирэхэд)
+  const assessmentKey = assessments.map((a: any) => `${a.skillId}:${a.level}`).join(",");
+  const [lastKey, setLastKey] = useState("");
+  if (assessmentKey !== lastKey && assessments.length > 0) {
+    setLastKey(assessmentKey);
+    const m: Record<number, number> = {};
+    assessments.forEach((a: any) => { m[a.skillId] = a.level; });
+    setLevels(m);
+    if (assessments[0]?.commissionNumber) setCommissionNumber(assessments[0].commissionNumber);
+  }
+
+  // 3. Хадгалах
+  const saveMut = useMutation({
+    mutationFn: (body: any) => fetch("/api/skill-assessments/upsert", { method: "POST", headers: hdrs(), body: JSON.stringify(body) }).then(r => r.json()),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["/api/skill-assessments"] });
+      toast({ title: `✅ ${data.saved} чадварын үнэлгээ хадгалагдлаа` });
+    },
+    onError: () => toast({ title: "Алдаа гарлаа", variant: "destructive" }),
   });
 
+  // 4. Ангилалуудаар бүлэглэх
+  const categories = Array.from(new Set(allSkills.map((s: any) => s.category)));
+
+  // 5. Хуудасны бүтэц
   const empMap: Record<number, string> = {};
   employees.forEach(e => { empMap[e.id] = e.name; });
 
-  // Matrix data: employeeId → vehicleType → skill
-  const matrix: Record<number, Record<string, any>> = {};
-  skills.forEach((s: any) => {
-    if (!matrix[s.employeeId]) matrix[s.employeeId] = {};
-    matrix[s.employeeId][s.vehicleType] = s;
-  });
-  const empIdsWithSkills = Object.keys(matrix).map(Number);
+  const canSave = !!selectedEmpId && commissionNumber.trim().length > 0;
 
-  // Only vehicle types that appear in skills
-  const usedTypes = Array.from(new Set(skills.map((s: any) => s.vehicleType)));
+  const handleSave = () => {
+    if (!canSave) return;
+    const assessmentList = Object.entries(levels)
+      .filter(([, lv]) => lv > 0)
+      .map(([skillId, level]) => ({ skillId: parseInt(skillId), level }));
+    saveMut.mutate({ employeeId: selectedEmpId, commissionNumber: commissionNumber.trim(), assessments: assessmentList });
+  };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Гарчиг */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="font-bold text-white flex items-center gap-2"><Wrench className="w-5 h-5 text-purple-400" />Чадварын матриц</h2>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setViewMode(viewMode === "matrix" ? "list" : "matrix")}
-            className="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-sm font-bold rounded-xl transition-all">
-            {viewMode === "matrix" ? "Жагсаалт" : "Матриц"}
-          </button>
-          <button onClick={() => setShowForm(!showForm)} className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl transition-all">
-            <Plus className="w-4 h-4" /> Нэмэх
-          </button>
+        <h2 className="font-bold text-white flex items-center gap-2">
+          <Wrench className="w-5 h-5 text-purple-400" />Ур чадварын матриц
+        </h2>
+        <div className="flex items-center gap-2 text-xs text-white/40">
+          <span className="px-2 py-1 rounded bg-blue-500/10 text-blue-300">1 — Шинэ</span>
+          <span className="px-2 py-1 rounded bg-yellow-500/10 text-yellow-300">2 — Туршлагатай</span>
+          <span className="px-2 py-1 rounded bg-green-500/10 text-green-300">3 — Мэргэшсэн</span>
+          <span className="px-2 py-1 rounded bg-amber-500/10 text-amber-300">4 — Мастер</span>
         </div>
       </div>
 
-      {showForm && (
-        <div className="bg-slate-900/80 border border-purple-500/30 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
-          <div className="md:col-span-2 font-semibold text-purple-300 text-sm mb-1">Чадвар бүртгэх</div>
-          <select value={form.employeeId} onChange={e => setForm(p => ({ ...p, employeeId: e.target.value }))}
-            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
-            <option value="">Ажилтан сонгох</option>
+      {/* Ажилтан + Комиссын дугаар */}
+      <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-5 space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-white/50 mb-1.5 block font-semibold">Ажилтан сонгох</label>
+            <select
+              data-testid="select-employee"
+              value={selectedEmpId ?? ""}
+              onChange={e => {
+                const id = e.target.value ? parseInt(e.target.value) : null;
+                setSelectedEmpId(id);
+                setLevels({});
+                setCommissionNumber("");
+              }}
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50">
+              <option value="">— Ажилтан сонгох —</option>
+              {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-white/50 mb-1.5 block font-semibold">
+              Үнэлгээний комиссын шийдвэрийн дугаар <span className="text-red-400">*</span>
+            </label>
+            <input
+              data-testid="input-commission-number"
+              value={commissionNumber}
+              onChange={e => setCommissionNumber(e.target.value)}
+              placeholder="Жнь: КШ-2025/001"
+              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 placeholder:text-white/20"
+            />
+            {!commissionNumber.trim() && selectedEmpId && (
+              <p className="text-xs text-red-400/70 mt-1">⚠ Дугаарыг заавал бөглөнө үү</p>
+            )}
+          </div>
+        </div>
+
+        {/* Чадварын жагсаалт + радио товч */}
+        {selectedEmpId && (
+          <div className="mt-2 space-y-4">
+            {loadingSkills || loadingAss ? (
+              <div className="text-center py-6 text-white/30 text-sm">Уншиж байна...</div>
+            ) : (
+              <>
+                {categories.map(cat => {
+                  const catSkills = allSkills.filter((s: any) => s.category === cat);
+                  return (
+                    <div key={cat}>
+                      <div className="text-xs font-bold text-purple-300 mb-2 pb-1 border-b border-white/10">{cat}</div>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[500px]">
+                          <thead>
+                            <tr className="text-xs text-white/30">
+                              <th className="text-left py-1.5 pr-4 font-normal w-64">Чадвар</th>
+                              {[1,2,3,4].map(lv => (
+                                <th key={lv} className="text-center py-1.5 px-3 font-normal">
+                                  <span className={`px-2 py-0.5 rounded text-xs ${LEVEL_META[lv].cls}`}>{lv}</span>
+                                </th>
+                              ))}
+                              <th className="text-center py-1.5 px-2 font-normal text-white/20">Цэвэрлэх</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {catSkills.map((skill: any) => (
+                              <tr key={skill.id} className="border-t border-white/5 hover:bg-white/2">
+                                <td className="py-2 pr-4 text-white/80 text-xs leading-snug">{skill.name}</td>
+                                {[1,2,3,4].map(lv => (
+                                  <td key={lv} className="text-center py-2 px-3">
+                                    <input
+                                      type="radio"
+                                      data-testid={`radio-skill-${skill.id}-level-${lv}`}
+                                      name={`skill-${skill.id}`}
+                                      checked={levels[skill.id] === lv}
+                                      onChange={() => setLevels(prev => ({ ...prev, [skill.id]: lv }))}
+                                      className="w-4 h-4 accent-purple-500 cursor-pointer"
+                                    />
+                                  </td>
+                                ))}
+                                <td className="text-center py-2 px-2">
+                                  {levels[skill.id] && (
+                                    <button
+                                      onClick={() => setLevels(prev => { const n = { ...prev }; delete n[skill.id]; return n; })}
+                                      className="text-white/20 hover:text-red-400 transition-colors text-xs">✕</button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {/* Хадгалах товч */}
+                <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                  <span className="text-xs text-white/30">
+                    {Object.values(levels).filter(v => v > 0).length} чадвар үнэлэгдсэн
+                  </span>
+                  <button
+                    data-testid="button-save-assessments"
+                    onClick={handleSave}
+                    disabled={!canSave || saveMut.isPending}
+                    className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-bold transition-all ${
+                      canSave
+                        ? "bg-purple-600 hover:bg-purple-500 text-white"
+                        : "bg-slate-700 text-slate-500 cursor-not-allowed"
+                    }`}>
+                    <Check className="w-4 h-4" />
+                    {saveMut.isPending ? "Хадгалж байна..." : "Хадгалах"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
+
+        {!selectedEmpId && (
+          <div className="text-center py-8 text-white/20 text-sm">
+            Дээрээс ажилтан сонгоод үнэлгээ хийнэ үү
+          </div>
+        )}
+      </div>
+
+      {/* Бүх ажилтнуудын дүн харах */}
+      <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+        <div className="px-5 py-3 border-b border-white/10 flex items-center justify-between">
+          <span className="text-sm font-bold text-white/70">Ажилтнуудын үнэлгээ харах</span>
+          <select
+            data-testid="select-view-employee"
+            value={viewEmpId ?? ""}
+            onChange={e => setViewEmpId(e.target.value ? parseInt(e.target.value) : null)}
+            className="bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none">
+            <option value="">— Ажилтан сонгох —</option>
             {employees.map(e => <option key={e.id} value={e.id}>{e.name}</option>)}
           </select>
-          <select value={form.vehicleType} onChange={e => setForm(p => ({ ...p, vehicleType: e.target.value }))}
-            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
-            <option value="">— Чадвар сонгох —</option>
-            {SKILL_CATEGORIES.map(cat => (
-              <optgroup key={cat.group} label={cat.group}>
-                {cat.items.map(v => <option key={v} value={v}>{v}</option>)}
-              </optgroup>
-            ))}
-          </select>
-          <select value={form.skillLevel} onChange={e => setForm(p => ({ ...p, skillLevel: e.target.value }))}
-            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
-            {Object.entries(SKILL_LEVELS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-          </select>
-          <input value={form.certifiedBy} onChange={e => setForm(p => ({ ...p, certifiedBy: e.target.value }))}
-            placeholder="Зөвшөөрсөн хүн" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
-          <div>
-            <label className="text-xs text-white/40 mb-1 block">Эхлэх огноо</label>
-            <input type="date" value={form.validFrom} onChange={e => setForm(p => ({ ...p, validFrom: e.target.value }))}
-              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
-          </div>
-          <div>
-            <label className="text-xs text-white/40 mb-1 block">Дуусах огноо</label>
-            <input type="date" value={form.validUntil} onChange={e => setForm(p => ({ ...p, validUntil: e.target.value }))}
-              className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
-          </div>
-          <div className="md:col-span-2 flex gap-2 justify-end">
-            <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">Цуцлах</button>
-            <button onClick={() => { if (!form.employeeId) return; addMut.mutate({ ...form, employeeId: parseInt(form.employeeId), validFrom: form.validFrom || null, validUntil: form.validUntil || null }); }}
-              disabled={addMut.isPending}
-              className="px-5 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-bold rounded-xl transition-all">
-              Хадгалах
-            </button>
-          </div>
         </div>
-      )}
+        <ViewAssessments empId={viewEmpId} allSkills={allSkills} hdrs={hdrs} />
+      </div>
+    </div>
+  );
+}
 
-      {viewMode === "matrix" && (
-        <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-auto">
-          {empIdsWithSkills.length === 0 ? (
-            <div className="text-center py-8 text-white/30">Чадварын матриц хоосон байна. Дээрх "Нэмэх" товчоор ажилтны чадварыг бүртгэнэ үү.</div>
-          ) : (
-            <table className="w-full text-xs min-w-[600px]">
-              <thead className="bg-slate-800/60">
-                <tr>
-                  <th className="px-4 py-3 text-left text-white/50 font-semibold w-32">Ажилтан</th>
-                  {usedTypes.map(t => <th key={t} className="px-2 py-3 text-center text-white/50 font-semibold">{t}</th>)}
+function ViewAssessments({ empId, allSkills, hdrs }: { empId: number | null; allSkills: any[]; hdrs: () => Record<string,string> }) {
+  const { data: _raw } = useQuery<any>({
+    queryKey: ["/api/skill-assessments", empId],
+    queryFn: () => empId
+      ? fetch(`/api/skill-assessments?employeeId=${empId}`, { headers: hdrs() }).then(r => r.json())
+      : Promise.resolve([]),
+    enabled: !!empId,
+  });
+  const assessments: any[] = Array.isArray(_raw) ? _raw : [];
+
+  if (!empId) return <div className="text-center py-6 text-white/20 text-xs">Ажилтан сонгоно уу</div>;
+  if (assessments.length === 0) return <div className="text-center py-6 text-white/20 text-xs">Үнэлгээ бүртгэгдээгүй байна</div>;
+
+  const skillMap: Record<number, any> = {};
+  allSkills.forEach(s => { skillMap[s.id] = s; });
+
+  const commNum = assessments[0]?.commissionNumber ?? "—";
+
+  return (
+    <div className="p-4 space-y-3">
+      <div className="text-xs text-white/40">Комиссын шийдвэрийн дугаар: <span className="text-amber-300 font-semibold">{commNum}</span></div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="text-white/30">
+              <th className="text-left py-2 pr-4">Чадвар</th>
+              <th className="text-left py-2">Ангилал</th>
+              <th className="text-center py-2">Түвшин</th>
+            </tr>
+          </thead>
+          <tbody>
+            {assessments.map((a: any) => {
+              const skill = skillMap[a.skillId];
+              const lm = LEVEL_META[a.level];
+              return (
+                <tr key={a.id} className="border-t border-white/5">
+                  <td className="py-1.5 pr-4 text-white/80">{skill?.name ?? `#${a.skillId}`}</td>
+                  <td className="py-1.5 text-white/40">{skill?.category ?? "—"}</td>
+                  <td className="py-1.5 text-center">
+                    <span className={`px-2 py-0.5 rounded text-xs font-bold ${lm?.cls ?? ""}`}>{lm?.label ?? a.level}</span>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {empIdsWithSkills.map(eid => (
-                  <tr key={eid} className="border-t border-white/5">
-                    <td className="px-4 py-2.5 font-semibold text-white text-sm">{empMap[eid] ?? `#${eid}`}</td>
-                    {usedTypes.map(vt => {
-                      const s = matrix[eid]?.[vt];
-                      if (!s) return <td key={vt} className="px-2 py-2.5 text-center text-white/15">—</td>;
-                      const lv = SKILL_LEVELS[s.skillLevel] ?? { label: s.skillLevel, cls: "bg-slate-700 text-slate-300" };
-                      return (
-                        <td key={vt} className="px-2 py-2.5 text-center">
-                          <span className={`px-1.5 py-0.5 rounded text-xs font-bold ${lv.cls}`}>{lv.label}</span>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-      )}
-
-      {viewMode === "list" && (
-        <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-slate-800/60">
-              <tr className="text-left text-white/50 text-xs">
-                <th className="px-4 py-3">Ажилтан</th>
-                <th className="px-4 py-3">Техникийн төрөл</th>
-                <th className="px-4 py-3">Чадварын түвшин</th>
-                <th className="px-4 py-3">Зөвшөөрсөн</th>
-                <th className="px-4 py-3">Хүртэл</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {skills.length === 0 && <tr><td colSpan={6} className="text-center py-8 text-white/30">Чадвар бүртгэгдээгүй</td></tr>}
-              {skills.map((s: any) => {
-                const lv = SKILL_LEVELS[s.skillLevel] ?? { label: s.skillLevel, cls: "bg-slate-700 text-slate-300" };
-                return (
-                  <tr key={s.id} className="border-t border-white/5 hover:bg-white/3">
-                    <td className="px-4 py-3 font-medium text-white">{empMap[s.employeeId] ?? "—"}</td>
-                    <td className="px-4 py-3 text-white/70">{s.vehicleType}</td>
-                    <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${lv.cls}`}>{lv.label}</span></td>
-                    <td className="px-4 py-3 text-white/50">{s.certifiedBy ?? "—"}</td>
-                    <td className="px-4 py-3 text-white/50">{s.validUntil ?? "—"}</td>
-                    <td className="px-4 py-3">
-                      <button onClick={() => delMut.mutate(s.id)} className="text-red-400/60 hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

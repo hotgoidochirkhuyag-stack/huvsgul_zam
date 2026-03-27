@@ -626,17 +626,42 @@ export type InsertEmployeeTraining = z.infer<typeof insertEmployeeTrainingSchema
 export const employeeSkills = pgTable("employee_skills", {
   id:          serial("id").primaryKey(),
   employeeId:  integer("employee_id").notNull(),
-  vehicleType: text("vehicle_type").notNull(),     // Экскаватор | Бульдозер | Автомашин | Грейдер | Асфальт угсраалт | Кран | Автогрейдер | Өөр
-  skillLevel:  text("skill_level").notNull(),      // эхлэгч | дундд | мэргэжлийн
-  certifiedBy: text("certified_by"),               // Хэн зөвшөөрсөн
-  validFrom:   text("valid_from"),                 // YYYY-MM-DD
-  validUntil:  text("valid_until"),                // YYYY-MM-DD
+  vehicleType: text("vehicle_type").notNull(),
+  skillLevel:  text("skill_level").notNull(),
+  certifiedBy: text("certified_by"),
+  validFrom:   text("valid_from"),
+  validUntil:  text("valid_until"),
   notes:       text("notes"),
   createdAt:   timestamp("created_at").defaultNow(),
 });
 export const insertEmployeeSkillSchema = createInsertSchema(employeeSkills).omit({ id: true, createdAt: true });
 export type EmployeeSkill       = typeof employeeSkills.$inferSelect;
 export type InsertEmployeeSkill = z.infer<typeof insertEmployeeSkillSchema>;
+
+// ===================== УР ЧАДВАРЫН САН (Skills catalog) =====================
+export const skills = pgTable("skills", {
+  id:        serial("id").primaryKey(),
+  category:  text("category").notNull(),   // Зам барилга | Гүүр барилга | г.м.
+  name:      text("name").notNull(),        // Чадварын нэр
+  sortOrder: integer("sort_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export const insertSkillSchema = createInsertSchema(skills).omit({ id: true, createdAt: true });
+export type Skill       = typeof skills.$inferSelect;
+export type InsertSkill = z.infer<typeof insertSkillSchema>;
+
+// ===================== УР ЧАДВАРЫН ҮНЭЛГЭЭ (Skill assessments) =====================
+export const skillAssessments = pgTable("skill_assessments", {
+  id:               serial("id").primaryKey(),
+  employeeId:       integer("employee_id").notNull(),
+  skillId:          integer("skill_id").notNull(),
+  level:            integer("level").notNull(),           // 1=Шинэ 2=Туршлагатай 3=Мэргэшсэн 4=Мастер
+  commissionNumber: text("commission_number").notNull(),  // Комиссын шийдвэрийн дугаар
+  updatedAt:        timestamp("updated_at").defaultNow(),
+});
+export const insertSkillAssessmentSchema = createInsertSchema(skillAssessments).omit({ id: true, updatedAt: true });
+export type SkillAssessment       = typeof skillAssessments.$inferSelect;
+export type InsertSkillAssessment = z.infer<typeof insertSkillAssessmentSchema>;
 
 // ===================== ТО ХУВААРЬ (УРЬДЧИЛСАН ЗАСВАР) =====================
 export const maintenanceSchedules = pgTable("maintenance_schedules", {
