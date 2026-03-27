@@ -841,7 +841,65 @@ function TrainingsTab({ employees, qc, toast }: { employees: any[]; qc: any; toa
 }
 
 // ===================== ЧАДВАРЫН МАТРИЦ ТАБ =====================
-const VEHICLE_TYPES = ["Экскаватор", "Бульдозер", "Автомашин", "Грейдер", "Асфальт угсраалт", "Кран", "Автогрейдер", "Дам зам тавих", "Компрессор", "Өөр"];
+const SKILL_CATEGORIES: { group: string; items: string[] }[] = [
+  {
+    group: "🛣️ Зам барилга",
+    items: [
+      "Зам зураглал (Survey)",
+      "Газар шорооны ажил (Earthwork)",
+      "Дэвсгэр давхарга тавих (Base course)",
+      "Асфальт бетон хучилт (Asphalt paving)",
+      "Замын тэмдэглэгээ (Road marking)",
+      "Ус зайлуулах шуудуу (Drainage)",
+    ],
+  },
+  {
+    group: "🌉 Гүүр барилга",
+    items: [
+      "Гүүрийн суурь (Foundation)",
+      "Гүүрийн тулгуур (Pier/Abutment)",
+      "Дам нуруу угсрах (Beam erection)",
+      "Гүүрийн дэр цутгах (Bridge deck)",
+      "Гүүрийн ерөнхий угсралт (Bridge assembly)",
+    ],
+  },
+  {
+    group: "🏗️ Бетон зуурмаг",
+    items: [
+      "Бетон найрлага тооцоолох (Mix design)",
+      "Бетон зуурах (Mixing operation)",
+      "Гулсамал шалгалт (Slump test)",
+      "Бетон цутгах (Pouring)",
+      "Бетоны чанар хяналт (QC)",
+      "Хатуурал хяналт (Curing)",
+    ],
+  },
+  {
+    group: "🧱 Бетон хийцлэл",
+    items: [
+      "Арматур зэрэгцүүлэх (Rebar layout)",
+      "Арматур гагнах (Rebar welding)",
+      "Хэвлэг угсрах (Formwork)",
+      "Хэвлэг задлах (Stripping)",
+      "Төмөр бетон хийц угсралт (RC assembly)",
+      "Дефектоскопи шалгалт (Inspection)",
+    ],
+  },
+  {
+    group: "⚙️ Техник хэрэгсэл",
+    items: [
+      "Экскаватор", "Бульдозер", "Грейдер", "Автогрейдер",
+      "Асфальт угсраалт", "Кран", "Компрессор", "Думпер", "Бетон насос",
+    ],
+  },
+  {
+    group: "📋 Бусад",
+    items: ["Нормчлол (Estimating)", "ХАБЭА хяналт", "Лабораторийн шинжилгээ", "Өөр"],
+  },
+];
+
+const VEHICLE_TYPES = SKILL_CATEGORIES.flatMap(c => c.items);
+
 const SKILL_LEVELS: Record<string, { label: string; cls: string }> = {
   эхлэгч:      { label: "Эхлэгч",      cls: "bg-blue-500/20 text-blue-300"   },
   дундд:        { label: "Дунд",         cls: "bg-yellow-500/20 text-yellow-300"},
@@ -907,7 +965,12 @@ function SkillsTab({ employees, qc, toast }: { employees: any[]; qc: any; toast:
           </select>
           <select value={form.vehicleType} onChange={e => setForm(p => ({ ...p, vehicleType: e.target.value }))}
             className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
-            {VEHICLE_TYPES.map(v => <option key={v} value={v}>{v}</option>)}
+            <option value="">— Чадвар сонгох —</option>
+            {SKILL_CATEGORIES.map(cat => (
+              <optgroup key={cat.group} label={cat.group}>
+                {cat.items.map(v => <option key={v} value={v}>{v}</option>)}
+              </optgroup>
+            ))}
           </select>
           <select value={form.skillLevel} onChange={e => setForm(p => ({ ...p, skillLevel: e.target.value }))}
             className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
