@@ -1972,6 +1972,30 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
+  // GET /api/employees/skill-bonuses — бүх ажилтны ур чадварын нэмэгдэл
+  app.get("/api/employees/skill-bonuses", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db
+        .select({
+          employeeId: schema.skillAssessments.employeeId,
+          avgLevel:   sql<number>`ROUND(AVG(${schema.skillAssessments.level})::numeric, 2)`,
+          count:      sql<number>`COUNT(*)`,
+        })
+        .from(schema.skillAssessments)
+        .groupBy(schema.skillAssessments.employeeId);
+
+      const result = rows.map(r => {
+        const avg = Number(r.avgLevel);
+        let bonusPct = 0;
+        if (avg >= 4.0)        bonusPct = 50;
+        else if (avg >= 3.0)   bonusPct = 30;
+        else if (avg >= 2.0)   bonusPct = 15;
+        return { employeeId: r.employeeId, avgLevel: avg, bonusPct, count: Number(r.count) };
+      });
+      res.json(result);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // GET /api/skill-assessments?employeeId=X — ажилтны үнэлгээ
   app.get("/api/skill-assessments", requireAdmin, async (req, res) => {
     try {

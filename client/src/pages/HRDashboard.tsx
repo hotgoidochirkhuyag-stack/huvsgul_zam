@@ -61,6 +61,16 @@ export default function HRDashboard() {
   });
   const attendanceList: any[] = Array.isArray(_attRaw) ? _attRaw : [];
 
+  // Ур чадварын нэмэгдэл (skill bonus)
+  const { data: _bonusRaw } = useQuery<any>({
+    queryKey: ["/api/employees/skill-bonuses"],
+    queryFn: () => fetch("/api/employees/skill-bonuses", { headers: getAdminHeaders() }).then(r => r.json()),
+  });
+  const bonusList: { employeeId: number; avgLevel: number; bonusPct: number; count: number }[] =
+    Array.isArray(_bonusRaw) ? _bonusRaw : [];
+  const bonusMap: Record<number, { avgLevel: number; bonusPct: number; count: number }> = {};
+  bonusList.forEach(b => { bonusMap[b.employeeId] = { avgLevel: b.avgLevel, bonusPct: b.bonusPct, count: b.count }; });
+
   const addEmployee = useMutation({
     mutationFn: () => fetch("/api/erp/employees", {
       method: "POST",
@@ -316,7 +326,7 @@ export default function HRDashboard() {
                 <table className="w-full">
                   <thead className="bg-slate-800/40">
                     <tr>
-                      {["#", "Нэр", "Хэлтэс", "Албан тушаал", "Регистр", "Утас", "Цалин", "QR / Ажиллагаа"].map(h => (
+                      {["#", "Нэр", "Хэлтэс", "Албан тушаал", "Регистр", "Утас", "Цалин", "Ур чадварын нэмэгдэл", "QR / Ажиллагаа"].map(h => (
                         <th key={h} className="text-left p-3.5 text-slate-400 text-xs uppercase tracking-wider font-semibold">{h}</th>
                       ))}
                     </tr>
@@ -395,6 +405,8 @@ export default function HRDashboard() {
                                 className="w-full bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-purple-500/50"
                               />
                             </td>
+                            {/* Ур чадварын нэмэгдэл — засварлах үед харуулахгүй */}
+                            <td className="p-2 text-slate-600 text-xs italic">Хадгалсны дараа шинэчлэгдэнэ</td>
                             {/* Хадгалах / Цуцлах */}
                             <td className="p-2">
                               <div className="flex items-center gap-1.5">
@@ -418,6 +430,9 @@ export default function HRDashboard() {
                         );
                       }
 
+                      const bonus = bonusMap[e.id];
+                      const bonusAmt = bonus ? Math.round((e.salaryBase ?? 0) * bonus.bonusPct / 100) : 0;
+
                       return (
                         <tr key={e.id} className="border-t border-white/5 hover:bg-white/[0.02] transition-colors">
                           <td className="p-3.5 text-slate-500 text-sm">{i + 1}</td>
@@ -436,7 +451,31 @@ export default function HRDashboard() {
                           <td className="p-3.5 text-slate-400 text-sm">
                             {e.phone ?? <span className="text-slate-600 text-xs">—</span>}
                           </td>
-                          <td className="p-3.5 text-slate-400 text-sm">{e.salaryBase ? `${e.salaryBase.toLocaleString()}₮` : "—"}</td>
+                          <td className="p-3.5 text-sm">
+                            <div className="text-slate-400">{e.salaryBase ? `${e.salaryBase.toLocaleString()}₮` : "—"}</div>
+                            {bonus && bonusAmt > 0 && (
+                              <div className="text-green-400 text-xs mt-0.5">+{bonusAmt.toLocaleString()}₮ нэмэгдэл</div>
+                            )}
+                          </td>
+                          <td className="p-3.5" data-testid={`cell-skill-bonus-${e.id}`}>
+                            {!bonus ? (
+                              <span className="text-xs text-slate-600 italic">Үнэлгээ хийгдээгүй</span>
+                            ) : bonus.bonusPct === 0 ? (
+                              <div className="flex flex-col gap-0.5">
+                                <span className="text-xs text-slate-500">Дундаж: {bonus.avgLevel}</span>
+                                <span className="text-xs text-slate-600">Нэмэгдэлгүй</span>
+                              </div>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                <span className={`inline-block px-2 py-0.5 rounded-lg text-xs font-bold w-fit ${
+                                  bonus.bonusPct === 50 ? "bg-amber-500/20 text-amber-300" :
+                                  bonus.bonusPct === 30 ? "bg-green-500/20 text-green-300" :
+                                  "bg-blue-500/20 text-blue-300"
+                                }`}>+{bonus.bonusPct}%</span>
+                                <span className="text-[10px] text-slate-500">Дундаж: {bonus.avgLevel} ({bonus.count} чадвар)</span>
+                              </div>
+                            )}
+                          </td>
                           <td className="p-3.5">
                             <div className="flex items-center gap-1.5">
                               <button
