@@ -901,9 +901,10 @@ const SKILL_CATEGORIES: { group: string; items: string[] }[] = [
 const VEHICLE_TYPES = SKILL_CATEGORIES.flatMap(c => c.items);
 
 const SKILL_LEVELS: Record<string, { label: string; cls: string }> = {
-  эхлэгч:      { label: "Эхлэгч",      cls: "bg-blue-500/20 text-blue-300"   },
+  туршлагагүй: { label: "Туршлагагүй", cls: "bg-slate-500/20 text-slate-400"  },
+  эхлэгч:      { label: "Эхлэгч",      cls: "bg-blue-500/20 text-blue-300"    },
   дундд:        { label: "Дунд",         cls: "bg-yellow-500/20 text-yellow-300"},
-  мэргэжлийн:  { label: "Мэргэжлийн",  cls: "bg-green-500/20 text-green-300" },
+  мэргэжлийн:  { label: "Мэргэжлийн",  cls: "bg-green-500/20 text-green-300"  },
 };
 
 function SkillsTab({ employees, qc, toast }: { employees: any[]; qc: any; toast: any }) {
