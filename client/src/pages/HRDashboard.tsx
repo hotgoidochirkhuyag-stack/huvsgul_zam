@@ -4,6 +4,7 @@ import {
   Users, Plus, Trash2, QrCode, LogOut, RefreshCw,
   Clock, ShieldCheck, Download, Search, Building2, HardHat, Factory, ChevronDown,
   Pencil, X, Check, Award, GraduationCap, Wrench, AlertTriangle, CheckCircle2,
+  Calculator,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -70,6 +71,15 @@ export default function HRDashboard() {
     Array.isArray(_bonusRaw) ? _bonusRaw : [];
   const bonusMap: Record<number, { avgLevel: number; bonusPct: number; count: number }> = {};
   bonusList.forEach(b => { bonusMap[b.employeeId] = { avgLevel: b.avgLevel, bonusPct: b.bonusPct, count: b.count }; });
+
+  // Цалингийн тооцоолол
+  const [calcEmpId, setCalcEmpId] = useState<number | null>(null);
+  const [calcMonth, setCalcMonth] = useState(new Date().toISOString().slice(0, 7));
+  const { data: calcData, isLoading: calcLoading } = useQuery<any>({
+    queryKey: ["/api/salary-calc", calcEmpId, calcMonth],
+    queryFn: () => fetch(`/api/salary-calc/${calcEmpId}?month=${calcMonth}`, { headers: getAdminHeaders() }).then(r => r.json()),
+    enabled: calcEmpId !== null,
+  });
 
   const addEmployee = useMutation({
     mutationFn: () => fetch("/api/erp/employees", {
@@ -486,6 +496,14 @@ export default function HRDashboard() {
                                 <QrCode className="w-3.5 h-3.5" /> QR
                               </button>
                               <button
+                                onClick={() => setCalcEmpId(e.id)}
+                                title="Цалингийн тооцоолол"
+                                data-testid={`btn-salary-calc-${e.id}`}
+                                className="p-1.5 text-green-400/70 hover:text-green-300 hover:bg-green-500/20 rounded-lg transition-all"
+                              >
+                                <Calculator className="w-3.5 h-3.5" />
+                              </button>
+                              <button
                                 onClick={() => {
                                   setEditEmp({ ...e, salaryBase: e.salaryBase ?? "" });
                                   setEditRegError("");
@@ -617,6 +635,133 @@ export default function HRDashboard() {
           employee={selectedQrEmployee}
           onClose={() => setSelectedQrEmployee(null)}
         />
+      )}
+
+      {/* Цалингийн тооцоолол modal */}
+      {calcEmpId !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="bg-slate-900 border border-white/10 rounded-2xl w-full max-w-md shadow-2xl">
+            {/* Header */}
+            <div className="flex items-center justify-between p-5 border-b border-white/10">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-500/15 rounded-xl">
+                  <Calculator className="w-5 h-5 text-green-400" />
+                </div>
+                <div>
+                  <h3 className="text-white font-bold text-base">Цалингийн тооцоолол</h3>
+                  <p className="text-slate-400 text-xs mt-0.5">{calcData?.employee?.name ?? "..."}</p>
+                </div>
+              </div>
+              <button onClick={() => setCalcEmpId(null)} className="p-2 text-slate-400 hover:text-white hover:bg-white/10 rounded-xl transition-all">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Сар сонгогч */}
+            <div className="px-5 pt-4 flex items-center gap-3">
+              <label className="text-slate-400 text-xs font-medium whitespace-nowrap">Тооцоолох сар:</label>
+              <input
+                type="month"
+                value={calcMonth}
+                onChange={e => setCalcMonth(e.target.value)}
+                className="bg-slate-800 border border-white/10 rounded-lg px-3 py-1.5 text-white text-sm outline-none focus:border-green-500/50"
+              />
+            </div>
+
+            {/* Агуулга */}
+            <div className="p-5 space-y-3">
+              {calcLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <RefreshCw className="w-6 h-6 text-green-400 animate-spin" />
+                </div>
+              ) : calcData?.error ? (
+                <p className="text-red-400 text-sm text-center py-4">{calcData.error}</p>
+              ) : calcData ? (
+                <>
+                  {/* Үндсэн цалин */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                    <span className="text-slate-400 text-sm">Үндсэн цалин</span>
+                    <span className="text-white font-semibold">{(calcData.base ?? 0).toLocaleString()}₮</span>
+                  </div>
+
+                  {/* Ур чадварын нэмэгдэл */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                    <div>
+                      <span className="text-slate-400 text-sm">Ур чадварын нэмэгдэл</span>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        Дундаж: {calcData.skill?.avgLevel ?? 0} ({calcData.skill?.count ?? 0} чадвар)
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {calcData.skill?.bonusPct > 0 ? (
+                        <>
+                          <span className={`text-sm font-bold ${calcData.skill.bonusPct === 50 ? "text-amber-400" : calcData.skill.bonusPct === 30 ? "text-green-400" : "text-blue-400"}`}>
+                            +{calcData.skill.bonusPct}%
+                          </span>
+                          <div className="text-xs text-green-300">+{(calcData.skill.bonus ?? 0).toLocaleString()}₮</div>
+                        </>
+                      ) : (
+                        <span className="text-slate-500 text-sm">0%</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* KPI нэмэгдэл */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                    <div>
+                      <span className="text-slate-400 text-sm">KPI гүйцэтгэл</span>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {calcData.kpi?.totalTasks === 0
+                          ? "Тухайн сард даалгавар байхгүй"
+                          : `${calcData.kpi?.doneTasks}/${calcData.kpi?.totalTasks} даалгавар`}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      {calcData.kpi?.kpiPct !== null ? (
+                        <>
+                          <span className={`text-sm font-bold ${(calcData.kpi?.kpiPct ?? 0) >= 90 ? "text-green-400" : (calcData.kpi?.kpiPct ?? 0) >= 75 ? "text-blue-400" : "text-slate-400"}`}>
+                            {calcData.kpi?.kpiPct}% → +{calcData.kpi?.bonusPct}%
+                          </span>
+                          <div className="text-xs text-green-300">+{(calcData.kpi?.bonus ?? 0).toLocaleString()}₮</div>
+                        </>
+                      ) : (
+                        <span className="text-slate-500 text-sm">Мэдээлэл алга</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Ирцийн коэффициент */}
+                  <div className="flex justify-between items-center py-2.5 border-b border-white/5">
+                    <div>
+                      <span className="text-slate-400 text-sm">Ирцийн коэффициент</span>
+                      <div className="text-xs text-slate-500 mt-0.5">
+                        {calcData.att?.days ?? 0}/{calcData.att?.workingDays ?? 0} өдөр ирсэн ({calcData.att?.pct ?? 0}%)
+                      </div>
+                    </div>
+                    <span className={`text-sm font-bold ${(calcData.att?.coeff ?? 1) < 0.9 ? "text-red-400" : (calcData.att?.coeff ?? 1) < 1 ? "text-amber-400" : "text-green-400"}`}>
+                      × {calcData.att?.coeff ?? 1}
+                    </span>
+                  </div>
+
+                  {/* Нийт */}
+                  <div className="mt-2 p-4 bg-gradient-to-r from-green-500/10 to-emerald-500/10 border border-green-500/20 rounded-xl">
+                    <div className="flex justify-between items-center mb-1.5">
+                      <span className="text-slate-400 text-xs">Нэмэгдлийн өмнөх дүн:</span>
+                      <span className="text-slate-300 text-sm">{(calcData.subtotal ?? 0).toLocaleString()}₮</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-white font-bold text-sm">Гарт авах дүн:</span>
+                      <span className="text-green-400 font-bold text-xl">{(calcData.finalSalary ?? 0).toLocaleString()}₮</span>
+                    </div>
+                    <div className="mt-2 text-xs text-slate-500 text-center">
+                      Нэмэгдэл: +{((calcData.finalSalary ?? 0) - (calcData.base ?? 0)).toLocaleString()}₮ ({calcData.base > 0 ? Math.round(((calcData.finalSalary - calcData.base) / calcData.base) * 100) : 0}%)
+                    </div>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

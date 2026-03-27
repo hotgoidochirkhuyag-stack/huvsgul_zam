@@ -1996,6 +1996,93 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // GET /api/salary-calc/:employeeId?month=YYYY-MM — цалингийн тооцоолол
+  app.get("/api/salary-calc/:employeeId", requireAdmin, async (req, res) => {
+    try {
+      const empId = parseInt(req.params.employeeId);
+      const month = (req.query.month as string) || new Date().toISOString().slice(0, 7); // YYYY-MM
+
+      // 1. Ажилтны мэдээлэл
+      const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, empId)).limit(1);
+      if (!emp) return res.status(404).json({ error: "Ажилтан олдсонгүй" });
+      const base = emp.salaryBase ?? 0;
+
+      // 2. Ур чадварын нэмэгдэл
+      const skillRows = await db
+        .select({ avgLevel: sql<number>`ROUND(AVG(${schema.skillAssessments.level})::numeric, 2)`, count: sql<number>`COUNT(*)` })
+        .from(schema.skillAssessments)
+        .where(eq(schema.skillAssessments.employeeId, empId));
+      const avgSkill = skillRows[0]?.avgLevel ? Number(skillRows[0].avgLevel) : 0;
+      const skillCount = skillRows[0]?.count ? Number(skillRows[0].count) : 0;
+      let skillBonusPct = 0;
+      if (avgSkill >= 4.0)      skillBonusPct = 50;
+      else if (avgSkill >= 3.0) skillBonusPct = 30;
+      else if (avgSkill >= 2.0) skillBonusPct = 15;
+      const skillBonus = Math.round(base * skillBonusPct / 100);
+
+      // 3. Ирцийн тооцоолол
+      const [y, m] = month.split("-").map(Number);
+      const daysInMonth = new Date(y, m, 0).getDate();
+      // Ажлын өдрүүд (Да-Ба гэрийн хурал)
+      let workingDays = 0;
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dow = new Date(y, m - 1, d).getDay();
+        if (dow !== 0 && dow !== 6) workingDays++;
+      }
+      const attRows = await db
+        .select({ date: schema.attendance.date })
+        .from(schema.attendance)
+        .where(
+          and(
+            eq(schema.attendance.employeeId, empId),
+            sql`TO_CHAR(${schema.attendance.date}, 'YYYY-MM') = ${month}`
+          )
+        );
+      const attDays = attRows.length;
+      const attPct = workingDays > 0 ? Math.round((attDays / workingDays) * 100) : 0;
+      let attCoeff = 1.0;
+      if (attPct < 80)      attCoeff = 0.8;
+      else if (attPct < 90) attCoeff = 0.9;
+      else if (attPct < 96) attCoeff = 0.95;
+
+      // 4. KPI тооцоолол (тухайн сарын даалгавраар)
+      const taskRows = await db
+        .select({ status: schema.tasks.status })
+        .from(schema.tasks)
+        .where(
+          and(
+            eq(schema.tasks.employeeId, empId),
+            sql`${schema.tasks.date} LIKE ${month + '-%'}`
+          )
+        );
+      const totalTasks = taskRows.length;
+      const doneTasks  = taskRows.filter((t: any) => t.status === "completed").length;
+      const kpiPct     = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : null;
+      let kpiBonusPct = 0;
+      if (kpiPct !== null) {
+        if (kpiPct >= 90)       kpiBonusPct = 20;
+        else if (kpiPct >= 75)  kpiBonusPct = 10;
+        else if (kpiPct >= 60)  kpiBonusPct = 5;
+      }
+      const kpiBonus = Math.round(base * kpiBonusPct / 100);
+
+      // 5. Нийт дүн
+      const subtotal    = base + skillBonus + kpiBonus;
+      const finalSalary = Math.round(subtotal * attCoeff);
+
+      res.json({
+        employee: { id: emp.id, name: emp.name, department: emp.department, role: emp.role },
+        month,
+        base,
+        skill:    { avgLevel: avgSkill, count: skillCount, bonusPct: skillBonusPct, bonus: skillBonus },
+        kpi:      { totalTasks, doneTasks, kpiPct, bonusPct: kpiBonusPct, bonus: kpiBonus },
+        att:      { days: attDays, workingDays, pct: attPct, coeff: attCoeff },
+        subtotal,
+        finalSalary,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // GET /api/skill-assessments?employeeId=X — ажилтны үнэлгээ
   app.get("/api/skill-assessments", requireAdmin, async (req, res) => {
     try {
