@@ -131,26 +131,6 @@ export default function RoleSelection() {
           </div>
         </div>
 
-        {/* ── Ажилтны өсөлт ────────────────────────────────────────────────── */}
-        <button
-          onClick={() => setLocation("/growth")}
-          data-testid="btn-my-growth"
-          className="w-full flex items-center justify-between p-5 rounded-2xl border bg-gradient-to-r from-amber-500/10 to-orange-500/5 border-amber-500/25 hover:border-amber-400/50 transition-all group"
-        >
-          <div className="flex items-center gap-4">
-            <div className="p-3 bg-amber-500/20 rounded-xl">
-              <TrendingUp className="w-6 h-6 text-amber-400" />
-            </div>
-            <div className="text-left">
-              <p className="font-black text-base text-amber-300">Миний өсөлт харах</p>
-              <p className="text-xs text-slate-400 mt-0.5">Ур чадвар · KPI · Цалингийн нэмэгдэл — ажилтан бүр нэрээрээ хайна</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 text-amber-400/60 group-hover:text-amber-400 transition-colors">
-            <span className="text-sm font-bold">Нэвтрэх</span>
-            <ArrowLeft className="w-4 h-4 rotate-180" />
-          </div>
-        </button>
 
       </div>
     </div>

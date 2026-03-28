@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search, ShieldCheck, ClipboardList, CheckSquare, Square,
   ChevronRight, Clock, MapPin, Wrench, AlertTriangle,
-  CheckCircle2, Loader2, Building2, HardHat, Factory, FileText, Plus, Truck, TrendingUp
+  CheckCircle2, Loader2, Building2, HardHat, Factory, FileText, Plus, Truck
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -52,7 +52,6 @@ type Step = "select" | "safety" | "tasks" | "report";
 export default function CheckIn() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const [, setLocation] = useLocation();
 
   const [step, setStep] = useState<Step>("select");
   const [search, setSearch] = useState("");
@@ -140,26 +139,14 @@ export default function CheckIn() {
   return (
     <div className="min-h-screen bg-[#020617] text-white flex flex-col">
       {/* Header */}
-      <div className="bg-slate-900/80 border-b border-white/10 px-5 py-4">
-        <div className="flex items-center justify-between max-w-lg mx-auto">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
-              <span className="text-black font-black text-xs">ХЗ</span>
-            </div>
-            <div>
-              <h1 className="font-black text-sm tracking-widest text-white uppercase">Хөвсгөл Зам</h1>
-              <p className="text-[10px] text-slate-500">ХАБЭА · Даалгавар · Тайлан</p>
-            </div>
+      <div className="bg-slate-900/80 border-b border-white/10 px-5 py-4 text-center">
+        <div className="flex items-center justify-center gap-3 mb-1">
+          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+            <span className="text-black font-black text-xs">ХЗ</span>
           </div>
-          <button
-            onClick={() => setLocation("/growth")}
-            data-testid="button-goto-growth"
-            className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all group"
-          >
-            <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
-            <span className="text-amber-400 text-xs font-bold">Миний өсөлт</span>
-          </button>
+          <h1 className="font-black text-lg tracking-widest text-white uppercase">Хөвсгөл Зам ХХК</h1>
         </div>
+        <p className="text-xs text-slate-500">Өдрийн бүртгэл — ХАБЭА · Даалгавар · Тайлан</p>
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full p-4">
@@ -187,31 +174,21 @@ export default function CheckIn() {
                 const dept = DEPT_INFO[emp.department] ?? DEPT_INFO.field;
                 const Icon = dept.icon;
                 return (
-                  <div key={emp.id} className={`flex items-center gap-2 bg-slate-800/50 border ${dept.border} rounded-xl transition-all`}>
-                    <button
-                      onClick={() => selectEmployee(emp)}
-                      data-testid={`button-select-employee-${emp.id}`}
-                      className="flex-1 flex items-center gap-3 p-4 text-left hover:bg-slate-700/40 rounded-l-xl transition-all"
-                    >
-                      <div className="p-2 bg-white/5 rounded-lg">
-                        <Icon className={`w-5 h-5 ${dept.color}`} />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold text-white">{emp.name}</p>
-                        <p className="text-xs text-slate-400">{emp.role} · {dept.label}</p>
-                      </div>
-                      <ChevronRight className="w-4 h-4 text-slate-500" />
-                    </button>
-                    <button
-                      onClick={() => setLocation(`/employee/${emp.id}`)}
-                      data-testid={`button-profile-${emp.id}`}
-                      title="Миний өсөлт харах"
-                      className="flex flex-col items-center justify-center gap-0.5 px-3 py-4 border-l border-white/10 hover:bg-amber-500/10 rounded-r-xl transition-all group"
-                    >
-                      <TrendingUp className="w-4 h-4 text-amber-400/60 group-hover:text-amber-400 transition-colors" />
-                      <span className="text-[9px] text-amber-400/50 group-hover:text-amber-400 transition-colors whitespace-nowrap">Өсөлт</span>
-                    </button>
-                  </div>
+                  <button
+                    key={emp.id}
+                    onClick={() => selectEmployee(emp)}
+                    data-testid={`button-select-employee-${emp.id}`}
+                    className={`w-full flex items-center gap-3 p-4 bg-slate-800/50 hover:bg-slate-700/60 border ${dept.border} rounded-xl transition-all text-left`}
+                  >
+                    <div className="p-2 bg-white/5 rounded-lg">
+                      <Icon className={`w-5 h-5 ${dept.color}`} />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-white">{emp.name}</p>
+                      <p className="text-xs text-slate-400">{emp.role} · {dept.label}</p>
+                    </div>
+                    <ChevronRight className="w-4 h-4 text-slate-500" />
+                  </button>
                 );
               })}
             </div>
@@ -304,24 +281,6 @@ export default function CheckIn() {
                 <span className="text-green-400 text-xs font-medium">ХАБЭА баталгаажсан</span>
               </div>
             )}
-
-            {/* Өсөлтийн хуудас руу холбоос */}
-            <button
-              onClick={() => setLocation(`/employee/${employee.id}`)}
-              data-testid="button-my-growth"
-              className="w-full flex items-center justify-between px-4 py-3 mb-4 bg-gradient-to-r from-amber-500/10 to-orange-500/5 border border-amber-500/25 rounded-xl transition-all hover:border-amber-500/40"
-            >
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 bg-amber-500/20 rounded-lg">
-                  <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
-                </div>
-                <div className="text-left">
-                  <div className="text-white text-xs font-bold">Миний өсөлт харах</div>
-                  <div className="text-amber-400/70 text-[10px]">Ур чадвар · KPI · Цалин</div>
-                </div>
-              </div>
-              <ChevronRight className="w-4 h-4 text-amber-400/60" />
-            </button>
 
             <h3 className="text-sm font-bold text-slate-300 mb-2">Өнөөдрийн даалгавар</h3>
 

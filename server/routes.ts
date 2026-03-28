@@ -766,7 +766,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     try {
       const data = schema.insertEmployeeSchema.parse(req.body);
       const qrCode = `EMP-${Date.now()}-${Math.random().toString(36).slice(2, 7).toUpperCase()}`;
-      const [emp] = await db.insert(schema.employees).values({ ...data, qrCode }).returning();
+      const profileToken = `${Date.now().toString(36)}${Math.random().toString(36).slice(2)}${Math.random().toString(36).slice(2)}`.slice(0, 48);
+      const [emp] = await db.insert(schema.employees).values({ ...data, qrCode, profileToken }).returning();
       res.status(201).json(emp);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -1996,14 +1997,17 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // GET /api/employee-profile/:id — ажилтны өөрийн хуудас (auth шаардахгүй)
-  app.get("/api/employee-profile/:id", async (req, res) => {
+  // GET /api/employee-profile/:token — ажилтны өөрийн хуудас (зөвхөн нууц token-оор)
+  app.get("/api/employee-profile/:token", async (req, res) => {
     try {
-      const empId = parseInt(req.params.id);
+      const token = req.params.token;
       const month = new Date().toISOString().slice(0, 7);
 
-      const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, empId)).limit(1);
+      const [emp] = await db.select().from(schema.employees)
+        .where(eq(schema.employees.profileToken, token)).limit(1);
       if (!emp) return res.status(404).json({ error: "Ажилтан олдсонгүй" });
+
+      const empId = emp.id;
 
       const assessments = await db.select({ level: schema.skillAssessments.level, skillId: schema.skillAssessments.skillId })
         .from(schema.skillAssessments).where(eq(schema.skillAssessments.employeeId, empId));

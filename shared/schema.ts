@@ -82,6 +82,7 @@ export const employees = pgTable("employees", {
   registerNumber: text("register_number"),  // МУ-ын регистрийн дугаар: 2 кирилл үсэг + 8 цифр
   salaryBase: real("salary_base").notNull().default(0),
   qrCode: text("qr_code").unique(),
+  profileToken: text("profile_token").unique(), // нууц token — профайлын URL-д ашиглана
   createdAt: timestamp("created_at").defaultNow(),
 });
 

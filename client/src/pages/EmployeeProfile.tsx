@@ -42,13 +42,13 @@ function LevelMeter({ avg }: { avg: number }) {
 }
 
 export default function EmployeeProfile() {
-  const { id } = useParams<{ id: string }>();
+  const { token } = useParams<{ token: string }>();
   const [, setLocation] = useLocation();
 
   const { data, isLoading, error } = useQuery<any>({
-    queryKey: ["/api/employee-profile", id],
-    queryFn: () => fetch(`/api/employee-profile/${id}`).then(r => r.json()),
-    enabled: !!id,
+    queryKey: ["/api/employee-profile", token],
+    queryFn: () => fetch(`/api/employee-profile/${token}`).then(r => r.json()),
+    enabled: !!token,
     staleTime: 30000,
   });
 

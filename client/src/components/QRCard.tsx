@@ -8,6 +8,7 @@ interface Employee {
   role: string;
   department: string;
   qrCode: string;
+  profileToken?: string;
 }
 
 interface QRCardProps {
@@ -28,6 +29,9 @@ export default function QRCard({ employee, onClose, baseUrl }: QRCardProps) {
   const DeptIcon = dept.icon;
 
   const reportUrl = `${baseUrl ?? window.location.origin}/erp/report?dept=${employee.department}&qr=${encodeURIComponent(employee.qrCode)}`;
+  const profileUrl = employee.profileToken
+    ? `${baseUrl ?? window.location.origin}/employee/${employee.profileToken}`
+    : null;
 
   const handlePrint = () => {
     const printContent = printRef.current;
@@ -137,9 +141,20 @@ export default function QRCard({ employee, onClose, baseUrl }: QRCardProps) {
         </div>
 
         {/* URL preview */}
-        <div className="mt-3 p-3 bg-slate-800/50 border border-white/5 rounded-xl">
-          <p className="text-xs text-slate-500 mb-1">QR кодын линк:</p>
-          <p className="text-xs text-slate-300 font-mono break-all">{reportUrl}</p>
+        <div className="mt-3 p-3 bg-slate-800/50 border border-white/5 rounded-xl space-y-2">
+          <div>
+            <p className="text-xs text-slate-500 mb-0.5">📋 Тайлан бөглөх QR:</p>
+            <p className="text-xs text-slate-300 font-mono break-all">{reportUrl}</p>
+          </div>
+          {profileUrl && (
+            <div className="border-t border-white/5 pt-2">
+              <p className="text-xs text-amber-500/80 mb-1">📈 Өсөлтийн профайл QR (нууц — зөвхөн өөрөө):</p>
+              <div className="inline-block p-2 bg-white rounded-lg mt-1">
+                <QRCodeSVG value={profileUrl} size={80} bgColor="#ffffff" fgColor="#0f172a" level="M" />
+              </div>
+              <p className="text-[10px] text-slate-500 mt-1 break-all font-mono">{profileUrl}</p>
+            </div>
+          )}
         </div>
 
         {/* Action buttons */}
