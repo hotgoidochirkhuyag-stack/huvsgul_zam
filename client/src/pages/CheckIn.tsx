@@ -175,21 +175,31 @@ export default function CheckIn() {
                 const dept = DEPT_INFO[emp.department] ?? DEPT_INFO.field;
                 const Icon = dept.icon;
                 return (
-                  <button
-                    key={emp.id}
-                    onClick={() => selectEmployee(emp)}
-                    data-testid={`button-select-employee-${emp.id}`}
-                    className={`w-full flex items-center gap-3 p-4 bg-slate-800/50 hover:bg-slate-700/60 border ${dept.border} rounded-xl transition-all text-left`}
-                  >
-                    <div className="p-2 bg-white/5 rounded-lg">
-                      <Icon className={`w-5 h-5 ${dept.color}`} />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-white">{emp.name}</p>
-                      <p className="text-xs text-slate-400">{emp.role} · {dept.label}</p>
-                    </div>
-                    <ChevronRight className="w-4 h-4 text-slate-500" />
-                  </button>
+                  <div key={emp.id} className={`flex items-center gap-2 bg-slate-800/50 border ${dept.border} rounded-xl transition-all`}>
+                    <button
+                      onClick={() => selectEmployee(emp)}
+                      data-testid={`button-select-employee-${emp.id}`}
+                      className="flex-1 flex items-center gap-3 p-4 text-left hover:bg-slate-700/40 rounded-l-xl transition-all"
+                    >
+                      <div className="p-2 bg-white/5 rounded-lg">
+                        <Icon className={`w-5 h-5 ${dept.color}`} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold text-white">{emp.name}</p>
+                        <p className="text-xs text-slate-400">{emp.role} · {dept.label}</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-500" />
+                    </button>
+                    <button
+                      onClick={() => setLocation(`/employee/${emp.id}`)}
+                      data-testid={`button-profile-${emp.id}`}
+                      title="Миний өсөлт харах"
+                      className="flex flex-col items-center justify-center gap-0.5 px-3 py-4 border-l border-white/10 hover:bg-amber-500/10 rounded-r-xl transition-all group"
+                    >
+                      <TrendingUp className="w-4 h-4 text-amber-400/60 group-hover:text-amber-400 transition-colors" />
+                      <span className="text-[9px] text-amber-400/50 group-hover:text-amber-400 transition-colors whitespace-nowrap">Өсөлт</span>
+                    </button>
+                  </div>
                 );
               })}
             </div>
