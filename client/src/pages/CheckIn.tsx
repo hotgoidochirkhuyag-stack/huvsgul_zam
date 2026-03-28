@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Search, ShieldCheck, ClipboardList, CheckSquare, Square,
   ChevronRight, Clock, MapPin, Wrench, AlertTriangle,
-  CheckCircle2, Loader2, Building2, HardHat, Factory, FileText, Plus, Truck
+  CheckCircle2, Loader2, Building2, HardHat, Factory, FileText, Plus, Truck, TrendingUp
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 // ── Хэлтсийн ХАБЭА зүйлс ─────────────────────────────────
 const SAFETY_ITEMS: Record<string, string[]> = {
@@ -51,6 +52,7 @@ type Step = "select" | "safety" | "tasks" | "report";
 export default function CheckIn() {
   const { toast } = useToast();
   const qc = useQueryClient();
+  const [, setLocation] = useLocation();
 
   const [step, setStep] = useState<Step>("select");
   const [search, setSearch] = useState("");
@@ -275,11 +277,29 @@ export default function CheckIn() {
             </div>
 
             {attendance?.safetyConfirmed && (
-              <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-xl mb-4 mt-2">
+              <div className="flex items-center gap-2 px-3 py-2 bg-green-500/10 border border-green-500/20 rounded-xl mb-3 mt-2">
                 <ShieldCheck className="w-3.5 h-3.5 text-green-400" />
                 <span className="text-green-400 text-xs font-medium">ХАБЭА баталгаажсан</span>
               </div>
             )}
+
+            {/* Өсөлтийн хуудас руу холбоос */}
+            <button
+              onClick={() => setLocation(`/employee/${employee.id}`)}
+              data-testid="button-my-growth"
+              className="w-full flex items-center justify-between px-4 py-3 mb-4 bg-gradient-to-r from-amber-500/10 to-orange-500/5 border border-amber-500/25 rounded-xl transition-all hover:border-amber-500/40"
+            >
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 bg-amber-500/20 rounded-lg">
+                  <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+                </div>
+                <div className="text-left">
+                  <div className="text-white text-xs font-bold">Миний өсөлт харах</div>
+                  <div className="text-amber-400/70 text-[10px]">Ур чадвар · KPI · Цалин</div>
+                </div>
+              </div>
+              <ChevronRight className="w-4 h-4 text-amber-400/60" />
+            </button>
 
             <h3 className="text-sm font-bold text-slate-300 mb-2">Өнөөдрийн даалгавар</h3>
 

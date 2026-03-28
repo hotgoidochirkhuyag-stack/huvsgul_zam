@@ -1996,6 +1996,67 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // GET /api/employee-profile/:id — ажилтны өөрийн хуудас (auth шаардахгүй)
+  app.get("/api/employee-profile/:id", async (req, res) => {
+    try {
+      const empId = parseInt(req.params.id);
+      const month = new Date().toISOString().slice(0, 7);
+
+      const [emp] = await db.select().from(schema.employees).where(eq(schema.employees.id, empId)).limit(1);
+      if (!emp) return res.status(404).json({ error: "Ажилтан олдсонгүй" });
+
+      const assessments = await db.select({ level: schema.skillAssessments.level, skillId: schema.skillAssessments.skillId })
+        .from(schema.skillAssessments).where(eq(schema.skillAssessments.employeeId, empId));
+      const skillData = await db.select().from(schema.skills).orderBy(schema.skills.sortOrder);
+
+      const avgLevel = assessments.length > 0
+        ? assessments.reduce((s, a) => s + a.level, 0) / assessments.length : 0;
+      const avgRound = Math.round(avgLevel * 100) / 100;
+      let bonusPct = 0;
+      if (avgLevel >= 4.0) bonusPct = 50;
+      else if (avgLevel >= 3.0) bonusPct = 30;
+      else if (avgLevel >= 2.0) bonusPct = 15;
+
+      let nextTarget = 0, nextBonusPct = 0;
+      if (avgLevel < 2.0)      { nextTarget = 2.0; nextBonusPct = 15; }
+      else if (avgLevel < 3.0) { nextTarget = 3.0; nextBonusPct = 30; }
+      else if (avgLevel < 4.0) { nextTarget = 4.0; nextBonusPct = 50; }
+
+      const catMap: Record<string, number[]> = {};
+      for (const a of assessments) {
+        const sk = skillData.find(s => s.id === a.skillId);
+        if (sk) { if (!catMap[sk.category]) catMap[sk.category] = []; catMap[sk.category].push(a.level); }
+      }
+      const categories = Object.entries(catMap).map(([cat, levels]) => ({
+        category: cat, avg: Math.round((levels.reduce((s, l) => s + l, 0) / levels.length) * 100) / 100, count: levels.length,
+      }));
+
+      const [y, m] = month.split("-").map(Number);
+      let workingDays = 0;
+      const daysInMonth = new Date(y, m, 0).getDate();
+      for (let d = 1; d <= daysInMonth; d++) { const dow = new Date(y, m - 1, d).getDay(); if (dow !== 0 && dow !== 6) workingDays++; }
+      const attRows = await db.select({ date: schema.attendance.date }).from(schema.attendance)
+        .where(and(eq(schema.attendance.employeeId, empId), sql`TO_CHAR(${schema.attendance.date}, 'YYYY-MM') = ${month}`));
+      const attDays = attRows.length;
+      const attPct  = workingDays > 0 ? Math.round((attDays / workingDays) * 100) : 0;
+
+      const taskRows = await db.select({ status: schema.tasks.status }).from(schema.tasks)
+        .where(and(eq(schema.tasks.employeeId, empId), sql`${schema.tasks.date} LIKE ${month + '-%'}`));
+      const totalTasks = taskRows.length;
+      const doneTasks  = taskRows.filter((t: any) => t.status === "completed").length;
+      const kpiPct     = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : null;
+
+      res.json({
+        employee: { id: emp.id, name: emp.name, role: emp.role, department: emp.department },
+        month,
+        skill: { avgLevel: avgRound, bonusPct, count: assessments.length, total: skillData.length, nextTarget, nextBonusPct, categories },
+        attendance: { days: attDays, workingDays, pct: attPct },
+        kpi: { totalTasks, doneTasks, kpiPct },
+        salaryBase: emp.salaryBase ?? 0,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // GET /api/salary-calc/:employeeId?month=YYYY-MM — цалингийн тооцоолол
   app.get("/api/salary-calc/:employeeId", requireAdmin, async (req, res) => {
     try {
