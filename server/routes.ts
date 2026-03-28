@@ -1905,7 +1905,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   const SKILL_SEED: { category: string; name: string; sortOrder: number }[] = [
     // ── Зам барилга (8) ──
     { category: "🛣️ Зам барилга",       name: "Инженерийн геодези, зураглал (Surveying & Setting out)",         sortOrder: 1  },
-    { category: "🛣️ Зам барилга",       name: "Галт шугам, тэнхлэг тавих (Alignment and Staking)",              sortOrder: 2  },
+    { category: "🛣️ Зам барилга",       name: "Тэнхлэг, трасс тавих — Гадаслах, бэхлэх (Alignment & Staking)", sortOrder: 2  },
     { category: "🛣️ Зам барилга",       name: "Газар шорооны ажил — Зүсэлт, дүүргэлт (Earthwork)",             sortOrder: 3  },
     { category: "🛣️ Зам барилга",       name: "Далангийн үе шаттай нягтруулалт (Embankment compaction)",        sortOrder: 4  },
     { category: "🛣️ Зам барилга",       name: "Суурь үеийн ажил — буталсан чулуу, хайрга (Base & Sub-base)",   sortOrder: 5  },
