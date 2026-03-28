@@ -1914,10 +1914,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     { category: "🛣️ Зам барилга",       name: "Ус зайлуулах хоолой, шуудуу (Culvert & Drainage)",              sortOrder: 8  },
     // ── Гүүр барилга (6) ──
     { category: "🌉 Гүүр барилга",      name: "Гүүрийн суурийн ажил — шууд ба гадас (Foundation Spread/Pile)", sortOrder: 9  },
-    { category: "🌉 Гүүр барилга",      name: "Тулгуур ба хүйтэн залгаасны ажил (Pier, Abutment & Joints)",   sortOrder: 10 },
+    { category: "🌉 Гүүр барилга",      name: "Захын болон завсрын тулгуур, деформацийн заадас (Pier, Abutment & Joints)", sortOrder: 10 },
     { category: "🌉 Гүүр барилга",      name: "Дам нуруу угсрах кранаар (Girder/Beam erection)",               sortOrder: 11 },
     { category: "🌉 Гүүр барилга",      name: "Гүүрийн тавцан цутгалт (Bridge deck pouring)",                  sortOrder: 12 },
-    { category: "🌉 Гүүр барилга",      name: "Хөвсгөл, заадас, ус тусгаарлалт (Expansion joints & WP)",       sortOrder: 13 },
+    { category: "🌉 Гүүр барилга",      name: "Деформацийн заадас угсрах, ус тусгаарлалт (Expansion joints & Waterproofing)", sortOrder: 13 },
     { category: "🌉 Гүүр барилга",      name: "Хуурай ба угсармал хоолойн ажил (Pipe culvert assembly)",       sortOrder: 14 },
     // ── Бетон ажил (7) ──
     { category: "🏗️ Бетон ажил",        name: "Бетон зуурмагийн найрлага тогтоох (Mix design — Лаборатори)",   sortOrder: 15 },
