@@ -140,14 +140,26 @@ export default function CheckIn() {
   return (
     <div className="min-h-screen bg-[#020617] text-white flex flex-col">
       {/* Header */}
-      <div className="bg-slate-900/80 border-b border-white/10 px-5 py-4 text-center">
-        <div className="flex items-center justify-center gap-3 mb-1">
-          <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
-            <span className="text-black font-black text-xs">ХЗ</span>
+      <div className="bg-slate-900/80 border-b border-white/10 px-5 py-4">
+        <div className="flex items-center justify-between max-w-lg mx-auto">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-amber-500 rounded-lg flex items-center justify-center">
+              <span className="text-black font-black text-xs">ХЗ</span>
+            </div>
+            <div>
+              <h1 className="font-black text-sm tracking-widest text-white uppercase">Хөвсгөл Зам</h1>
+              <p className="text-[10px] text-slate-500">ХАБЭА · Даалгавар · Тайлан</p>
+            </div>
           </div>
-          <h1 className="font-black text-lg tracking-widest text-white uppercase">Хөвсгөл Зам ХХК</h1>
+          <button
+            onClick={() => setLocation("/growth")}
+            data-testid="button-goto-growth"
+            className="flex items-center gap-1.5 px-3 py-2 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 rounded-xl transition-all group"
+          >
+            <TrendingUp className="w-3.5 h-3.5 text-amber-400" />
+            <span className="text-amber-400 text-xs font-bold">Миний өсөлт</span>
+          </button>
         </div>
-        <p className="text-xs text-slate-500">Өдрийн бүртгэл — ХАБЭА · Даалгавар · Тайлан</p>
       </div>
 
       <div className="flex-1 max-w-lg mx-auto w-full p-4">
