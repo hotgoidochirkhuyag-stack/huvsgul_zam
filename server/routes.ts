@@ -3415,60 +3415,95 @@ ${cert.testResults ? `
         .values({ productType, productName, unit, requestedBy, status: "draft" })
         .returning();
 
-      // AI норм генерейт
-      const apiKey = process.env.GEMINI_API_KEY;
-      if (apiKey) {
-        try {
-          const genAI = new GoogleGenerativeAI(apiKey);
-          const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-          const prompt = `Монгол Улсын барилгын норм ба дүрэм (БНбД) болон MNS стандартад тулгуурлан "${productName}" бүтээгдэхүүний орц нормыг гаргаж өг.
-1 ${unit} ${productName} үйлдвэрлэхэд шаардлагатай материал, хүний нөөц, тоног төхөөрөмжийн нормыг JSON форматаар өг.
-Дараах форматаар:
-{
-  "notes": "БНбД-ийн тусгай заалт, норм",
-  "materials": [
-    {"name": "Цемент ПЦ 400", "norm": 0.35, "unit": "тн", "category": "material"},
-    ...
-  ],
-  "labor": [
-    {"roleName": "Бетонч", "count": 2, "hoursPerUnit": 0.5},
-    ...
-  ]
-}
-Зөвхөн JSON буцааж өг, тайлбар хэрэггүй.`;
-          const result = await model.generateContent(prompt);
-          const text = result.response.text().trim().replace(/```json|```/g, "");
-          const parsed = JSON.parse(text);
+      // norm_configs DB-ийн бэлэн нормоос татах (Gemini-ийн оронд)
+      const RECIPE_MAP: Record<string, { key: string; category: string }> = {
+        concrete_b15:  { key: "C15/20",  category: "concrete" },
+        concrete_b20:  { key: "C20/25",  category: "concrete" },
+        concrete_b25:  { key: "C25/30",  category: "concrete" },
+        concrete_b30:  { key: "C30/37",  category: "concrete" },
+        asphalt_ab1:   { key: "АБ-1",    category: "asphalt"  },
+        asphalt_ab2:   { key: "АБ-2",    category: "asphalt"  },
+        asphalt_dab:   { key: "ДАБ",     category: "asphalt"  },
+        crushed_plant: { key: "Бутлах",  category: "crushing" },
+      };
+      const DEFAULT_LABOR: Record<string, Array<{ roleName: string; count: number; hoursPerUnit: number }>> = {
+        concrete: [
+          { roleName: "Бетонч",           count: 2, hoursPerUnit: 0.50 },
+          { roleName: "Зуурмагч",         count: 1, hoursPerUnit: 0.25 },
+          { roleName: "Тоног ажиллуулагч",count: 1, hoursPerUnit: 0.20 },
+          { roleName: "Туслах ажилтан",   count: 2, hoursPerUnit: 0.30 },
+        ],
+        asphalt: [
+          { roleName: "Асфальтч",         count: 2, hoursPerUnit: 0.40 },
+          { roleName: "Тоног ажиллуулагч",count: 2, hoursPerUnit: 0.30 },
+          { roleName: "Тавигч (оператор)",count: 1, hoursPerUnit: 0.20 },
+          { roleName: "Туслах ажилтан",   count: 2, hoursPerUnit: 0.35 },
+        ],
+        crushing: [
+          { roleName: "Бутлуурч",         count: 2, hoursPerUnit: 0.60 },
+          { roleName: "Тоног ажиллуулагч",count: 1, hoursPerUnit: 0.30 },
+          { roleName: "Туслах ажилтан",   count: 2, hoursPerUnit: 0.40 },
+        ],
+        default: [
+          { roleName: "Ажилтан",          count: 2, hoursPerUnit: 0.50 },
+          { roleName: "Тоног ажиллуулагч",count: 1, hoursPerUnit: 0.30 },
+        ],
+      };
 
-          if (parsed.notes) {
-            await db.update(schema.priceProposals)
-              .set({ aiNotes: parsed.notes })
-              .where(eq(schema.priceProposals.id, proposal.id));
-          }
-          if (parsed.materials?.length) {
-            await db.insert(schema.priceProposalItems).values(
-              parsed.materials.map((m: any, i: number) => ({
-                proposalId: proposal.id,
-                category: m.category ?? "material",
-                materialName: m.name,
-                norm: parseFloat(m.norm) || 0,
-                unit: m.unit,
-                source: "ai",
-                sortOrder: i,
-              }))
-            );
-          }
-          if (parsed.labor?.length) {
-            await db.insert(schema.priceProposalLabor).values(
-              parsed.labor.map((l: any) => ({
-                proposalId: proposal.id,
-                roleName: l.roleName,
-                count: parseInt(l.count) || 1,
-                hoursPerUnit: parseFloat(l.hoursPerUnit) || 1,
-              }))
-            );
-          }
-        } catch (aiErr) { console.error("AI норм алдаа:", aiErr); }
+      const mapped = RECIPE_MAP[productType];
+      let dbNormsLoaded = false;
+
+      if (mapped) {
+        // DB-ийн norm_configs-оос татна
+        const dbNorms = await db.execute(
+          sql`SELECT material_name, bnbd_rate AS rate, unit, category, bnbd_ref FROM norm_configs
+              WHERE category = ${mapped.category} AND recipe_key ILIKE ${"%" + mapped.key + "%"}
+              ORDER BY id`
+        );
+        const rows = (dbNorms as any).rows ?? [];
+        if (rows.length > 0) {
+          // Материалын орц мөрүүд
+          await db.insert(schema.priceProposalItems).values(
+            rows.map((m: any, i: number) => ({
+              proposalId: proposal.id,
+              category: "material",
+              materialName: m.material_name,
+              norm: parseFloat(m.rate) || 0,
+              unit: m.unit,
+              source: "db_norm",
+              sortOrder: i,
+            }))
+          );
+          // Нийтлэг тэмдэглэл
+          const refs = [...new Set(rows.map((r: any) => r.bnbd_ref).filter(Boolean))].join("; ");
+          await db.update(schema.priceProposals)
+            .set({ aiNotes: `DB-ийн бэлэн норм: ${refs}. Лаборатори нормыг шалгаж баталгаажуулна.` })
+            .where(eq(schema.priceProposals.id, proposal.id));
+          dbNormsLoaded = true;
+        }
+        // Хөдөлмөрийн норм — бэлэн жагсаалтаас
+        const laborList = DEFAULT_LABOR[mapped.category] ?? DEFAULT_LABOR.default;
+        await db.insert(schema.priceProposalLabor).values(
+          laborList.map(l => ({ proposalId: proposal.id, roleName: l.roleName, count: l.count, hoursPerUnit: l.hoursPerUnit }))
+        );
+      }
+
+      // DB норм олдоогүй бол Gemini API-г дахиул (бутлуур, бусад бүтээгдэхүүн)
+      if (!dbNormsLoaded) {
+        const apiKey = process.env.GEMINI_API_KEY;
+        if (apiKey) {
+          try {
+            const genAI = new GoogleGenerativeAI(apiKey);
+            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+            const prompt = `БНбД болон MNS стандарт дээр тулгуурлан "${productName}" бүтээгдэхүүний 1 ${unit}-д хэрэгцэх материал, хүний нөөцийн нормыг JSON-оор өг. Формат: {"notes":"...","materials":[{"name":"...","norm":0.0,"unit":"...","category":"material"}],"labor":[{"roleName":"...","count":1,"hoursPerUnit":0.5}]}. Зөвхөн JSON.`;
+            const result = await model.generateContent(prompt);
+            const text = result.response.text().trim().replace(/```json|```/g, "");
+            const parsed = JSON.parse(text);
+            if (parsed.notes) await db.update(schema.priceProposals).set({ aiNotes: parsed.notes }).where(eq(schema.priceProposals.id, proposal.id));
+            if (parsed.materials?.length) await db.insert(schema.priceProposalItems).values(parsed.materials.map((m: any, i: number) => ({ proposalId: proposal.id, category: m.category ?? "material", materialName: m.name, norm: parseFloat(m.norm) || 0, unit: m.unit, source: "ai", sortOrder: i })));
+            if (parsed.labor?.length) await db.insert(schema.priceProposalLabor).values(parsed.labor.map((l: any) => ({ proposalId: proposal.id, roleName: l.roleName, count: parseInt(l.count) || 1, hoursPerUnit: parseFloat(l.hoursPerUnit) || 1 })));
+          } catch (aiErr) { console.error("AI норм алдаа:", aiErr); }
+        }
       }
 
       const [full] = await db.select().from(schema.priceProposals).where(eq(schema.priceProposals.id, proposal.id));
