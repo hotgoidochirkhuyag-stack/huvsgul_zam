@@ -976,6 +976,21 @@ export const insertMeetingReportSchema = createInsertSchema(meetingReports).omit
 export type MeetingReport       = typeof meetingReports.$inferSelect;
 export type InsertMeetingReport = z.infer<typeof insertMeetingReportSchema>;
 
+// ===================== COMPANY PRODUCTS (нүүр хуудасны захиалгын жагсаалт) =====================
+export const companyProducts = pgTable("company_products", {
+  id:          serial("id").primaryKey(),
+  name:        text("name").notNull(),
+  unit:        text("unit").notNull().default("ш"),
+  category:    text("category").notNull().default("finished"),
+  description: text("description"),
+  isActive:    boolean("is_active").notNull().default(true),
+  sortOrder:   integer("sort_order").notNull().default(0),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+export const insertCompanyProductSchema = createInsertSchema(companyProducts).omit({ id: true, createdAt: true });
+export type CompanyProduct       = typeof companyProducts.$inferSelect;
+export type InsertCompanyProduct = z.infer<typeof insertCompanyProductSchema>;
+
 export type ProjectResponse = Project;
 export type ContactResponse = Contact;
 export type ContentResponse = Content;

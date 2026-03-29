@@ -8,8 +8,10 @@ import {
 } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
+import type { CompanyProduct } from "@shared/schema";
 
 const priceRequestSchema = insertContactSchema.extend({
   product: z.string().min(1, "Бүтээгдэхүүн сонгоно уу"),
@@ -256,9 +258,15 @@ export default function Pricelist() {
   const [isSending, setIsSending] = useState(false);
   const { toast } = useToast();
 
+  const { data: products = [] } = useQuery<CompanyProduct[]>({
+    queryKey: ["/api/company-products"],
+  });
+
+  const activeProducts = products.filter(p => p.isActive);
+
   const form = useForm<PriceRequestData>({
     resolver: zodResolver(priceRequestSchema),
-    defaultValues: { name: "", email: "", phone: "", message: "", product: "Бетон зуурмаг", quantity: "" },
+    defaultValues: { name: "", email: "", phone: "", message: "", product: "", quantity: "" },
   });
 
   const watchedProduct = form.watch("product");
@@ -355,12 +363,15 @@ export default function Pricelist() {
                   <select
                     {...form.register("product")}
                     className="w-full bg-card border border-border px-4 py-3 rounded-sm text-foreground focus:border-primary focus:outline-none transition-all cursor-pointer"
+                    data-testid="select-product"
                   >
-                    <option value="Бетон зуурмаг">Бетон зуурмаг</option>
-                    <option value="Хайрга / Дайрга">Хайрга / Дайрга</option>
-                    <option value="Элс / Угаасан элс">Элс / Угаасан элс</option>
-                    <option value="Цемент">Цемент</option>
-                    <option value="Бусад">Бусад</option>
+                    <option value="">— сонгоно уу —</option>
+                    {activeProducts.map(p => (
+                      <option key={p.id} value={`${p.name} (${p.unit})`}>
+                        {p.name} ({p.unit})
+                      </option>
+                    ))}
+                    <option value="Бүтээгдэхүүн">Бүтээгдэхүүн (тодорхойлно)</option>
                   </select>
                 </div>
                 <div className="space-y-2">

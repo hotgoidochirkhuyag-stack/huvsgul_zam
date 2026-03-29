@@ -3221,6 +3221,35 @@ ${cert.testResults ? `
     res.json({ totalM3, totalCement, totalSand, totalGravel, matCost, unitCost, revenue, profit: revenue - matCost });
   });
 
+  // ======= COMPANY PRODUCTS (борлуулалтын бүтээгдэхүүн) =======
+  app.get("/api/company-products", async (_req, res) => {
+    const rows = await db.select().from(schema.companyProducts)
+      .orderBy(schema.companyProducts.sortOrder, schema.companyProducts.id);
+    res.json(rows);
+  });
+
+  app.post("/api/company-products", requireAdmin, async (req, res) => {
+    const parse = schema.insertCompanyProductSchema.safeParse(req.body);
+    if (!parse.success) return res.status(400).json({ error: parse.error.errors });
+    const [row] = await db.insert(schema.companyProducts).values(parse.data).returning();
+    res.json(row);
+  });
+
+  app.patch("/api/company-products/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const [row] = await db.update(schema.companyProducts).set(req.body)
+      .where(eq(schema.companyProducts.id, id)).returning();
+    res.json(row);
+  });
+
+  app.delete("/api/company-products/:id", requireAdmin, async (req, res) => {
+    await db.delete(schema.companyProducts).where(eq(schema.companyProducts.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  });
+
+  // Seed company products
+  seedCompanyProducts().catch(console.error);
+
   // Seed data
   seedInitialContent().catch(console.error);
   seedDefaultKpiConfigs().catch(console.error);
@@ -3305,6 +3334,23 @@ async function seedInitialContent() {
         secondaryCtaText: "Холбогдох",
       });
     }
+  } catch {}
+}
+
+async function seedCompanyProducts() {
+  try {
+    const existing = await db.select().from(schema.companyProducts).limit(1);
+    if (existing.length > 0) return;
+    await db.insert(schema.companyProducts).values([
+      { name: "Бетон зуурмаг B15", unit: "м³", category: "concrete", description: "Ерөнхий зориулалтын бетон", sortOrder: 1 },
+      { name: "Бетон зуурмаг B20", unit: "м³", category: "concrete", description: "Барилгын хийц, суурь", sortOrder: 2 },
+      { name: "Бетон зуурмаг B25", unit: "м³", category: "concrete", description: "Барилгын ханын хийц", sortOrder: 3 },
+      { name: "Бетон зуурмаг B30", unit: "м³", category: "concrete", description: "Нүүрэн хавтан, гүүрийн хийц", sortOrder: 4 },
+      { name: "Асфальт АБ-1", unit: "тн", category: "asphalt", description: "Замын гадаргуугийн давхарга", sortOrder: 5 },
+      { name: "Бутласан хайрга 5-10мм", unit: "тн", category: "stone", description: "Суурийн доош давхарга", sortOrder: 6 },
+      { name: "Бутласан хайрга 10-20мм", unit: "тн", category: "stone", description: "Бетоны холимог, суурийн чулуу", sortOrder: 7 },
+      { name: "Угаасан элс", unit: "тн", category: "sand", description: "Бетоны холимог, барилга", sortOrder: 8 },
+    ]);
   } catch {}
 }
 

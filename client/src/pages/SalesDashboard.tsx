@@ -4,7 +4,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   TrendingUp, LogOut, Plus, Search, CheckCircle2,
   Clock, Truck, XCircle, Calculator, BarChart3,
-  Loader2, AlertCircle, PackageCheck, Hammer, Send
+  Loader2, AlertCircle, PackageCheck, Hammer, Send,
+  Package, Pencil, Trash2, ToggleLeft, ToggleRight
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import ReportUploadButton from "@/components/ReportUploadButton";
@@ -12,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import type { SalesOrder, ProductionCostConfig } from "@shared/schema";
+import type { SalesOrder, ProductionCostConfig, CompanyProduct } from "@shared/schema";
 
 const NAVY = "#0f172a";
 
@@ -504,13 +505,206 @@ function ProfitPanel() {
   );
 }
 
+// ── Бүтээгдэхүүн удирдах самбар ────────────────────────────────────────────────
+const CATEGORY_LABELS: Record<string, string> = {
+  concrete: "Бетон зуурмаг",
+  asphalt: "Асфальт",
+  stone: "Чулуу / Хайрга",
+  sand: "Элс",
+  finished: "Эцсийн бүтээгдэхүүн",
+  other: "Бусад",
+};
+
+function ProductsPanel() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const token = localStorage.getItem("adminToken") ?? "";
+
+  const [showForm, setShowForm] = useState(false);
+  const [editItem, setEditItem] = useState<CompanyProduct | null>(null);
+  const [form, setForm] = useState({ name: "", unit: "м³", category: "concrete", description: "" });
+
+  const { data: products = [], isLoading } = useQuery<CompanyProduct[]>({
+    queryKey: ["/api/company-products"],
+  });
+
+  const addMut = useMutation({
+    mutationFn: async (data: typeof form) => {
+      const r = await fetch("/api/company-products", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/company-products"] });
+      toast({ title: "Бүтээгдэхүүн нэмэгдлээ ✓" });
+      setShowForm(false);
+      setForm({ name: "", unit: "м³", category: "concrete", description: "" });
+    },
+    onError: (e: any) => toast({ title: "Алдаа", description: e.message, variant: "destructive" }),
+  });
+
+  const editMut = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<CompanyProduct> }) => {
+      const r = await fetch(`/api/company-products/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/company-products"] });
+      toast({ title: "Шинэчлэгдлээ ✓" });
+      setEditItem(null);
+    },
+  });
+
+  const deleteMut = useMutation({
+    mutationFn: async (id: number) => {
+      await fetch(`/api/company-products/${id}`, {
+        method: "DELETE",
+        headers: { "x-admin-token": token },
+      });
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/company-products"] });
+      toast({ title: "Устгагдлаа" });
+    },
+  });
+
+  const handleSave = () => {
+    if (!form.name.trim()) return;
+    if (editItem) {
+      editMut.mutate({ id: editItem.id, data: form });
+    } else {
+      addMut.mutate(form);
+    }
+  };
+
+  const startEdit = (p: CompanyProduct) => {
+    setEditItem(p);
+    setForm({ name: p.name, unit: p.unit, category: p.category, description: p.description ?? "" });
+    setShowForm(true);
+  };
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <h3 className="text-white font-bold text-lg">Бүтээгдэхүүний жагсаалт</h3>
+          <p className="text-slate-400 text-sm mt-0.5">Нүүр хуудасны захиалгын форм дахь сонголтууд</p>
+        </div>
+        <Button onClick={() => { setEditItem(null); setForm({ name: "", unit: "м³", category: "concrete", description: "" }); setShowForm(true); }}
+          className="bg-amber-600 hover:bg-amber-500 text-black font-bold"
+          data-testid="btn-add-product">
+          <Plus size={15} className="mr-1" /> Нэмэх
+        </Button>
+      </div>
+
+      {/* Нэмэх / засах форм */}
+      {showForm && (
+        <div className="bg-slate-800 border border-slate-700 rounded-xl p-5 space-y-4">
+          <h4 className="text-white font-semibold">{editItem ? "Засах" : "Шинэ бүтээгдэхүүн"}</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Нэр *</label>
+              <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="Бетон зуурмаг B25" className="bg-slate-700 border-slate-600 text-white"
+                data-testid="input-product-name" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Хэмжих нэгж *</label>
+              <Input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                placeholder="м³, тн, ш..." className="bg-slate-700 border-slate-600 text-white"
+                data-testid="input-product-unit" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Ангилал</label>
+              <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm"
+                data-testid="select-product-category">
+                {Object.entries(CATEGORY_LABELS).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Тайлбар</label>
+              <Input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                placeholder="Богино тайлбар..." className="bg-slate-700 border-slate-600 text-white"
+                data-testid="input-product-description" />
+            </div>
+          </div>
+          <div className="flex gap-2 justify-end">
+            <Button variant="outline" onClick={() => { setShowForm(false); setEditItem(null); }}
+              className="border-slate-600 text-slate-300">Болих</Button>
+            <Button onClick={handleSave} className="bg-amber-600 hover:bg-amber-500 text-black font-bold"
+              disabled={addMut.isPending || editMut.isPending} data-testid="btn-save-product">
+              {(addMut.isPending || editMut.isPending) ? <Loader2 size={14} className="animate-spin" /> : "Хадгалах"}
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Жагсаалт */}
+      {isLoading ? (
+        <div className="text-center py-10 text-slate-500"><Loader2 size={20} className="animate-spin mx-auto" /></div>
+      ) : products.length === 0 ? (
+        <div className="text-center py-12 text-slate-500">
+          <Package size={32} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Бүтээгдэхүүн байхгүй байна</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {products.map(p => (
+            <div key={p.id} className={`flex items-center gap-3 bg-slate-800 border rounded-xl px-4 py-3 transition-all ${p.isActive ? "border-slate-700" : "border-slate-700/40 opacity-50"}`}
+              data-testid={`row-product-${p.id}`}>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-white font-medium text-sm">{p.name}</span>
+                  <span className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">{p.unit}</span>
+                  <span className="text-xs text-slate-500 bg-slate-700 px-2 py-0.5 rounded-full">{CATEGORY_LABELS[p.category] ?? p.category}</span>
+                </div>
+                {p.description && <p className="text-slate-400 text-xs mt-0.5 truncate">{p.description}</p>}
+              </div>
+              <div className="flex items-center gap-1 shrink-0">
+                <button onClick={() => editMut.mutate({ id: p.id, data: { isActive: !p.isActive } })}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
+                  title={p.isActive ? "Идэвхгүй болгох" : "Идэвхтэй болгох"}
+                  data-testid={`btn-toggle-product-${p.id}`}>
+                  {p.isActive ? <ToggleRight size={18} className="text-green-400" /> : <ToggleLeft size={18} />}
+                </button>
+                <button onClick={() => startEdit(p)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
+                  data-testid={`btn-edit-product-${p.id}`}>
+                  <Pencil size={14} />
+                </button>
+                <button onClick={() => deleteMut.mutate(p.id)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                  data-testid={`btn-delete-product-${p.id}`}>
+                  <Trash2 size={14} />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Үндсэн самбар ─────────────────────────────────────────────────────────────
 export default function SalesDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const [tab, setTab] = useState<"orders" | "profit">("orders");
+  const [tab, setTab] = useState<"orders" | "profit" | "products">("orders");
   const [showNew, setShowNew] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -633,7 +827,7 @@ export default function SalesDashboard() {
 
       <div className="max-w-5xl mx-auto px-4 py-6">
         {/* ── Tabs ── */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           <button onClick={() => setTab("orders")}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "orders" ? "bg-amber-600 text-black" : "text-slate-400 hover:text-white bg-slate-800"}`}
             data-testid="tab-orders">
@@ -643,6 +837,11 @@ export default function SalesDashboard() {
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${tab === "profit" ? "bg-amber-600 text-black" : "text-slate-400 hover:text-white bg-slate-800"}`}
             data-testid="tab-profit">
             Ашигт ажиллагаа / 30% зорилт
+          </button>
+          <button onClick={() => setTab("products")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${tab === "products" ? "bg-amber-600 text-black" : "text-slate-400 hover:text-white bg-slate-800"}`}
+            data-testid="tab-products">
+            <Package size={14} /> Бүтээгдэхүүн
           </button>
         </div>
 
@@ -703,6 +902,8 @@ export default function SalesDashboard() {
         )}
 
         {tab === "profit" && <ProfitPanel />}
+
+        {tab === "products" && <ProductsPanel />}
       </div>
 
       {showNew && <NewOrderModal onClose={() => setShowNew(false)} configs={configs} />}
