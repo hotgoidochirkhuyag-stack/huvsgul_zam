@@ -5,7 +5,7 @@ import {
   TrendingUp, LogOut, Plus, Search, CheckCircle2,
   Clock, Truck, XCircle, Calculator, BarChart3,
   Loader2, AlertCircle, PackageCheck, Hammer, Send,
-  Package, Pencil, Trash2, ToggleLeft, ToggleRight
+  Package, Pencil, Trash2, ToggleLeft, ToggleRight, FileText
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import ReportUploadButton from "@/components/ReportUploadButton";
