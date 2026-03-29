@@ -224,7 +224,10 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
 
   const submit = async () => {
     if (!form.clientName || !form.clientPhone || !form.quantity) {
-      toast({ title: "Заавал талбаруудыг бөглөнө үү", variant: "destructive" }); return;
+      toast({ title: "Нэр, утас, тоо хэмжээ бөглөнө үү", variant: "destructive" }); return;
+    }
+    if (!form.clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.clientEmail)) {
+      toast({ title: "Зөв и-мэйл хаяг оруулна уу", variant: "destructive" }); return;
     }
     setLoading(true);
     try {
@@ -336,6 +339,16 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
                   type="text" value={form.clientName} onChange={f("clientName")}
                   placeholder="Байгууллага эсвэл хувь хүний нэр"
                   data-testid="input-client-name"
+                  className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500/50"
+                />
+              </div>
+
+              <div>
+                <label className="text-slate-300 text-xs font-bold uppercase tracking-wider mb-2 block">И-мэйл хаяг *</label>
+                <input
+                  type="email" value={form.clientEmail} onChange={f("clientEmail")}
+                  placeholder="email@example.com"
+                  data-testid="input-client-email"
                   className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500/50"
                 />
               </div>
