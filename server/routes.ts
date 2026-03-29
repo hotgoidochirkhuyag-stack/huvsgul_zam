@@ -337,6 +337,9 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   const aiRateMap = new Map<string, number[]>();
   const AI_RATE_LIMIT = 12;
   const AI_WINDOW_MS = 60_000;
+  // 6 цагийн кэш — ижил бүтээгдэхүүнд Gemini дуудахгүй
+  const AI_PRICE_CACHE = new Map<string, { data: any; ts: number }>();
+  const AI_CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
   app.post("/api/ai/price-estimate", async (req, res) => {
     const ip = (req.headers["x-forwarded-for"] as string || req.socket.remoteAddress || "unknown").split(",")[0].trim();
@@ -352,6 +355,24 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     const { product, quantity } = req.body;
     if (!product || !quantity) return res.status(400).json({ error: "Бүтээгдэхүүн, тоо хэмжээ шаардлагатай" });
     const qty = parseFloat(quantity) || 1;
+
+    // ── Кэш шалгах — ижил бүтээгдэхүүнд Gemini дуудахгүй ──
+    const cacheKey = `${(product as string).toLowerCase().trim()}`;
+    const cached = AI_PRICE_CACHE.get(cacheKey);
+    if (cached && (Date.now() - cached.ts) < AI_CACHE_TTL) {
+      // Кэшийн үнийг qty-аар дахин тооцоолж буцаана
+      const cachedData = { ...cached.data, quantity: qty, fromCache: true,
+        items: cached.data.items?.map((item: any) => ({
+          ...item,
+          totalPrice: {
+            min: Math.round((item.pricePerUnit?.min ?? 0) * qty),
+            max: Math.round((item.pricePerUnit?.max ?? 0) * qty),
+            avg: Math.round((item.pricePerUnit?.avg ?? 0) * qty),
+          },
+        })) };
+      return res.json(cachedData);
+    }
+
     const apiKey = process.env.GEMINI_API_KEY;
 
     if (apiKey) {
@@ -390,7 +411,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         if (!jsonMatch) throw new Error("JSON parse failed");
         const parsed = JSON.parse(jsonMatch[0]);
 
-        return res.json({
+        const responseData = {
           product, quantity: qty,
           items: parsed.items || [],
           marketFactors: parsed.marketFactors || [],
@@ -398,7 +419,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
           discount: parsed.discount || "",
           generatedAt: new Date().toISOString(),
           aiPowered: true,
-        });
+        };
+        // Кэшэд хадгалах (6 цаг)
+        AI_PRICE_CACHE.set(cacheKey, { data: responseData, ts: Date.now() });
+        return res.json(responseData);
       } catch (e: any) {
         console.error("Gemini AI error:", e.message);
       }
