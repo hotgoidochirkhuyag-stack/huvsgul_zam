@@ -1106,10 +1106,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
 
   app.post("/api/erp/vehicles", requireToken, async (req, res) => {
-    const { plateNumber, name, type, capacity, lastInspectionDate, nextInspectionDate, isReady, readyNote, notes } = req.body;
+    const { plateNumber, name, type, equipmentType, capacity, location, lastInspectionDate, nextInspectionDate, isReady, readyNote, notes } = req.body;
     if (!plateNumber || !name || !type) return res.status(400).json({ message: "Улсын дугаар, нэр, төрөл шаардлагатай" });
     const [v] = await db.insert(schema.vehicles).values({
-      plateNumber: plateNumber.toUpperCase(), name, type, capacity,
+      plateNumber: plateNumber.toUpperCase(), name, type,
+      equipmentType: equipmentType ?? "vehicle",
+      capacity, location,
       lastInspectionDate, nextInspectionDate,
       isReady: isReady !== undefined ? isReady : true,
       readyNote, notes,
@@ -1119,13 +1121,15 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   app.patch("/api/erp/vehicles/:id", requireToken, async (req, res) => {
     const id = parseInt(req.params.id);
-    const { isReady, readyNote, lastInspectionDate, nextInspectionDate, capacity, notes } = req.body;
+    const { isReady, readyNote, lastInspectionDate, nextInspectionDate, capacity, location, equipmentType, notes } = req.body;
     const updates: any = {};
     if (isReady !== undefined) updates.isReady = isReady;
     if (readyNote !== undefined) updates.readyNote = readyNote;
     if (lastInspectionDate !== undefined) updates.lastInspectionDate = lastInspectionDate;
     if (nextInspectionDate !== undefined) updates.nextInspectionDate = nextInspectionDate;
     if (capacity !== undefined) updates.capacity = capacity;
+    if (location !== undefined) updates.location = location;
+    if (equipmentType !== undefined) updates.equipmentType = equipmentType;
     if (notes !== undefined) updates.notes = notes;
     const [updated] = await db.update(schema.vehicles).set(updates).where(eq(schema.vehicles.id, id)).returning();
     res.json(updated);
@@ -1148,14 +1152,57 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Үзлэг илгээх (нийтийн)
   app.post("/api/checkin/vehicle-inspection", async (req, res) => {
-    const { vehicleId, employeeName, checks, passed, notes } = req.body;
+    const {
+      vehicleId, employeeName, checks, passed, notes, date,
+      inspectionType,
+      engineHoursStart, engineHoursEnd,
+      fuelLevelStart, fuelLevelEnd,
+    } = req.body;
     if (!vehicleId || !employeeName || !checks) return res.status(400).json({ message: "Мэдээлэл дутуу байна" });
-    const today = new Date().toISOString().slice(0, 10);
+    const today = date ?? new Date().toISOString().slice(0, 10);
     const [insp] = await db.insert(schema.vehicleInspections).values({
       vehicleId, employeeName, date: today,
+      inspectionType: inspectionType ?? "pre",
       checks: typeof checks === "string" ? checks : JSON.stringify(checks),
-      passed: passed ?? true, notes,
+      passed: passed ?? true,
+      notes: notes ?? null,
+      engineHoursStart: engineHoursStart != null ? parseFloat(engineHoursStart) : null,
+      engineHoursEnd:   engineHoursEnd   != null ? parseFloat(engineHoursEnd)   : null,
+      fuelLevelStart:   fuelLevelStart   != null ? parseFloat(fuelLevelStart)   : null,
+      fuelLevelEnd:     fuelLevelEnd     != null ? parseFloat(fuelLevelEnd)     : null,
     }).returning();
+
+    // Оройн үзлэгт тооцоолол хийж ашиглалт бүртгэнэ
+    if (inspectionType === "post" && (engineHoursStart || engineHoursEnd)) {
+      try {
+        const preInspRows = await db.select()
+          .from(schema.vehicleInspections)
+          .where(eq(schema.vehicleInspections.vehicleId, vehicleId));
+        const preToday = preInspRows.find(r => r.date === today && r.inspectionType === "pre");
+        const startHours = preToday?.engineHoursStart ?? engineHoursStart;
+        const endHours   = engineHoursEnd;
+        const startFuel  = preToday?.fuelLevelStart ?? fuelLevelStart;
+        const endFuel    = fuelLevelEnd;
+        if (startHours != null && endHours != null) {
+          const hoursWorked = parseFloat(endHours) - parseFloat(startHours);
+          const fuelUsed    = startFuel != null && endFuel != null
+            ? parseFloat(startFuel) - parseFloat(endFuel) : 0;
+          if (hoursWorked >= 0) {
+            await db.insert(schema.equipmentLogs).values({
+              vehicleId,
+              date: today,
+              hoursWorked,
+              fuelUsed,
+              engineHours: parseFloat(endHours),
+              recordedBy: employeeName,
+            });
+          }
+        }
+      } catch (e) {
+        console.error("Equipment log auto-create error:", e);
+      }
+    }
+
     res.status(201).json(insp);
   });
 

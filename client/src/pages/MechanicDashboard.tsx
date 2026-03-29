@@ -16,6 +16,15 @@ function getHeaders() {
 }
 
 const VEHICLE_TYPES = ["Экскаватор", "Бульдозер", "Автомашин", "Кран", "Грейдер", "Думпер", "Асфальт тавигч", "Индүү", "Автопомп", "Миксер", "Өөр"];
+const EQUIPMENT_TYPES: { value: string; label: string }[] = [
+  { value: "vehicle",     label: "Автомашин / Тээврийн хэрэгсэл" },
+  { value: "excavator",   label: "Экскаватор" },
+  { value: "bulldozer",   label: "Бульдозер / Грейдер" },
+  { value: "jaw_crusher", label: "Хацарт бутлуур (Jaw Crusher)" },
+  { value: "conveyor",    label: "Туузан дамжуулагч (Conveyor)" },
+  { value: "screen",      label: "Ялгагч / Дэлгэц (Screen)" },
+  { value: "motor",       label: "Мотор / Генератор" },
+];
 
 const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -59,7 +68,8 @@ export default function MechanicDashboard() {
   const [editData, setEditData] = useState<any>({});
 
   const emptyForm = {
-    plateNumber: "", name: "", type: "Экскаватор", capacity: "",
+    plateNumber: "", name: "", type: "Экскаватор", equipmentType: "vehicle",
+    capacity: "", location: "",
     lastInspectionDate: "", nextInspectionDate: "", isReady: true, readyNote: "", notes: "",
   };
   const [form, setForm] = useState(emptyForm);
@@ -362,19 +372,40 @@ export default function MechanicDashboard() {
               <div className="p-5 border-b border-white/10 bg-orange-600/5">
                 <p className="text-sm font-bold text-orange-300 mb-3">Шинэ техник бүртгэх</p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mb-3">
-                  <input value={form.plateNumber} onChange={e => setForm(f => ({ ...f, plateNumber: e.target.value.toUpperCase() }))}
-                    placeholder="Улсын дугаар *" className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-orange-500/50 uppercase" />
-                  <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-                    placeholder="Техникийн нэр * (жишээ: CAT 320D)" className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-orange-500/50" />
-                  <div className="relative">
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Дугаар (улсын / дотоод) *</label>
+                    <input value={form.plateNumber} onChange={e => setForm(f => ({ ...f, plateNumber: e.target.value.toUpperCase() }))}
+                      placeholder="0348УНА  /  BUT-001" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-orange-500/50 uppercase" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Техникийн нэр *</label>
+                    <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Хацарт бутлуур №1 / CAT 320D" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-orange-500/50" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Үзлэгийн чеклист загвар *</label>
+                    <select value={form.equipmentType} onChange={e => setForm(f => ({ ...f, equipmentType: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none">
+                      {EQUIPMENT_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Техникийн төрөл</label>
                     <select value={form.type} onChange={e => setForm(f => ({ ...f, type: e.target.value }))}
-                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none appearance-none">
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none">
                       {VEHICLE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                     </select>
-                    <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
                   </div>
-                  <input value={form.capacity} onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))}
-                    placeholder="Хүчин чадал (жишээ: 20 тн, 320 к.с.)" className="bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-orange-500/50" />
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Байршил</label>
+                    <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
+                      placeholder="Бутлуурын үйлдвэр / Талбай / Оффис" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-orange-500/50" />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-500 mb-1 block">Хүчин чадал</label>
+                    <input value={form.capacity} onChange={e => setForm(f => ({ ...f, capacity: e.target.value }))}
+                      placeholder="20 тн / 320 к.с. / 150 м³/цаг" className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm outline-none focus:border-orange-500/50" />
+                  </div>
                   <div>
                     <label className="text-xs text-slate-500 mb-1 block">Улсын үзлэгт орсон огноо</label>
                     <input type="date" value={form.lastInspectionDate} onChange={e => setForm(f => ({ ...f, lastInspectionDate: e.target.value }))}

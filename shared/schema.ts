@@ -189,10 +189,12 @@ export const workReports = pgTable("work_reports", {
 // Техник (Машин механизм)
 export const vehicles = pgTable("vehicles", {
   id: serial("id").primaryKey(),
-  plateNumber: text("plate_number").notNull().unique(), // Улсын дугаар
-  name: text("name").notNull(),              // Экскаватор CAT 320
+  plateNumber: text("plate_number").notNull().unique(), // Улсын дугаар / Дотоод дугаар (BUT-001 гэх мэт)
+  name: text("name").notNull(),              // Хацарт бутлуур №1 / Excavator CAT 320
   type: text("type").notNull(),              // Экскаватор | Бульдозер | Автомашин | Кран | Өөр
+  equipmentType: text("equipment_type").default("vehicle"), // vehicle | excavator | bulldozer | jaw_crusher | conveyor | screen | motor
   capacity: text("capacity"),                // Хүчин чадал (жишээ: 20 тн, 320 к.с.)
+  location: text("location"),               // Байршил (Бутлуурын үйлдвэр, Талбай гэх мэт)
   lastInspectionDate: text("last_inspection_date"), // Улсын үзлэгт орсон огноо YYYY-MM-DD
   nextInspectionDate: text("next_inspection_date"), // Дараагийн үзлэгийн огноо
   isReady: boolean("is_ready").default(true),       // Ажилд бэлэн эсэх
@@ -201,14 +203,19 @@ export const vehicles = pgTable("vehicles", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-// Техникийн өмнөх үзлэг
+// Техникийн өмнөх/дараах үзлэг
 export const vehicleInspections = pgTable("vehicle_inspections", {
   id: serial("id").primaryKey(),
   vehicleId: integer("vehicle_id").notNull(),
   employeeName: text("employee_name").notNull(), // Хэн үзлэг хийсэн
   date: text("date").notNull(),
-  checks: text("checks").notNull(),       // JSON: [{item, ok, note}]
+  inspectionType: text("inspection_type").default("pre"), // pre (өглөө) | post (орой)
+  checks: text("checks").notNull(),       // JSON: [{item, ok, warn, note}]
   passed: boolean("passed").default(true),
+  engineHoursStart: real("engine_hours_start"),  // Хөдөлгүүрийн цаг эхлэх (pre)
+  engineHoursEnd: real("engine_hours_end"),      // Хөдөлгүүрийн цаг дуусах (post)
+  fuelLevelStart: real("fuel_level_start"),      // Шатахуун эхлэх (литр)
+  fuelLevelEnd: real("fuel_level_end"),          // Шатахуун дуусах (литр)
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
