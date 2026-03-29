@@ -26,6 +26,7 @@ import SalesDashboard from "@/pages/SalesDashboard";
 import EmployeeProfile from "@/pages/EmployeeProfile";
 import ConcretePlantERP from "@/pages/ConcretePlantERP";
 import ContractPage from "@/pages/ContractPage";
+import PriceProposalPage from "@/pages/PriceProposalPage";
 
 const ProtectedRoute = ({ component: Component, role }: { component: React.ComponentType; role: string }) => {
   const userRole = localStorage.getItem("userRole");
@@ -86,6 +87,17 @@ function Router() {
 
       {/* Оны эцсийн нэгтгэл тайлан */}
       <Route path="/dashboard/annual-report" component={() => <ProtectedRoute component={AnnualReport} role="ADMIN" />} />
+
+      {/* Үнийн санал / Орц норм workflow — олон дүр */}
+      <Route path="/price-proposals" component={() => {
+        const token = localStorage.getItem("adminToken");
+        const userRole = localStorage.getItem("userRole");
+        if (!token) return <Redirect to="/admin/ADMIN" />;
+        if (!["ADMIN", "SALES", "LAB", "HR", "BOARD"].includes(userRole ?? "")) {
+          return <Redirect to="/" />;
+        }
+        return <PriceProposalPage />;
+      }} />
 
       {/* Лаборатори — LAB болон ENGINEER хандаж болно */}
       <Route path="/dashboard/lab-qc" component={() => {

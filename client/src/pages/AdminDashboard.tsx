@@ -2295,6 +2295,14 @@ export default function AdminDashboard() {
             Заавар
           </button>
           <button
+            data-testid="btn-price-proposals"
+            onClick={() => setLocation("/price-proposals")}
+            className="flex items-center gap-2 px-4 py-2 bg-teal-600/20 hover:bg-teal-600/40 border border-teal-500/40 text-teal-300 text-sm font-bold rounded-xl transition-all"
+          >
+            <Sparkles className="w-4 h-4" />
+            Үнийн санал
+          </button>
+          <button
             data-testid="btn-annual-report"
             onClick={() => setLocation("/dashboard/annual-report")}
             className="flex items-center gap-2 px-4 py-2 bg-amber-600/20 hover:bg-amber-600/40 border border-amber-500/40 text-amber-300 text-sm font-bold rounded-xl transition-all"

@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   FlaskConical, Plus, Trash2, LogOut, RefreshCw, CheckCircle2,
   XCircle, Clock, FileText, AlertTriangle, ShieldCheck, History, Pencil,
-  BarChart3, TrendingUp, TrendingDown, Printer
+  BarChart3, TrendingUp, TrendingDown, Printer, Sparkles
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
@@ -478,6 +478,11 @@ export default function LabQCDashboard() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button onClick={() => setLocation("/price-proposals")}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-400 border border-amber-600/40 hover:bg-amber-600/10 rounded-xl transition-all"
+              data-testid="btn-price-proposals">
+              <Sparkles size={12} /> Орц норм
+            </button>
             <button onClick={() => refetch()}
               className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-all">
               <RefreshCw className="w-4 h-4" />

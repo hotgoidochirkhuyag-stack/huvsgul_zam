@@ -5,7 +5,7 @@ import {
   TrendingUp, LogOut, Plus, Search, CheckCircle2,
   Clock, Truck, XCircle, Calculator, BarChart3,
   Loader2, AlertCircle, PackageCheck, Hammer, Send,
-  Package, Pencil, Trash2, ToggleLeft, ToggleRight, FileText
+  Package, Pencil, Trash2, ToggleLeft, ToggleRight, FileText, Sparkles
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import ReportUploadButton from "@/components/ReportUploadButton";
@@ -1236,6 +1236,10 @@ export default function SalesDashboard() {
               {confirmedCount} үйлдвэрлэлд
             </Badge>
           )}
+          <Button size="sm" variant="outline" className="border-amber-600/40 text-amber-400 hover:bg-amber-600/10 text-xs"
+            onClick={() => setLocation("/price-proposals")} data-testid="btn-price-proposals">
+            <Sparkles size={13} className="mr-1" /> Үнийн санал
+          </Button>
           <ReportUploadButton role="SALES" />
           <NotificationBell role="SALES" />
           <Button size="sm" variant="ghost" className="text-slate-400 hover:text-white"

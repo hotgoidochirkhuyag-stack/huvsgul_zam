@@ -3362,6 +3362,243 @@ ${cert.testResults ? `
   seedDefaultKpiConfigs().catch(console.error);
   seedWarehouse().catch(console.error);
   seedProductionCostConfig().catch(console.error);
+
+  // ======= ГЭРЭЭНИЙ ЗАГВАР (Contract Template) =======
+  app.get("/api/contract-template", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.contractTemplateSections)
+        .orderBy(schema.contractTemplateSections.sortOrder);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.patch("/api/contract-template/:key", requireAdmin, async (req, res) => {
+    try {
+      const { content, sectionTitle } = req.body;
+      const [row] = await db.update(schema.contractTemplateSections)
+        .set({ content, sectionTitle, updatedAt: new Date(), updatedBy: req.authUser ?? req.authRole })
+        .where(eq(schema.contractTemplateSections.sectionKey, req.params.key))
+        .returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ======= ҮНИЙН САНАЛ WORKFLOW (Price Proposal) =======
+  // Бүх саналын жагсаалт
+  app.get("/api/price-proposals", requireAdmin, async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.priceProposals)
+        .orderBy(desc(schema.priceProposals.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Нэг санал (items + labor хамт)
+  app.get("/api/price-proposals/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [proposal] = await db.select().from(schema.priceProposals).where(eq(schema.priceProposals.id, id));
+      if (!proposal) return res.status(404).json({ error: "Олдсонгүй" });
+      const items = await db.select().from(schema.priceProposalItems)
+        .where(eq(schema.priceProposalItems.proposalId, id))
+        .orderBy(schema.priceProposalItems.sortOrder);
+      const labor = await db.select().from(schema.priceProposalLabor)
+        .where(eq(schema.priceProposalLabor.proposalId, id));
+      res.json({ ...proposal, items, labor });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Шинэ санал үүсгэх + AI норм генерейт
+  app.post("/api/price-proposals", requireAdmin, async (req, res) => {
+    try {
+      const { productType, productName, unit = "м³", requestedBy = "SALES" } = req.body;
+      const [proposal] = await db.insert(schema.priceProposals)
+        .values({ productType, productName, unit, requestedBy, status: "draft" })
+        .returning();
+
+      // AI норм генерейт
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (apiKey) {
+        try {
+          const genAI = new GoogleGenerativeAI(apiKey);
+          const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
+          const prompt = `Монгол Улсын барилгын норм ба дүрэм (БНбД) болон MNS стандартад тулгуурлан "${productName}" бүтээгдэхүүний орц нормыг гаргаж өг.
+1 ${unit} ${productName} үйлдвэрлэхэд шаардлагатай материал, хүний нөөц, тоног төхөөрөмжийн нормыг JSON форматаар өг.
+Дараах форматаар:
+{
+  "notes": "БНбД-ийн тусгай заалт, норм",
+  "materials": [
+    {"name": "Цемент ПЦ 400", "norm": 0.35, "unit": "тн", "category": "material"},
+    ...
+  ],
+  "labor": [
+    {"roleName": "Бетонч", "count": 2, "hoursPerUnit": 0.5},
+    ...
+  ]
+}
+Зөвхөн JSON буцааж өг, тайлбар хэрэггүй.`;
+          const result = await model.generateContent(prompt);
+          const text = result.response.text().trim().replace(/```json|```/g, "");
+          const parsed = JSON.parse(text);
+
+          if (parsed.notes) {
+            await db.update(schema.priceProposals)
+              .set({ aiNotes: parsed.notes })
+              .where(eq(schema.priceProposals.id, proposal.id));
+          }
+          if (parsed.materials?.length) {
+            await db.insert(schema.priceProposalItems).values(
+              parsed.materials.map((m: any, i: number) => ({
+                proposalId: proposal.id,
+                category: m.category ?? "material",
+                materialName: m.name,
+                norm: parseFloat(m.norm) || 0,
+                unit: m.unit,
+                source: "ai",
+                sortOrder: i,
+              }))
+            );
+          }
+          if (parsed.labor?.length) {
+            await db.insert(schema.priceProposalLabor).values(
+              parsed.labor.map((l: any) => ({
+                proposalId: proposal.id,
+                roleName: l.roleName,
+                count: parseInt(l.count) || 1,
+                hoursPerUnit: parseFloat(l.hoursPerUnit) || 1,
+              }))
+            );
+          }
+        } catch (aiErr) { console.error("AI норм алдаа:", aiErr); }
+      }
+
+      const [full] = await db.select().from(schema.priceProposals).where(eq(schema.priceProposals.id, proposal.id));
+      const items = await db.select().from(schema.priceProposalItems).where(eq(schema.priceProposalItems.proposalId, proposal.id)).orderBy(schema.priceProposalItems.sortOrder);
+      const labor = await db.select().from(schema.priceProposalLabor).where(eq(schema.priceProposalLabor.proposalId, proposal.id));
+      res.status(201).json({ ...full, items, labor });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Санал шинэчлэх (статус, markup, notes гэх мэт)
+  app.patch("/api/price-proposals/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updateData: any = { ...req.body, updatedAt: new Date() };
+      if (req.body.status === "lab_approved") {
+        updateData.labApprovedBy = req.authUser ?? req.authRole;
+        updateData.labApprovedAt = new Date();
+      }
+      const [row] = await db.update(schema.priceProposals).set(updateData).where(eq(schema.priceProposals.id, id)).returning();
+      // Workflow notification
+      if (req.body.status === "lab_review") {
+        await db.insert(schema.notifications).values({ toRole: "LAB", title: "Орц нормын шалгалт хүсэлт", body: `${row.productName} — нормыг шалгаж батлана уу`, sourceType: "project_order", sourceId: id });
+      } else if (req.body.status === "lab_approved") {
+        await db.insert(schema.notifications).values({ toRole: "SALES", title: "Lab орц нормыг баталлаа", body: `${row.productName} — үнийн судалгаа хийх шаардлагатай`, sourceType: "project_order", sourceId: id });
+        await db.insert(schema.notifications).values({ toRole: "ADMIN", title: "Lab орц нормыг баталлаа", body: `${row.productName} — санхүүгийн судалгаа хийх шаардлагатай`, sourceType: "project_order", sourceId: id });
+      } else if (req.body.status === "hr_review") {
+        await db.insert(schema.notifications).values({ toRole: "HR", title: "Хүний нөөцийн мэдээлэл шаардлагатай", body: `${row.productName} — хөдөлмөрийн норм бөглөнө үү`, sourceType: "project_order", sourceId: id });
+      } else if (req.body.status === "completed") {
+        await db.insert(schema.notifications).values({ toRole: "SALES", title: "Үнийн санал бэлэн боллоо", body: `${row.productName} — нэгж үнэ: ₮${row.suggestedPrice?.toLocaleString() ?? "тооцоологдоогүй"}`, sourceType: "project_order", sourceId: id });
+      }
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/price-proposals/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await db.delete(schema.priceProposalItems).where(eq(schema.priceProposalItems.proposalId, id));
+      await db.delete(schema.priceProposalLabor).where(eq(schema.priceProposalLabor.proposalId, id));
+      await db.delete(schema.priceProposals).where(eq(schema.priceProposals.id, id));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Орц нормын мөр шинэчлэх (Lab)
+  app.patch("/api/price-proposal-items/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { norm, unitPrice, labNote, materialName, unit } = req.body;
+      const updateData: any = {};
+      if (norm !== undefined) { updateData.norm = parseFloat(norm); updateData.source = "lab_adjusted"; }
+      if (unitPrice !== undefined) { updateData.unitPrice = parseFloat(unitPrice); updateData.source = "finance_set"; }
+      if (labNote !== undefined) updateData.labNote = labNote;
+      if (materialName !== undefined) updateData.materialName = materialName;
+      if (unit !== undefined) updateData.unit = unit;
+      if (updateData.norm !== undefined || updateData.unitPrice !== undefined) {
+        const [item] = await db.select().from(schema.priceProposalItems).where(eq(schema.priceProposalItems.id, id));
+        const n = updateData.norm ?? item?.norm ?? 0;
+        const p = updateData.unitPrice ?? item?.unitPrice ?? 0;
+        if (p) updateData.totalPerUnit = n * p;
+      }
+      const [row] = await db.update(schema.priceProposalItems).set(updateData).where(eq(schema.priceProposalItems.id, id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/price-proposal-items", requireAdmin, async (req, res) => {
+    try {
+      const [row] = await db.insert(schema.priceProposalItems).values(req.body).returning();
+      res.status(201).json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.delete("/api/price-proposal-items/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.priceProposalItems).where(eq(schema.priceProposalItems.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Хүний нөөц шинэчлэх (HR)
+  app.patch("/api/price-proposal-labor/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { hourlyRate, count, hoursPerUnit, roleName } = req.body;
+      const updateData: any = {};
+      if (hourlyRate !== undefined) updateData.hourlyRate = parseFloat(hourlyRate);
+      if (count !== undefined) updateData.count = parseInt(count);
+      if (hoursPerUnit !== undefined) updateData.hoursPerUnit = parseFloat(hoursPerUnit);
+      if (roleName !== undefined) updateData.roleName = roleName;
+      const [item] = await db.select().from(schema.priceProposalLabor).where(eq(schema.priceProposalLabor.id, id));
+      const c = updateData.count ?? item?.count ?? 1;
+      const h = updateData.hoursPerUnit ?? item?.hoursPerUnit ?? 1;
+      const r = updateData.hourlyRate ?? item?.hourlyRate ?? 0;
+      if (r) updateData.totalPerUnit = c * h * r;
+      const [row] = await db.update(schema.priceProposalLabor).set(updateData).where(eq(schema.priceProposalLabor.id, id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.post("/api/price-proposal-labor", requireAdmin, async (req, res) => {
+    try {
+      const [row] = await db.insert(schema.priceProposalLabor).values(req.body).returning();
+      res.status(201).json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.delete("/api/price-proposal-labor/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.priceProposalLabor).where(eq(schema.priceProposalLabor.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Нэгж өртгийг дахин тооцоолох
+  app.post("/api/price-proposals/:id/recalculate", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [proposal] = await db.select().from(schema.priceProposals).where(eq(schema.priceProposals.id, id));
+      const items = await db.select().from(schema.priceProposalItems).where(eq(schema.priceProposalItems.proposalId, id));
+      const labor = await db.select().from(schema.priceProposalLabor).where(eq(schema.priceProposalLabor.proposalId, id));
+      const materialCost = items.reduce((s, i) => s + ((i.norm ?? 0) * (i.unitPrice ?? 0)), 0);
+      const laborCost = labor.reduce((s, l) => s + ((l.count ?? 1) * (l.hoursPerUnit ?? 1) * (l.hourlyRate ?? 0)), 0);
+      const finalUnitCost = materialCost + laborCost;
+      const markup = proposal?.markupPct ?? 15;
+      const suggestedPrice = finalUnitCost * (1 + markup / 100);
+      const [updated] = await db.update(schema.priceProposals)
+        .set({ finalUnitCost, suggestedPrice, updatedAt: new Date() })
+        .where(eq(schema.priceProposals.id, id))
+        .returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   return httpServer;
 }
 

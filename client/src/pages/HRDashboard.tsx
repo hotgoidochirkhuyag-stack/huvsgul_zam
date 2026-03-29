@@ -4,7 +4,7 @@ import {
   Users, Plus, Trash2, QrCode, LogOut, RefreshCw,
   Clock, ShieldCheck, Download, Search, Building2, HardHat, Factory, ChevronDown,
   Pencil, X, Check, Award, GraduationCap, Wrench, AlertTriangle, CheckCircle2,
-  Calculator,
+  Calculator, Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -157,12 +157,19 @@ export default function HRDashboard() {
               <p className="text-xs text-slate-500">Хөвсгөл Зам ХХК — HR Систем</p>
             </div>
           </div>
-          <button
-            onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
-            className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-xl text-sm transition-all"
-          >
-            <LogOut className="w-4 h-4" /> Гарах
-          </button>
+          <div className="flex items-center gap-2">
+            <button onClick={() => setLocation("/price-proposals")}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-400 border border-amber-600/40 hover:bg-amber-600/10 rounded-xl transition-all"
+              data-testid="btn-price-proposals">
+              <Sparkles size={12} /> Хөдөлмөрийн норм
+            </button>
+            <button
+              onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
+              className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-xl text-sm transition-all"
+            >
+              <LogOut className="w-4 h-4" /> Гарах
+            </button>
+          </div>
         </div>
       </div>
 

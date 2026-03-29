@@ -1026,3 +1026,76 @@ export type ContactResponse = Contact;
 export type ContentResponse = Content;
 export type SuccessGalleryResponse = SuccessGallery;
 export type SubscriptionResponse = Subscription;
+
+// ===================== ҮНИЙН САНАЛ (Price Proposal Workflow) =====================
+// draft → lab_review → lab_approved → finance_pricing → hr_review → completed
+export const priceProposals = pgTable("price_proposals", {
+  id:             serial("id").primaryKey(),
+  productType:    text("product_type").notNull(), // concrete_b25 | concrete_b30 | asphalt | crushed_stone | ...
+  productName:    text("product_name").notNull(),
+  unit:           text("unit").notNull().default("м³"),
+  requestedBy:    text("requested_by").notNull().default("SALES"),
+  status:         text("status").notNull().default("draft"),
+  aiNotes:        text("ai_notes"),
+  finalUnitCost:  real("final_unit_cost"),
+  markupPct:      real("markup_pct").default(15),
+  suggestedPrice: real("suggested_price"),
+  hrNotes:        text("hr_notes"),
+  salesNotes:     text("sales_notes"),
+  recommendedQty: real("recommended_qty"),
+  labApprovedBy:  text("lab_approved_by"),
+  labApprovedAt:  timestamp("lab_approved_at"),
+  createdAt:      timestamp("created_at").defaultNow(),
+  updatedAt:      timestamp("updated_at").defaultNow(),
+});
+export const insertPriceProposalSchema = createInsertSchema(priceProposals).omit({ id: true, createdAt: true, updatedAt: true });
+export type PriceProposal       = typeof priceProposals.$inferSelect;
+export type InsertPriceProposal = z.infer<typeof insertPriceProposalSchema>;
+
+// Орц нормын бүтэц (материал + хөдөлмөр + тоног)
+export const priceProposalItems = pgTable("price_proposal_items", {
+  id:           serial("id").primaryKey(),
+  proposalId:   integer("proposal_id").notNull(),
+  category:     text("category").notNull().default("material"), // material | labor | equipment | overhead
+  materialName: text("material_name").notNull(),
+  norm:         real("norm").notNull(),         // нэгж бүтээгдэхүүнд ногдох хэмжээ
+  unit:         text("unit").notNull(),          // тн | м³ | кг | л | цаг
+  unitPrice:    real("unit_price"),              // санхүү бөглөнө
+  totalPerUnit: real("total_per_unit"),          // norm × unitPrice
+  source:       text("source").notNull().default("ai"), // ai | lab_adjusted | finance_set
+  labNote:      text("lab_note"),
+  sortOrder:    integer("sort_order").default(0),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+export const insertPriceProposalItemSchema = createInsertSchema(priceProposalItems).omit({ id: true, createdAt: true });
+export type PriceProposalItem       = typeof priceProposalItems.$inferSelect;
+export type InsertPriceProposalItem = z.infer<typeof insertPriceProposalItemSchema>;
+
+// Хүний нөөц (HR)
+export const priceProposalLabor = pgTable("price_proposal_labor", {
+  id:           serial("id").primaryKey(),
+  proposalId:   integer("proposal_id").notNull(),
+  roleName:     text("role_name").notNull(),   // Бетонч | Жолооч | Операторч
+  count:        integer("count").notNull().default(1),
+  hoursPerUnit: real("hours_per_unit").notNull().default(1),
+  hourlyRate:   real("hourly_rate"),
+  totalPerUnit: real("total_per_unit"),
+  createdAt:    timestamp("created_at").defaultNow(),
+});
+export const insertPriceProposalLaborSchema = createInsertSchema(priceProposalLabor).omit({ id: true, createdAt: true });
+export type PriceProposalLabor       = typeof priceProposalLabor.$inferSelect;
+export type InsertPriceProposalLabor = z.infer<typeof insertPriceProposalLaborSchema>;
+
+// ===================== ГЭРЭЭНИЙ ЗАГВАР (Contract Template) =====================
+export const contractTemplateSections = pgTable("contract_template_sections", {
+  id:           serial("id").primaryKey(),
+  sectionKey:   text("section_key").notNull().unique(),
+  sectionTitle: text("section_title").notNull(),
+  content:      text("content").notNull(),
+  sortOrder:    integer("sort_order").default(0),
+  updatedAt:    timestamp("updated_at").defaultNow(),
+  updatedBy:    text("updated_by"),
+});
+export const insertContractTemplateSectionSchema = createInsertSchema(contractTemplateSections).omit({ id: true, updatedAt: true });
+export type ContractTemplateSection       = typeof contractTemplateSections.$inferSelect;
+export type InsertContractTemplateSection = z.infer<typeof insertContractTemplateSectionSchema>;
