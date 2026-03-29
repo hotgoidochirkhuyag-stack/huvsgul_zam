@@ -3221,6 +3221,100 @@ ${cert.testResults ? `
     res.json({ totalM3, totalCement, totalSand, totalGravel, matCost, unitCost, revenue, profit: revenue - matCost });
   });
 
+  // ======= CONTRACTS (онлайн гэрээ) =======
+  app.get("/api/contracts", requireAdmin, async (_req, res) => {
+    const rows = await db.select().from(schema.contracts)
+      .orderBy(desc(schema.contracts.createdAt));
+    res.json(rows);
+  });
+
+  app.post("/api/contracts", requireAdmin, async (req, res) => {
+    try {
+      const token = crypto.randomUUID();
+      const now = new Date();
+      const year = now.getFullYear();
+      const count = await db.select({ cnt: sql<number>`count(*)` }).from(schema.contracts);
+      const seq = String(Number(count[0]?.cnt ?? 0) + 1).padStart(3, "0");
+      const contractNo = `ХЗ-${year}-${seq}`;
+      const data = { ...req.body, approvalToken: token, contractNo };
+      const [row] = await db.insert(schema.contracts).values(data).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/contracts/:id", requireAdmin, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const [row] = await db.update(schema.contracts).set({ ...req.body, updatedAt: new Date() })
+      .where(eq(schema.contracts.id, id)).returning();
+    res.json(row);
+  });
+
+  app.delete("/api/contracts/:id", requireAdmin, async (req, res) => {
+    await db.delete(schema.contracts).where(eq(schema.contracts.id, parseInt(req.params.id)));
+    res.json({ ok: true });
+  });
+
+  // Нийтийн: харилцагч гэрээг харах (токеноор)
+  app.get("/api/contracts/public/:token", async (req, res) => {
+    const [row] = await db.select().from(schema.contracts)
+      .where(eq(schema.contracts.approvalToken, req.params.token));
+    if (!row) return res.status(404).json({ error: "Гэрээ олдсонгүй" });
+    res.json(row);
+  });
+
+  // Нийтийн: харилцагч гэрээг зөвшөөрөх
+  app.post("/api/contracts/approve/:token", async (req, res) => {
+    const [row] = await db.select().from(schema.contracts)
+      .where(eq(schema.contracts.approvalToken, req.params.token));
+    if (!row) return res.status(404).json({ error: "Гэрээ олдсонгүй" });
+    if (row.status === "cancelled") return res.status(400).json({ error: "Гэрээ цуцлагдсан" });
+    if (row.status === "client_approved" || row.status === "factory_ordered") {
+      return res.json(row); // Already approved
+    }
+    const [updated] = await db.update(schema.contracts)
+      .set({ status: "client_approved", approvedAt: new Date(), updatedAt: new Date() })
+      .where(eq(schema.contracts.approvalToken, req.params.token))
+      .returning();
+    res.json(updated);
+  });
+
+  // Нийтийн: гэрээ татаж авсны дараа үйлдвэрийн захиалга үүсгэх
+  app.post("/api/contracts/activate/:token", async (req, res) => {
+    const [row] = await db.select().from(schema.contracts)
+      .where(eq(schema.contracts.approvalToken, req.params.token));
+    if (!row) return res.status(404).json({ error: "Гэрээ олдсонгүй" });
+    if (row.status !== "client_approved") return res.status(400).json({ error: "Гэрээ зөвшөөрөгдөөгүй байна" });
+    if (row.factoryOrderId) return res.json(row); // Already created
+    try {
+      // Concrete захиалга үүсгэнэ
+      const grade = row.product.match(/B\d+/)?.[0] ?? "B25";
+      const [order] = await db.insert(schema.concreteOrders).values({
+        orderNo: row.contractNo,
+        customerName: row.clientOrg ?? row.clientName,
+        grade,
+        quantity: row.quantity,
+        unitPrice: row.unitPrice,
+        deliveryDate: row.deliveryDate ?? "",
+        deliveryAddress: row.deliveryAddress ?? "",
+        status: "pending",
+        notes: `Онлайн гэрээ #${row.contractNo} — автоматаар үүссэн`,
+      } as any).returning();
+      const [updated] = await db.update(schema.contracts)
+        .set({ status: "factory_ordered", factoryOrderId: order.id, updatedAt: new Date() })
+        .where(eq(schema.contracts.id, row.id))
+        .returning();
+      res.json(updated);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Admin: контактын жагсаалт (Sales-д харагдах Үнийн санал хүсэлтүүд)
+  app.get("/api/contacts/inquiries", requireAdmin, async (_req, res) => {
+    const rows = await db.select().from(schema.contacts)
+      .where(eq(schema.contacts.type, "Үнийн санал"))
+      .orderBy(desc(schema.contacts.createdAt));
+    res.json(rows);
+  });
+
   // ======= COMPANY PRODUCTS (борлуулалтын бүтээгдэхүүн) =======
   app.get("/api/company-products", async (_req, res) => {
     const rows = await db.select().from(schema.companyProducts)

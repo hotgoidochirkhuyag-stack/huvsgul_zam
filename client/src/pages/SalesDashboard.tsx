@@ -698,13 +698,320 @@ function ProductsPanel() {
   );
 }
 
+// ── Захиалгын хүсэлтийн самбар (нүүр хуудасны форм) ───────────────────────────
+interface Inquiry { id: number; name: string; email: string; phone?: string; message: string; type: string; createdAt: string; }
+interface ContractRow { id: number; contractNo: string; clientName: string; clientOrg?: string; clientEmail: string; product: string; quantity: number; unit: string; unitPrice: number; totalAmount: number; deliveryDate?: string; status: string; approvalToken: string; createdAt: string; factoryOrderId?: number; }
+
+const CONTRACT_STATUS: Record<string, { label: string; color: string }> = {
+  draft:           { label: "Ноорог",             color: "bg-slate-600" },
+  sent:            { label: "Явуулсан",            color: "bg-blue-600" },
+  client_approved: { label: "Зөвшөөрсөн",          color: "bg-green-600" },
+  factory_ordered: { label: "Үйлдвэрт захиалагдсан", color: "bg-amber-600" },
+  completed:       { label: "Дууссан",             color: "bg-teal-600" },
+  cancelled:       { label: "Цуцлагдсан",          color: "bg-red-600" },
+};
+
+function InquiriesAndContractsPanel() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const token = localStorage.getItem("adminToken") ?? "";
+  const [subTab, setSubTab] = useState<"inquiries" | "contracts">("inquiries");
+  const [showContractForm, setShowContractForm] = useState(false);
+  const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
+  const [contractForm, setContractForm] = useState({
+    clientName: "", clientEmail: "", clientPhone: "", clientOrg: "",
+    product: "", quantity: "", unit: "м³", unitPrice: "", deliveryDate: "",
+    deliveryAddress: "", notes: "",
+  });
+
+  const { data: inquiries = [], isLoading: inqLoading } = useQuery<Inquiry[]>({
+    queryKey: ["/api/contacts/inquiries"],
+    queryFn: () => fetch("/api/contacts/inquiries", { headers: { "x-admin-token": token } }).then(r => r.json()),
+    refetchInterval: 30000,
+  });
+
+  const { data: contractsRaw = [], isLoading: ctrLoading } = useQuery<ContractRow[]>({
+    queryKey: ["/api/contracts"],
+    queryFn: () => fetch("/api/contracts", { headers: { "x-admin-token": token } }).then(r => r.json()),
+    refetchInterval: 30000,
+  });
+  const contracts: ContractRow[] = Array.isArray(contractsRaw) ? contractsRaw : [];
+
+  const createContract = useMutation({
+    mutationFn: async (data: object) => {
+      const r = await fetch("/api/contracts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+        body: JSON.stringify(data),
+      });
+      if (!r.ok) throw new Error(await r.text());
+      return r.json();
+    },
+    onSuccess: (row: ContractRow) => {
+      qc.invalidateQueries({ queryKey: ["/api/contracts"] });
+      toast({ title: `Гэрээ ${row.contractNo} үүслээ ✓` });
+      setShowContractForm(false);
+      setSelectedInquiry(null);
+    },
+    onError: (e: any) => toast({ title: "Алдаа", description: e.message, variant: "destructive" }),
+  });
+
+  const updateContractStatus = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => {
+      const r = await fetch(`/api/contracts/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+        body: JSON.stringify({ status }),
+      });
+      return r.json();
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/contracts"] }),
+  });
+
+  const openFormFromInquiry = (inq: Inquiry) => {
+    setSelectedInquiry(inq);
+    const productMatch = inq.message.match(/Бүтээгдэхүүн: ([^,]+)/);
+    const qtyMatch = inq.message.match(/Тоо хэмжээ: ([^.]+)/);
+    setContractForm({
+      clientName: inq.name,
+      clientEmail: inq.email,
+      clientPhone: inq.phone ?? "",
+      clientOrg: "",
+      product: productMatch ? productMatch[1].trim() : "",
+      quantity: qtyMatch ? qtyMatch[1].trim().replace(/[^0-9.]/g, "") : "",
+      unit: "м³",
+      unitPrice: "",
+      deliveryDate: "",
+      deliveryAddress: "",
+      notes: inq.message,
+    });
+    setShowContractForm(true);
+  };
+
+  const handleCreateContract = () => {
+    if (!contractForm.clientName || !contractForm.product || !contractForm.quantity || !contractForm.unitPrice) {
+      toast({ title: "Талбар бүрэн биш", description: "Шаардлагатай талбаруудыг бөглөнө үү", variant: "destructive" });
+      return;
+    }
+    const qty = parseFloat(contractForm.quantity);
+    const price = parseFloat(contractForm.unitPrice.replace(/,/g, ""));
+    createContract.mutate({
+      ...contractForm,
+      contactId: selectedInquiry?.id,
+      quantity: qty,
+      unitPrice: price,
+      totalAmount: qty * price,
+      createdBy: "SALES",
+    });
+  };
+
+  const baseUrl = window.location.origin;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex gap-2 mb-2">
+        <button onClick={() => setSubTab("inquiries")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${subTab === "inquiries" ? "bg-amber-600 text-black" : "text-slate-400 bg-slate-800"}`}
+          data-testid="subtab-inquiries">
+          Захиалгын хүсэлт {inquiries.length > 0 && <span className="ml-1 bg-white/20 rounded-full px-1.5">{inquiries.length}</span>}
+        </button>
+        <button onClick={() => setSubTab("contracts")}
+          className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${subTab === "contracts" ? "bg-amber-600 text-black" : "text-slate-400 bg-slate-800"}`}
+          data-testid="subtab-contracts">
+          Гэрээнүүд {contracts.length > 0 && <span className="ml-1 bg-white/20 rounded-full px-1.5">{contracts.length}</span>}
+        </button>
+      </div>
+
+      {/* Гэрээ үүсгэх форм */}
+      {showContractForm && (
+        <div className="bg-slate-800 border border-amber-600/30 rounded-xl p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h4 className="text-white font-bold flex items-center gap-2">
+              <FileText size={16} className="text-amber-500" /> Шинэ гэрээ үүсгэх
+            </h4>
+            {selectedInquiry && (
+              <span className="text-xs text-amber-400 bg-amber-400/10 px-2 py-0.5 rounded-full">
+                Хүсэлт #{selectedInquiry.id} — {selectedInquiry.name}
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+            {[
+              { label: "Харилцагчийн нэр *", key: "clientName", ph: "Батбаяр" },
+              { label: "Байгууллагын нэр", key: "clientOrg", ph: "ХХК нэр" },
+              { label: "И-мэйл *", key: "clientEmail", ph: "email@example.com" },
+              { label: "Утас", key: "clientPhone", ph: "+976 9999-0000" },
+              { label: "Бүтээгдэхүүн *", key: "product", ph: "Бетон зуурмаг B25" },
+              { label: "Тоо хэмжээ *", key: "quantity", ph: "100" },
+              { label: "Нэгж", key: "unit", ph: "м³" },
+              { label: "Нэгж үнэ (₮) *", key: "unitPrice", ph: "280000" },
+              { label: "Хүргэлтийн огноо", key: "deliveryDate", ph: "2026-06-01" },
+              { label: "Хүргэх хаяг", key: "deliveryAddress", ph: "Мурэн хот, ..." },
+            ].map(f => (
+              <div key={f.key}>
+                <label className="text-xs text-slate-400 mb-1 block">{f.label}</label>
+                <Input
+                  value={(contractForm as any)[f.key]}
+                  onChange={e => setContractForm(p => ({ ...p, [f.key]: e.target.value }))}
+                  placeholder={f.ph}
+                  className="bg-slate-700 border-slate-600 text-white text-sm h-9"
+                  data-testid={`input-contract-${f.key}`}
+                />
+              </div>
+            ))}
+          </div>
+          <div>
+            <label className="text-xs text-slate-400 mb-1 block">Нэмэлт тайлбар</label>
+            <textarea
+              value={contractForm.notes}
+              onChange={e => setContractForm(p => ({ ...p, notes: e.target.value }))}
+              rows={2}
+              className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm resize-none"
+              placeholder="Тайлбар..."
+              data-testid="input-contract-notes"
+            />
+          </div>
+          {contractForm.quantity && contractForm.unitPrice && (
+            <div className="bg-amber-600/10 border border-amber-600/30 rounded-lg px-4 py-2 flex items-center justify-between">
+              <span className="text-amber-300 text-sm font-medium">Нийт дүн</span>
+              <span className="text-white font-black text-lg">
+                ₮{(parseFloat(contractForm.quantity) * parseFloat(contractForm.unitPrice.replace(/,/g, "") || "0")).toLocaleString()}
+              </span>
+            </div>
+          )}
+          <div className="flex gap-2 justify-end">
+            <button onClick={() => { setShowContractForm(false); setSelectedInquiry(null); }}
+              className="px-4 py-2 text-sm text-slate-400 hover:text-white bg-slate-700 rounded-lg transition-all">Болих</button>
+            <button onClick={handleCreateContract}
+              disabled={createContract.isPending}
+              className="flex items-center gap-2 px-5 py-2 text-sm bg-amber-600 hover:bg-amber-500 text-black font-bold rounded-lg transition-all disabled:opacity-60"
+              data-testid="btn-create-contract">
+              {createContract.isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+              Гэрээ үүсгэх
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Захиалгын хүсэлтийн жагсаалт */}
+      {subTab === "inquiries" && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-slate-400 text-sm">Нүүр хуудасны үнийн санал хүсэлтүүд</p>
+          </div>
+          {inqLoading ? (
+            <div className="text-center py-10"><Loader2 size={18} className="animate-spin text-slate-500 mx-auto" /></div>
+          ) : inquiries.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              <AlertCircle size={28} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Хүсэлт байхгүй байна</p>
+            </div>
+          ) : (
+            inquiries.map(inq => (
+              <div key={inq.id} className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 flex items-start justify-between gap-3"
+                data-testid={`row-inquiry-${inq.id}`}>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-white font-semibold text-sm">{inq.name}</span>
+                    <span className="text-xs text-slate-400">{inq.email}</span>
+                    {inq.phone && <span className="text-xs text-amber-400">{inq.phone}</span>}
+                    <span className="text-xs text-slate-500">{new Date(inq.createdAt).toLocaleDateString("mn-MN")}</span>
+                  </div>
+                  <p className="text-slate-400 text-xs mt-1 truncate">{inq.message}</p>
+                </div>
+                <button
+                  onClick={() => openFormFromInquiry(inq)}
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-amber-600/20 border border-amber-600/30 hover:bg-amber-600 hover:text-black text-amber-400 text-xs font-bold rounded-lg transition-all"
+                  data-testid={`btn-create-contract-from-${inq.id}`}>
+                  <FileText size={12} /> Гэрээ үүсгэх
+                </button>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Гэрээнүүдийн жагсаалт */}
+      {subTab === "contracts" && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-slate-400 text-sm">Үүсгэсэн гэрээнүүд</p>
+            <button
+              onClick={() => { setSelectedInquiry(null); setContractForm({ clientName: "", clientEmail: "", clientPhone: "", clientOrg: "", product: "", quantity: "", unit: "м³", unitPrice: "", deliveryDate: "", deliveryAddress: "", notes: "" }); setShowContractForm(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-black text-xs font-bold rounded-lg transition-all"
+              data-testid="btn-new-contract">
+              <Plus size={12} /> Шинэ гэрээ
+            </button>
+          </div>
+          {ctrLoading ? (
+            <div className="text-center py-10"><Loader2 size={18} className="animate-spin text-slate-500 mx-auto" /></div>
+          ) : contracts.length === 0 ? (
+            <div className="text-center py-12 text-slate-500">
+              <FileText size={28} className="mx-auto mb-2 opacity-30" />
+              <p className="text-sm">Гэрээ байхгүй байна</p>
+            </div>
+          ) : (
+            contracts.map(c => {
+              const st = CONTRACT_STATUS[c.status] ?? { label: c.status, color: "bg-slate-600" };
+              const contractUrl = `${baseUrl}/contract/${c.approvalToken}`;
+              return (
+                <div key={c.id} className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 space-y-2"
+                  data-testid={`row-contract-${c.id}`}>
+                  <div className="flex items-start justify-between gap-2 flex-wrap">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="text-white font-bold text-sm">{c.contractNo}</span>
+                      <span className={`text-xs text-white px-2 py-0.5 rounded-full font-bold ${st.color}`}>{st.label}</span>
+                      {c.factoryOrderId && (
+                        <span className="text-xs text-teal-400 bg-teal-400/10 border border-teal-400/20 px-2 py-0.5 rounded-full">
+                          Захиалга #{c.factoryOrderId}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex gap-1.5 flex-wrap">
+                      {c.status === "draft" && (
+                        <button
+                          onClick={() => updateContractStatus.mutate({ id: c.id, status: "sent" })}
+                          className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all"
+                          data-testid={`btn-send-contract-${c.id}`}>
+                          <Send size={11} /> Харилцагчид явуулах
+                        </button>
+                      )}
+                      <a href={contractUrl} target="_blank" rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-all"
+                        data-testid={`link-view-contract-${c.id}`}>
+                        <FileText size={11} /> Харах
+                      </a>
+                      <button
+                        onClick={() => { navigator.clipboard.writeText(contractUrl); toast({ title: "Холбоос хуулагдлаа ✓" }); }}
+                        className="px-3 py-1 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs rounded-lg transition-all"
+                        data-testid={`btn-copy-link-${c.id}`}>
+                        Холбоос
+                      </button>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-xs">
+                    <div><span className="text-slate-500">Харилцагч:</span> <span className="text-white">{c.clientOrg || c.clientName}</span></div>
+                    <div><span className="text-slate-500">Бүтээгдэхүүн:</span> <span className="text-white">{c.product}</span></div>
+                    <div><span className="text-slate-500">Хэмжээ:</span> <span className="text-white">{c.quantity.toLocaleString()} {c.unit}</span></div>
+                    <div><span className="text-slate-500">Дүн:</span> <span className="text-amber-400 font-bold">₮{c.totalAmount.toLocaleString()}</span></div>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Үндсэн самбар ─────────────────────────────────────────────────────────────
 export default function SalesDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const [tab, setTab] = useState<"orders" | "profit" | "products">("orders");
+  const [tab, setTab] = useState<"orders" | "profit" | "products" | "contracts">("orders");
   const [showNew, setShowNew] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -843,6 +1150,11 @@ export default function SalesDashboard() {
             data-testid="tab-products">
             <Package size={14} /> Бүтээгдэхүүн
           </button>
+          <button onClick={() => setTab("contracts")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${tab === "contracts" ? "bg-amber-600 text-black" : "text-slate-400 hover:text-white bg-slate-800"}`}
+            data-testid="tab-contracts">
+            <FileText size={14} /> Гэрээ / Хүсэлт
+          </button>
         </div>
 
         {tab === "orders" && (
@@ -904,6 +1216,8 @@ export default function SalesDashboard() {
         {tab === "profit" && <ProfitPanel />}
 
         {tab === "products" && <ProductsPanel />}
+
+        {tab === "contracts" && <InquiriesAndContractsPanel />}
       </div>
 
       {showNew && <NewOrderModal onClose={() => setShowNew(false)} configs={configs} />}

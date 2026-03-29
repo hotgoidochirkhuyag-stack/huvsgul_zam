@@ -976,6 +976,36 @@ export const insertMeetingReportSchema = createInsertSchema(meetingReports).omit
 export type MeetingReport       = typeof meetingReports.$inferSelect;
 export type InsertMeetingReport = z.infer<typeof insertMeetingReportSchema>;
 
+// ===================== CONTRACTS (онлайн гэрээ) =====================
+export const contracts = pgTable("contracts", {
+  id:              serial("id").primaryKey(),
+  contractNo:      text("contract_no").notNull(),
+  approvalToken:   text("approval_token").notNull().unique(),
+  contactId:       integer("contact_id"),
+  clientName:      text("client_name").notNull(),
+  clientEmail:     text("client_email").notNull(),
+  clientPhone:     text("client_phone"),
+  clientOrg:       text("client_org"),
+  product:         text("product").notNull(),
+  quantity:        real("quantity").notNull(),
+  unit:            text("unit").notNull().default("м³"),
+  unitPrice:       real("unit_price").notNull(),
+  totalAmount:     real("total_amount").notNull(),
+  deliveryDate:    text("delivery_date"),
+  deliveryAddress: text("delivery_address"),
+  notes:           text("notes"),
+  status:          text("status").notNull().default("draft"),
+  // draft → sent → client_approved → factory_ordered → completed | cancelled
+  approvedAt:      timestamp("approved_at"),
+  factoryOrderId:  integer("factory_order_id"),
+  createdBy:       text("created_by"),
+  createdAt:       timestamp("created_at").defaultNow(),
+  updatedAt:       timestamp("updated_at").defaultNow(),
+});
+export const insertContractSchema = createInsertSchema(contracts).omit({ id: true, createdAt: true, updatedAt: true });
+export type Contract       = typeof contracts.$inferSelect;
+export type InsertContract = z.infer<typeof insertContractSchema>;
+
 // ===================== COMPANY PRODUCTS (нүүр хуудасны захиалгын жагсаалт) =====================
 export const companyProducts = pgTable("company_products", {
   id:          serial("id").primaryKey(),
