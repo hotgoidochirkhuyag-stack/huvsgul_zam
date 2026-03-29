@@ -403,7 +403,7 @@ const servicesData = [
     id: 2,
     icon: Warehouse,
     title: "Бетон зуурмагийн үйлдвэр",
-    description: "Бетон зуурмаг, асфальтбетон хольц, хайрга, элс — тохирлын гэрчилгээтэй, өндөр чанартай.",
+    description: "Бетон зуурмаг, төмөр бетон хийц, хайрга, элс — тохирлын гэрчилгээтэй, өндөр чанартай.",
     delay: 0.2,
     orderBtn: true,
   },
@@ -451,8 +451,8 @@ function TenderProjectsModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div>
-            <h2 className="text-lg font-bold text-white">Тендерт явуулсан төслүүд</h2>
-            <p className="text-slate-400 text-xs mt-0.5">Зам гүүр, барилга угсралтын Хөвсгөл зам ХХК-ийн оролцсон тендерүүд</p>
+            <h2 className="text-lg font-bold text-white">Хамтрах боломжтой төслүүд</h2>
+            <p className="text-slate-400 text-xs mt-0.5">Зам гүүр, барилга угсралтын Хөвсгөл зам ХХК</p>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"><X className="w-5 h-5" /></button>
         </div>
@@ -553,7 +553,7 @@ export default function Services() {
               >
                 <span className="absolute inset-0 bg-primary translate-y-full group-hover:translate-y-0 transition-transform duration-300"></span>
                 <span className="relative z-10 text-lg md:text-xl font-bold uppercase tracking-wider group-hover:text-primary-foreground transition-colors duration-300">
-                  хамтран ажиллах санал хүлээн авах
+                 ---- хамтран ажиллах санал ----
                 </span>
                 <span className="absolute top-0 right-0 w-3 h-3 bg-primary translate-x-1.5 -translate-y-1.5 rotate-45 z-20"></span>
               </button>
@@ -593,7 +593,7 @@ export default function Services() {
                   className="mt-auto w-full py-2.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
                 >
                   <FileText className="w-4 h-4" />
-                  Тендерт явуулсан төслүүд
+                  Хамтрах төслүүд
                 </button>
               )}
 
