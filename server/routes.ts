@@ -483,6 +483,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       const payload = { ...req.body, orderNumber: num, status: "pending" };
       const data = schema.insertProjectOrderSchema.parse(payload);
       const [row] = await db.insert(schema.projectOrders).values(data).returning();
+      // Нүүр хуудасны захиалга → SALES, ADMIN, SUPERVISOR-т мэдэгдэл явуулна
+      const notifBody = `${row.clientName}${row.clientPhone ? ` · ${row.clientPhone}` : ""} — ${row.productType} ${row.quantity}${row.unit ?? "м³"}${row.deliveryDate ? ` · ${row.deliveryDate}` : ""}`;
+      await db.insert(schema.notifications).values([
+        { toRole: "SALES",      title: `🔔 Шинэ захиалга: ${num}`, body: notifBody, sourceType: "project_order", sourceId: row.id },
+        { toRole: "ADMIN",      title: `🔔 Шинэ захиалга: ${num}`, body: notifBody, sourceType: "project_order", sourceId: row.id },
+        { toRole: "SUPERVISOR", title: `🔔 Шинэ захиалга: ${num}`, body: notifBody, sourceType: "project_order", sourceId: row.id },
+      ]);
       res.json({ ok: true, id: row.id, orderNumber: row.orderNumber });
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -2504,9 +2511,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   // ===================== МЭДЭГДЛИЙН СИСТЕМ =====================
   app.get("/api/notifications", async (req, res) => {
     try {
-      const token = req.headers["x-admin-token"];
-      const role  = (req.query.role as string || "").toUpperCase();
-      if (token !== "authenticated" || !role) return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+      const token = (req.headers["x-admin-token"] as string) || "";
+      if (!token) return res.status(401).json({ message: "Нэвтрэх шаардлагатай" });
+      // Legacy болон JWT token хоёуланг зөвшөөр
+      let role = (req.query.role as string || "").toUpperCase();
+      if (token !== "authenticated") {
+        const payload = verifyToken(token);
+        if (!payload) return res.status(401).json({ message: "Токен хүчингүй" });
+        if (!role) role = payload.role;
+      }
+      if (!role) return res.status(400).json({ message: "Role шаардлагатай" });
       const rows = await db.select().from(schema.notifications)
         .where(eq(schema.notifications.toRole, role))
         .orderBy(desc(schema.notifications.createdAt))
