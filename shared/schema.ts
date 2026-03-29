@@ -387,6 +387,83 @@ export const workPhotos = pgTable("work_photos", {
   createdAt:    timestamp("created_at").defaultNow(),
 });
 
+// ===================== БЕТОН ЗУУРМАГИЙН ҮЙЛДВЭРИЙН ERP =====================
+
+// 1. Холимогийн рецепт (Mix Design)
+export const concreteMixDesigns = pgTable("concrete_mix_designs", {
+  id: serial("id").primaryKey(),
+  grade: text("grade").notNull(),                       // B15 | B20 | B25 | B30 | B35
+  cementKgPerM3: real("cement_kg_per_m3").notNull(),    // Цемент кг/м³
+  waterLPerM3: real("water_l_per_m3").notNull(),        // Ус л/м³
+  sandKgPerM3: real("sand_kg_per_m3").notNull(),        // Элс кг/м³
+  gravel1KgPerM3: real("gravel1_kg_per_m3").notNull(),  // 5-10мм хайрга кг/м³
+  gravel2KgPerM3: real("gravel2_kg_per_m3").notNull(),  // 10-20мм хайрга кг/м³
+  admixtureKgPerM3: real("admixture_kg_per_m3").default(0), // Нэмэлт бодис кг/м³
+  wcRatio: real("wc_ratio"),                            // В/Ц харьцаа
+  targetSlump: integer("target_slump"),                 // Зорилтот налуулалт мм
+  targetStrength: real("target_strength"),              // Зорилтот бат бөх МПа
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// 2. Захиалга (Client Order)
+export const concreteOrders = pgTable("concrete_orders", {
+  id: serial("id").primaryKey(),
+  orderNumber: text("order_number").notNull(),          // КЗ-2025-001
+  clientName: text("client_name").notNull(),
+  projectName: text("project_name"),
+  grade: text("grade").notNull(),                       // B15 | B20 | B25 | B30
+  mixDesignId: integer("mix_design_id"),
+  orderedQty: real("ordered_qty").notNull(),             // Захиалсан м³
+  deliveredQty: real("delivered_qty").default(0),       // Хүргэсэн м³
+  deliveryAddress: text("delivery_address"),
+  orderDate: text("order_date").notNull(),
+  deliveryDate: text("delivery_date"),
+  unitPrice: real("unit_price").default(0),             // ₮/м³
+  status: text("status").notNull().default("pending"),  // pending | producing | delivered | cancelled
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// 3. Зуурах бүртгэл (Batch Record) — нэг ачаа = 1.5м³
+export const concreteBatches = pgTable("concrete_batches", {
+  id: serial("id").primaryKey(),
+  orderId: integer("order_id"),                         // Аль захиалгад
+  batchNumber: integer("batch_number").notNull(),        // Зуурах дугаар
+  grade: text("grade").notNull(),
+  mixDesignId: integer("mix_design_id"),
+  plannedQty: real("planned_qty").notNull(),             // Төлөвлөсөн м³
+  actualQty: real("actual_qty"),                        // Бодит гарц м³
+  cementActual: real("cement_actual"),                  // Бодит цемент кг
+  sandActual: real("sand_actual"),                      // Бодит элс кг
+  gravel1Actual: real("gravel1_actual"),                // Бодит хайрга 1 кг
+  gravel2Actual: real("gravel2_actual"),                // Бодит хайрга 2 кг
+  waterActual: real("water_actual"),                    // Бодит ус л
+  admixtureActual: real("admixture_actual"),            // Бодит нэмэлт кг
+  slumpMm: integer("slump_mm"),                         // Налуулалт мм
+  airTemp: real("air_temp"),                            // Агаарын температур °C
+  operator: text("operator").notNull(),
+  truckPlate: text("truck_plate"),                      // Миксер машины дугаар
+  date: text("date").notNull(),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
+  warehouseDeducted: boolean("warehouse_deducted").default(false), // Агуулахаас хасагдсан эсэх
+  status: text("status").notNull().default("produced"), // produced | delivered | rejected
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertConcreteMixDesignSchema = createInsertSchema(concreteMixDesigns).omit({ id: true, createdAt: true });
+export const insertConcreteOrderSchema = createInsertSchema(concreteOrders).omit({ id: true, createdAt: true });
+export const insertConcreteBatchSchema = createInsertSchema(concreteBatches).omit({ id: true, createdAt: true });
+
+export type ConcreteMixDesign = typeof concreteMixDesigns.$inferSelect;
+export type InsertConcreteMixDesign = z.infer<typeof insertConcreteMixDesignSchema>;
+export type ConcreteOrder = typeof concreteOrders.$inferSelect;
+export type InsertConcreteOrder = z.infer<typeof insertConcreteOrderSchema>;
+export type ConcreteBatch = typeof concreteBatches.$inferSelect;
+export type InsertConcreteBatch = z.infer<typeof insertConcreteBatchSchema>;
+
 export const insertWorkPhotoSchema = createInsertSchema(workPhotos).omit({ id: true, createdAt: true });
 export type WorkPhoto = typeof workPhotos.$inferSelect;
 export type InsertWorkPhoto = z.infer<typeof insertWorkPhotoSchema>;

@@ -24,6 +24,7 @@ import AnnualReport from "@/pages/AnnualReport";
 import UserManual from "@/pages/UserManual";
 import SalesDashboard from "@/pages/SalesDashboard";
 import EmployeeProfile from "@/pages/EmployeeProfile";
+import ConcretePlantERP from "@/pages/ConcretePlantERP";
 
 const ProtectedRoute = ({ component: Component, role }: { component: React.ComponentType; role: string }) => {
   const userRole = localStorage.getItem("userRole");
@@ -79,6 +80,7 @@ function Router() {
       {/* ERP Систем */}
       <Route path="/erp" component={() => <ProtectedRoute component={ERPDashboard} role="ADMIN" />} />
       <Route path="/erp/report" component={ERPReport} />
+      <Route path="/erp/concrete" component={() => <ProtectedRoute component={ConcretePlantERP} role="ADMIN" />} />
 
       {/* Оны эцсийн нэгтгэл тайлан */}
       <Route path="/dashboard/annual-report" component={() => <ProtectedRoute component={AnnualReport} role="ADMIN" />} />

@@ -3048,6 +3048,179 @@ ${cert.testResults ? `
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ===================== БЕТОН ЗУУРМАГИЙН ҮЙЛДВЭРИЙН ERP =====================
+
+  app.get("/api/concrete/mix-designs", requireToken, async (_req, res) => {
+    res.json(await db.select().from(schema.concreteMixDesigns).orderBy(schema.concreteMixDesigns.grade));
+  });
+
+  app.post("/api/concrete/mix-designs", requireToken, async (req, res) => {
+    const { grade, cementKgPerM3, waterLPerM3, sandKgPerM3, gravel1KgPerM3, gravel2KgPerM3, admixtureKgPerM3, wcRatio, targetSlump, targetStrength, notes } = req.body;
+    if (!grade || !cementKgPerM3) return res.status(400).json({ message: "Зэрэглэл болон цементийн хэмжээ шаардлагатай" });
+    const [row] = await db.insert(schema.concreteMixDesigns).values({ grade, cementKgPerM3, waterLPerM3, sandKgPerM3, gravel1KgPerM3, gravel2KgPerM3, admixtureKgPerM3: admixtureKgPerM3 ?? 0, wcRatio, targetSlump, targetStrength, notes }).returning();
+    res.status(201).json(row);
+  });
+
+  app.patch("/api/concrete/mix-designs/:id", requireToken, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const fields = ["grade","cementKgPerM3","waterLPerM3","sandKgPerM3","gravel1KgPerM3","gravel2KgPerM3","admixtureKgPerM3","wcRatio","targetSlump","targetStrength","notes"];
+    const updates: any = {};
+    for (const k of fields) { if (req.body[k] !== undefined) updates[k] = req.body[k]; }
+    const [row] = await db.update(schema.concreteMixDesigns).set(updates).where(eq(schema.concreteMixDesigns.id, id)).returning();
+    res.json(row);
+  });
+
+  app.delete("/api/concrete/mix-designs/:id", requireToken, async (req, res) => {
+    await db.delete(schema.concreteMixDesigns).where(eq(schema.concreteMixDesigns.id, parseInt(req.params.id)));
+    res.json({ success: true });
+  });
+
+  app.get("/api/concrete/orders", requireToken, async (_req, res) => {
+    res.json(await db.select().from(schema.concreteOrders).orderBy(schema.concreteOrders.createdAt));
+  });
+
+  app.post("/api/concrete/orders", requireToken, async (req, res) => {
+    const body = req.body;
+    if (!body.clientName || !body.grade || !body.orderedQty) return res.status(400).json({ message: "Харилцагч, зэрэглэл, хэмжээ шаардлагатай" });
+    const count = await db.select().from(schema.concreteOrders);
+    const orderNumber = body.orderNumber || `КЗ-${new Date().getFullYear()}-${String(count.length + 1).padStart(3, "0")}`;
+    const [row] = await db.insert(schema.concreteOrders).values({ ...body, orderNumber }).returning();
+    res.status(201).json(row);
+  });
+
+  app.patch("/api/concrete/orders/:id", requireToken, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const updates: any = {};
+    for (const k of ["clientName","projectName","grade","mixDesignId","orderedQty","deliveredQty","deliveryAddress","orderDate","deliveryDate","unitPrice","status","notes"]) {
+      if (req.body[k] !== undefined) updates[k] = req.body[k];
+    }
+    const [row] = await db.update(schema.concreteOrders).set(updates).where(eq(schema.concreteOrders.id, id)).returning();
+    res.json(row);
+  });
+
+  app.delete("/api/concrete/orders/:id", requireToken, async (req, res) => {
+    await db.delete(schema.concreteOrders).where(eq(schema.concreteOrders.id, parseInt(req.params.id)));
+    res.json({ success: true });
+  });
+
+  app.get("/api/concrete/batches", requireToken, async (req, res) => {
+    const orderId = req.query.orderId ? parseInt(req.query.orderId as string) : undefined;
+    const date = req.query.date as string | undefined;
+    const rows = await db.select().from(schema.concreteBatches).orderBy(schema.concreteBatches.createdAt);
+    let filtered = rows;
+    if (orderId) filtered = filtered.filter(b => b.orderId === orderId);
+    if (date) filtered = filtered.filter(b => b.date === date);
+    res.json(filtered);
+  });
+
+  app.post("/api/concrete/batches", requireToken, async (req, res) => {
+    const body = req.body;
+    if (!body.grade || !body.plannedQty || !body.operator) return res.status(400).json({ message: "Зэрэглэл, хэмжээ, операторч шаардлагатай" });
+    const today = body.date || new Date().toISOString().slice(0, 10);
+    const todayBatches = await db.select().from(schema.concreteBatches).then(r => r.filter(b => b.date === today));
+    const batchNumber = body.batchNumber || (todayBatches.length + 1);
+    let materialUpdates: any = {};
+    if (body.mixDesignId && body.actualQty) {
+      const [md] = await db.select().from(schema.concreteMixDesigns).where(eq(schema.concreteMixDesigns.id, body.mixDesignId));
+      if (md) {
+        const qty = body.actualQty;
+        materialUpdates = {
+          cementActual:    body.cementActual    ?? parseFloat((md.cementKgPerM3    * qty).toFixed(1)),
+          sandActual:      body.sandActual      ?? parseFloat((md.sandKgPerM3      * qty).toFixed(1)),
+          gravel1Actual:   body.gravel1Actual   ?? parseFloat((md.gravel1KgPerM3  * qty).toFixed(1)),
+          gravel2Actual:   body.gravel2Actual   ?? parseFloat((md.gravel2KgPerM3  * qty).toFixed(1)),
+          waterActual:     body.waterActual     ?? parseFloat((md.waterLPerM3     * qty).toFixed(1)),
+          admixtureActual: body.admixtureActual ?? parseFloat(((md.admixtureKgPerM3 ?? 0) * qty).toFixed(2)),
+        };
+      }
+    }
+    const [batch] = await db.insert(schema.concreteBatches).values({ ...body, batchNumber, date: today, ...materialUpdates, warehouseDeducted: false }).returning();
+    // Auto-deduct warehouse
+    if (batch.cementActual || batch.sandActual || batch.gravel1Actual) {
+      try {
+        const wItems = await db.select().from(schema.warehouseItems).where(eq(schema.warehouseItems.plant, "concrete"));
+        const deduct = async (keywords: string[], kg: number) => {
+          const item = wItems.find(w => keywords.some(k => w.name.toLowerCase().includes(k)));
+          if (!item || !kg) return;
+          await db.update(schema.warehouseItems).set({ currentStock: Math.max(0, (item.currentStock ?? 0) - kg / 1000) }).where(eq(schema.warehouseItems.id, item.id));
+          await db.insert(schema.warehouseLogs).values({ itemId: item.id, date: today, quantity: -(kg / 1000), type: "out", notes: `Зуурах №${batchNumber} - ${batch.grade}`, recordedBy: body.operator });
+        };
+        await deduct(["цемент","cement"], batch.cementActual ?? 0);
+        await deduct(["элс","sand"],      batch.sandActual   ?? 0);
+        await deduct(["хайрга 1","5-10","gravel1"], batch.gravel1Actual ?? 0);
+        await deduct(["хайрга 2","10-20","gravel2"], batch.gravel2Actual ?? 0);
+        await db.update(schema.concreteBatches).set({ warehouseDeducted: true }).where(eq(schema.concreteBatches.id, batch.id));
+        // Слумп тест → лаборатори
+        if (batch.slumpMm !== null && batch.slumpMm !== undefined) {
+          const md = body.mixDesignId ? await db.select().from(schema.concreteMixDesigns).where(eq(schema.concreteMixDesigns.id, body.mixDesignId)).then(r => r[0]) : null;
+          await db.insert(schema.labResults).values({
+            testType: "slump", sampleId: `ZUU-${today}-${batchNumber}`, date: today,
+            material: `Бетон ${batch.grade}`, location: `Бетон үйлдвэр - №${batchNumber}`,
+            value: batch.slumpMm, unit: "мм", standard: md?.targetSlump ?? 80,
+            status: Math.abs(batch.slumpMm - (md?.targetSlump ?? 80)) <= 30 ? "pass" : "fail",
+            notes: `Оператор: ${body.operator}`, recordedBy: body.operator,
+          });
+        }
+      } catch (e: any) { console.error("Warehouse deduct error:", e.message); }
+    }
+    // Update order delivered qty
+    if (batch.orderId && batch.actualQty) {
+      try {
+        const [order] = await db.select().from(schema.concreteOrders).where(eq(schema.concreteOrders.id, batch.orderId));
+        if (order) {
+          const allBatches = await db.select().from(schema.concreteBatches).then(r => r.filter(b => b.orderId === batch.orderId && b.status !== "rejected"));
+          const totalDelivered = allBatches.reduce((s, b) => s + (b.actualQty ?? 0), 0);
+          const newStatus = totalDelivered >= order.orderedQty ? "delivered" : "producing";
+          await db.update(schema.concreteOrders).set({ deliveredQty: totalDelivered, status: newStatus }).where(eq(schema.concreteOrders.id, batch.orderId));
+        }
+      } catch {}
+    }
+    res.status(201).json(batch);
+  });
+
+  app.patch("/api/concrete/batches/:id", requireToken, async (req, res) => {
+    const id = parseInt(req.params.id);
+    const updates: any = {};
+    for (const k of ["status","slumpMm","actualQty","truckPlate","notes","endTime"]) {
+      if (req.body[k] !== undefined) updates[k] = req.body[k];
+    }
+    const [row] = await db.update(schema.concreteBatches).set(updates).where(eq(schema.concreteBatches.id, id)).returning();
+    res.json(row);
+  });
+
+  app.get("/api/concrete/summary", requireToken, async (req, res) => {
+    const date = (req.query.date as string) || new Date().toISOString().slice(0, 10);
+    const month = date.slice(0, 7);
+    const [batches, orders] = await Promise.all([
+      db.select().from(schema.concreteBatches),
+      db.select().from(schema.concreteOrders),
+    ]);
+    const todayBatches = batches.filter(b => b.date === date && b.status !== "rejected");
+    const monthBatches = batches.filter(b => b.date.startsWith(month) && b.status !== "rejected");
+    const todayM3      = todayBatches.reduce((s, b) => s + (b.actualQty ?? b.plannedQty), 0);
+    const monthM3      = monthBatches.reduce((s, b) => s + (b.actualQty ?? b.plannedQty), 0);
+    const todayCement  = todayBatches.reduce((s, b) => s + (b.cementActual ?? 0), 0);
+    const activeOrders = orders.filter(o => o.status === "pending" || o.status === "producing");
+    const pendingM3    = activeOrders.reduce((s, o) => s + ((o.orderedQty ?? 0) - (o.deliveredQty ?? 0)), 0);
+    res.json({ date, todayM3, monthM3, todayCement, activeOrders: activeOrders.length, pendingM3, batchCount: todayBatches.length });
+  });
+
+  app.get("/api/concrete/cost/:orderId", requireToken, async (req, res) => {
+    const orderId = parseInt(req.params.orderId);
+    const [order] = await db.select().from(schema.concreteOrders).where(eq(schema.concreteOrders.id, orderId));
+    if (!order) return res.status(404).json({ message: "Захиалга олдсонгүй" });
+    const batches = await db.select().from(schema.concreteBatches).then(r => r.filter(b => b.orderId === orderId && b.status !== "rejected"));
+    const cementPrice = 400000; const sandPrice = 35000; const gravelPrice = 45000;
+    const totalM3     = batches.reduce((s, b) => s + (b.actualQty ?? 0), 0);
+    const totalCement = batches.reduce((s, b) => s + (b.cementActual ?? 0), 0) / 1000;
+    const totalSand   = batches.reduce((s, b) => s + (b.sandActual ?? 0), 0) / 1000;
+    const totalGravel = batches.reduce((s, b) => s + ((b.gravel1Actual ?? 0) + (b.gravel2Actual ?? 0)), 0) / 1000;
+    const matCost     = totalCement * cementPrice + totalSand * sandPrice * 1.5 + totalGravel * gravelPrice * 1.5;
+    const unitCost    = totalM3 > 0 ? matCost / totalM3 : 0;
+    const revenue     = totalM3 * (order.unitPrice ?? 0);
+    res.json({ totalM3, totalCement, totalSand, totalGravel, matCost, unitCost, revenue, profit: revenue - matCost });
+  });
+
   // Seed data
   seedInitialContent().catch(console.error);
   seedDefaultKpiConfigs().catch(console.error);
