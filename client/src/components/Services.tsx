@@ -7,19 +7,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 const adminHdrs = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") || "" });
 const isAdminSession = () => localStorage.getItem("adminToken") === "authenticated";
 
-const PRODUCTS = [
-  { label: "М100 Бетон зуурмаг",  value: "М100 бетон",    unit: "м³" },
-  { label: "М150 Бетон зуурмаг",  value: "М150 бетон",    unit: "м³" },
-  { label: "М200 Бетон зуурмаг",  value: "М200 бетон",    unit: "м³" },
-  { label: "М250 Бетон зуурмаг",  value: "М250 бетон",    unit: "м³" },
-  { label: "М300 Бетон зуурмаг",  value: "М300 бетон",    unit: "м³" },
-  { label: "М350 Бетон зуурмаг",  value: "М350 бетон",    unit: "м³" },
-  { label: "М400 Бетон зуурмаг",  value: "М400 бетон",    unit: "м³" },
-  { label: "Асфальт хольц (AC)",  value: "Асфальт хольц", unit: "тн" },
-  { label: "Хайрга (0-5мм)",      value: "Хайрга 0-5мм",  unit: "м³" },
-  { label: "Хайрга (5-20мм)",     value: "Хайрга 5-20мм", unit: "м³" },
-  { label: "Шигшсэн элс",        value: "Элс",            unit: "м³" },
-];
+// Бүтээгдэхүүн DB-ээс татна — hardcode байхгүй
 
 
 
@@ -207,18 +195,28 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
   const [step, setStep] = useState<"form" | "success">("form");
   const [orderNum, setOrderNum] = useState("");
   const [loading, setLoading] = useState(false);
+  const [selectedId, setSelectedId] = useState<number>(0);
   const [form, setForm] = useState({
     clientName:       "",
     clientPhone:      "",
     clientEmail:      "",
-    productType:      initialProduct ?? PRODUCTS[2].value,
     quantity:         "",
     deliveryDate:     "",
     deliveryLocation: "",
     notes:            "",
   });
 
-  const selected = PRODUCTS.find(p => p.value === form.productType) || PRODUCTS[2];
+  // DB-ийн бүтээгдэхүүн татах
+  const { data: dbProducts = [] } = useQuery<any[]>({
+    queryKey: ["/api/company-products"],
+    queryFn: () => fetch("/api/company-products").then(r => r.json()),
+  });
+  const activeProducts = (dbProducts as any[]).filter((p: any) => p.isActive !== false);
+
+  // Анх нээхэд бүтээгдэхүүн сонгох
+  const selected = activeProducts.find((p: any) => p.id === selectedId)
+    || activeProducts.find((p: any) => initialProduct && p.name.includes(initialProduct))
+    || activeProducts[0];
 
   const f = (k: string) => (e: any) => setForm(p => ({ ...p, [k]: e.target.value }));
 
@@ -229,6 +227,9 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
     if (!form.clientEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.clientEmail)) {
       toast({ title: "Зөв и-мэйл хаяг оруулна уу", variant: "destructive" }); return;
     }
+    if (!selected) {
+      toast({ title: "Бүтээгдэхүүн сонгоно уу", variant: "destructive" }); return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/factory-order", {
@@ -236,8 +237,10 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...form,
-          quantity: parseFloat(form.quantity),
-          unit:     selected.unit,
+          productType: selected.category,
+          productName: selected.name,
+          quantity:    parseFloat(form.quantity),
+          unit:        selected.unit,
         }),
       });
       const data = await res.json();
@@ -289,12 +292,15 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
                 <label className="text-slate-300 text-xs font-bold uppercase tracking-wider mb-2 block">Бүтээгдэхүүн сонгох</label>
                 <div className="relative">
                   <select
-                    value={form.productType}
-                    onChange={f("productType")}
+                    value={selected?.id ?? 0}
+                    onChange={e => setSelectedId(parseInt(e.target.value))}
                     data-testid="select-product-type"
                     className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-amber-500/50 appearance-none pr-10"
                   >
-                    {PRODUCTS.map(p => <option key={p.value} value={p.value}>{p.label} ({p.unit})</option>)}
+                    {activeProducts.length === 0 && <option value={0}>Уншиж байна...</option>}
+                    {activeProducts.map((p: any) => (
+                      <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+                    ))}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
@@ -302,12 +308,12 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
 
               {/* Quantity */}
               <div>
-                <label className="text-slate-300 text-xs font-bold uppercase tracking-wider mb-2 block">Тоо хэмжээ ({selected.unit})</label>
+                <label className="text-slate-300 text-xs font-bold uppercase tracking-wider mb-2 block">Тоо хэмжээ ({selected?.unit ?? "нэгж"})</label>
                 <input
                   type="number" min="1"
                   value={form.quantity}
                   onChange={f("quantity")}
-                  placeholder={`Хэдэн ${selected.unit} захиалах вэ?`}
+                  placeholder={`Хэдэн ${selected?.unit ?? "нэгж"} захиалах вэ?`}
                   data-testid="input-quantity"
                   className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-amber-500/50"
                 />
