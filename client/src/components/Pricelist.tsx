@@ -16,6 +16,7 @@ import type { CompanyProduct } from "@shared/schema";
 const priceRequestSchema = insertContactSchema.extend({
   product: z.string().min(1, "Бүтээгдэхүүн сонгоно уу"),
   quantity: z.string().min(1, "Тоо хэмжээ оруулна уу"),
+  email: z.string().min(1, "И-мэйл хаяг оруулна уу").email("Зөв и-мэйл хаяг оруулна уу"),
 });
 type PriceRequestData = z.infer<typeof priceRequestSchema>;
 
@@ -409,12 +410,12 @@ export default function Pricelist() {
               </div>
 
               <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">И-Мэйл</label>
+                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">И-Мэйл *</label>
                 <input
                   {...form.register("email")}
                   type="email"
                   className="w-full bg-card border border-border px-4 py-3 rounded-sm text-foreground focus:border-primary focus:outline-none transition-all"
-                  placeholder="И-Мэйл хаяг"
+                  placeholder="email@example.com"
                 />
               </div>
 

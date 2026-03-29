@@ -718,6 +718,7 @@ function InquiriesAndContractsPanel() {
   const [subTab, setSubTab] = useState<"inquiries" | "contracts">("inquiries");
   const [showContractForm, setShowContractForm] = useState(false);
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
+  const [sendLinkContract, setSendLinkContract] = useState<ContractRow | null>(null);
   const [contractForm, setContractForm] = useState({
     clientName: "", clientEmail: "", clientPhone: "", clientOrg: "",
     product: "", quantity: "", unit: "м³", unitPrice: "", deliveryDate: "",
@@ -749,9 +750,10 @@ function InquiriesAndContractsPanel() {
     },
     onSuccess: (row: ContractRow) => {
       qc.invalidateQueries({ queryKey: ["/api/contracts"] });
-      toast({ title: `Гэрээ ${row.contractNo} үүслээ ✓` });
+      toast({ title: `Гэрээ ${row.contractNo} үүслээ ✓`, description: "Гэрээнүүд таб дээр харилцагчид явуулж болно" });
       setShowContractForm(false);
       setSelectedInquiry(null);
+      setSubTab("contracts");
     },
     onError: (e: any) => toast({ title: "Алдаа", description: e.message, variant: "destructive" }),
   });
@@ -765,8 +767,15 @@ function InquiriesAndContractsPanel() {
       });
       return r.json();
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/contracts"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/contracts"] });
+    },
   });
+
+  const sendToClient = (contract: ContractRow) => {
+    updateContractStatus.mutate({ id: contract.id, status: "sent" });
+    setSendLinkContract(contract);
+  };
 
   const openFormFromInquiry = (inq: Inquiry) => {
     setSelectedInquiry(inq);
@@ -809,6 +818,75 @@ function InquiriesAndContractsPanel() {
 
   return (
     <div className="space-y-4">
+      {/* ── "Харилцагчид явуулах" dialog ───────────────────────── */}
+      {sendLinkContract && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4">
+          <div className="bg-slate-800 border border-amber-600/40 rounded-2xl p-6 w-full max-w-md space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-white font-bold text-base flex items-center gap-2">
+                <Send size={16} className="text-amber-500" /> Гэрээний холбоос явуулах
+              </h3>
+              <button onClick={() => setSendLinkContract(null)} className="text-slate-400 hover:text-white text-lg leading-none">✕</button>
+            </div>
+
+            <div className="bg-slate-700/60 border border-slate-600 rounded-xl p-4 space-y-2">
+              <div className="flex gap-2 text-sm">
+                <span className="text-slate-400 shrink-0">Гэрээ №:</span>
+                <span className="text-amber-400 font-bold">{sendLinkContract.contractNo}</span>
+              </div>
+              <div className="flex gap-2 text-sm">
+                <span className="text-slate-400 shrink-0">Харилцагч:</span>
+                <span className="text-white">{sendLinkContract.clientName} {sendLinkContract.clientOrg ? `(${sendLinkContract.clientOrg})` : ""}</span>
+              </div>
+              <div className="flex gap-2 text-sm">
+                <span className="text-slate-400 shrink-0">И-мэйл:</span>
+                <span className="text-blue-300 font-medium">{sendLinkContract.clientEmail}</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-xs text-slate-400">Гэрээний холбоос — харилцагчийн и-мэйл рүү илгээх:</p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={`${baseUrl}/contract/${sendLinkContract.approvalToken}`}
+                  className="flex-1 bg-slate-900 border border-slate-600 text-slate-300 text-xs px-3 py-2 rounded-lg focus:outline-none"
+                  data-testid="input-contract-link"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${baseUrl}/contract/${sendLinkContract.approvalToken}`);
+                    toast({ title: "Холбоос хуулагдлаа ✓" });
+                  }}
+                  className="px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black text-xs font-bold rounded-lg whitespace-nowrap transition-all"
+                  data-testid="btn-copy-contract-link">
+                  Хуулах
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-blue-900/30 border border-blue-500/30 rounded-xl px-4 py-3 text-xs text-blue-300 space-y-1">
+              <p className="font-semibold">Дараагийн алхам:</p>
+              <p>1. "Хуулах" товч дарж холбоосыг авна</p>
+              <p>2. Харилцагч <strong>{sendLinkContract.clientEmail}</strong> рүү и-мэйл илгээнэ</p>
+              <p>3. Харилцагч холбоосыг нээж гэрээтэй танилцаж "Зөвшөөрөх" дарна</p>
+              <p>4. Зөвшөөрсний дараа үйлдвэрт захиалга автоматаар үүснэ</p>
+            </div>
+
+            <div className="flex gap-2 justify-end">
+              <a href={`${baseUrl}/contract/${sendLinkContract.approvalToken}`} target="_blank" rel="noopener noreferrer"
+                className="flex items-center gap-1.5 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-medium rounded-lg transition-all">
+                <FileText size={12} /> Гэрээ урьдчилж харах
+              </a>
+              <button onClick={() => setSendLinkContract(null)}
+                className="px-5 py-2 bg-amber-600 hover:bg-amber-500 text-black text-xs font-bold rounded-lg transition-all">
+                Ойлголоо
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="flex gap-2 mb-2">
         <button onClick={() => setSubTab("inquiries")}
           className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${subTab === "inquiries" ? "bg-amber-600 text-black" : "text-slate-400 bg-slate-800"}`}
@@ -904,29 +982,64 @@ function InquiriesAndContractsPanel() {
           ) : inquiries.length === 0 ? (
             <div className="text-center py-12 text-slate-500">
               <AlertCircle size={28} className="mx-auto mb-2 opacity-30" />
-              <p className="text-sm">Хүсэлт байхгүй байна</p>
+              <p className="text-sm">Нүүр хуудасны үнийн санал хүсэлт байхгүй байна</p>
+              <p className="text-xs mt-1 text-slate-600">Харилцагч нүүр хуудасны формоор хүсэлт илгээхэд энд харагдана</p>
             </div>
           ) : (
-            inquiries.map(inq => (
-              <div key={inq.id} className="bg-slate-800 border border-slate-700 rounded-xl px-4 py-3 flex items-start justify-between gap-3"
-                data-testid={`row-inquiry-${inq.id}`}>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-white font-semibold text-sm">{inq.name}</span>
-                    <span className="text-xs text-slate-400">{inq.email}</span>
-                    {inq.phone && <span className="text-xs text-amber-400">{inq.phone}</span>}
-                    <span className="text-xs text-slate-500">{new Date(inq.createdAt).toLocaleDateString("mn-MN")}</span>
+            inquiries.map(inq => {
+              const productMatch = inq.message.match(/Бүтээгдэхүүн:\s*([^,\n]+)/);
+              const qtyMatch = inq.message.match(/Тоо хэмжээ:\s*([^\n.]+)/);
+              const locationMatch = inq.message.match(/Хаяг\/Байршил:\s*([^\n.]+)/);
+              const product = productMatch ? productMatch[1].trim() : null;
+              const qty = qtyMatch ? qtyMatch[1].trim() : null;
+              const loc = locationMatch ? locationMatch[1].trim() : null;
+              return (
+                <div key={inq.id} className="bg-slate-800 border border-slate-700 hover:border-amber-600/40 rounded-xl px-4 py-3 space-y-2 transition-all"
+                  data-testid={`row-inquiry-${inq.id}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">
+                          Үнийн санал хүсэлт #{inq.id}
+                        </span>
+                        <span className="text-xs text-slate-500">{new Date(inq.createdAt).toLocaleDateString("mn-MN")}</span>
+                      </div>
+                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                        <span className="text-white font-semibold text-sm">{inq.name}</span>
+                        {inq.email && <span className="text-xs text-blue-400">{inq.email}</span>}
+                        {inq.phone && <span className="text-xs text-amber-400">{inq.phone}</span>}
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => openFormFromInquiry(inq)}
+                      className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-amber-600/20 border border-amber-600/30 hover:bg-amber-600 hover:text-black text-amber-400 text-xs font-bold rounded-lg transition-all"
+                      data-testid={`btn-create-contract-from-${inq.id}`}>
+                      <FileText size={12} /> Гэрээ үүсгэх
+                    </button>
                   </div>
-                  <p className="text-slate-400 text-xs mt-1 truncate">{inq.message}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {product && (
+                      <span className="flex items-center gap-1 text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">
+                        <Package size={10} className="text-amber-500" /> {product}
+                      </span>
+                    )}
+                    {qty && (
+                      <span className="text-xs bg-slate-700 text-slate-300 px-2 py-0.5 rounded-full">
+                        Тоо: {qty}
+                      </span>
+                    )}
+                    {loc && (
+                      <span className="text-xs bg-slate-700 text-slate-400 px-2 py-0.5 rounded-full">
+                        📍 {loc}
+                      </span>
+                    )}
+                    {!product && !qty && (
+                      <span className="text-xs text-slate-500 italic">{inq.message.slice(0, 80)}…</span>
+                    )}
+                  </div>
                 </div>
-                <button
-                  onClick={() => openFormFromInquiry(inq)}
-                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-amber-600/20 border border-amber-600/30 hover:bg-amber-600 hover:text-black text-amber-400 text-xs font-bold rounded-lg transition-all"
-                  data-testid={`btn-create-contract-from-${inq.id}`}>
-                  <FileText size={12} /> Гэрээ үүсгэх
-                </button>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       )}
@@ -968,12 +1081,12 @@ function InquiriesAndContractsPanel() {
                       )}
                     </div>
                     <div className="flex gap-1.5 flex-wrap">
-                      {c.status === "draft" && (
+                      {(c.status === "draft" || c.status === "sent") && (
                         <button
-                          onClick={() => updateContractStatus.mutate({ id: c.id, status: "sent" })}
+                          onClick={() => sendToClient(c)}
                           className="flex items-center gap-1 px-3 py-1 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-lg transition-all"
                           data-testid={`btn-send-contract-${c.id}`}>
-                          <Send size={11} /> Харилцагчид явуулах
+                          <Send size={11} /> {c.status === "sent" ? "Холбоос харах" : "Харилцагчид явуулах"}
                         </button>
                       )}
                       <a href={contractUrl} target="_blank" rel="noopener noreferrer"
