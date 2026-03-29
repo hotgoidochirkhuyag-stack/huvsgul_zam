@@ -3447,7 +3447,7 @@ ${cert.testResults ? `
 
       if (productCategory === "concrete" || nameLow.includes("бетон")) {
         recipeCategory = "concrete";
-        if      (nameLow.includes("b15") || nameLow.includes("м150") || nameLow.includes("m150")) recipeKey = "C15/20";
+        if      (nameLow.includes("b15") || nameLow.includes("м100") || nameLow.includes("м150") || nameLow.includes("m100") || nameLow.includes("m150")) recipeKey = "C15/20";
         else if (nameLow.includes("b20") || nameLow.includes("м200") || nameLow.includes("m200")) recipeKey = "C20/25";
         else if (nameLow.includes("b25") || nameLow.includes("м250") || nameLow.includes("m250")) recipeKey = "C25/30";
         else if (nameLow.includes("b30") || nameLow.includes("м300") || nameLow.includes("m300")
