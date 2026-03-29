@@ -298,8 +298,24 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
                     className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-amber-500/50 appearance-none pr-10"
                   >
                     {activeProducts.length === 0 && <option value={0}>Уншиж байна...</option>}
-                    {activeProducts.map((p: any) => (
-                      <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+                    {Object.entries(
+                      activeProducts.reduce<Record<string, any[]>>((acc, p: any) => {
+                        const c = p.category || "other";
+                        if (!acc[c]) acc[c] = [];
+                        acc[c].push(p);
+                        return acc;
+                      }, {})
+                    ).map(([cat, items]) => (
+                      <optgroup key={cat} label={
+                        cat === "concrete" ? "🏗 Бетон зуурмаг" :
+                        cat === "asphalt"  ? "🛣 Асфальт" :
+                        cat === "stone"    ? "⛏ Чулуу / Хайрга" :
+                        cat === "sand"     ? "🏖 Элс" : "Бусад"
+                      }>
+                        {items.map((p: any) => (
+                          <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />

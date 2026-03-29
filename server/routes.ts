@@ -3355,7 +3355,7 @@ ${cert.testResults ? `
   // ======= COMPANY PRODUCTS (борлуулалтын бүтээгдэхүүн) =======
   app.get("/api/company-products", async (_req, res) => {
     const rows = await db.select().from(schema.companyProducts)
-      .orderBy(schema.companyProducts.sortOrder, schema.companyProducts.id);
+      .orderBy(schema.companyProducts.category, schema.companyProducts.sortOrder, schema.companyProducts.id);
     res.json(rows);
   });
 

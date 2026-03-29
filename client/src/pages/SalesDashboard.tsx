@@ -660,35 +660,51 @@ function ProductsPanel() {
           <p className="text-sm">Бүтээгдэхүүн байхгүй байна</p>
         </div>
       ) : (
-        <div className="space-y-2">
-          {products.map(p => (
-            <div key={p.id} className={`flex items-center gap-3 bg-slate-800 border rounded-xl px-4 py-3 transition-all ${p.isActive ? "border-slate-700" : "border-slate-700/40 opacity-50"}`}
-              data-testid={`row-product-${p.id}`}>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-white font-medium text-sm">{p.name}</span>
-                  <span className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">{p.unit}</span>
-                  <span className="text-xs text-slate-500 bg-slate-700 px-2 py-0.5 rounded-full">{CATEGORY_LABELS[p.category] ?? p.category}</span>
-                </div>
-                {p.description && <p className="text-slate-400 text-xs mt-0.5 truncate">{p.description}</p>}
+        <div className="space-y-4">
+          {Object.entries(
+            products.reduce<Record<string, CompanyProduct[]>>((acc, p) => {
+              const cat = p.category || "other";
+              if (!acc[cat]) acc[cat] = [];
+              acc[cat].push(p);
+              return acc;
+            }, {})
+          ).map(([cat, items]) => (
+            <div key={cat}>
+              <div className="flex items-center gap-2 mb-2 px-1">
+                <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">{CATEGORY_LABELS[cat] ?? cat}</span>
+                <span className="text-xs text-slate-600">({items.length} бүтээгдэхүүн)</span>
               </div>
-              <div className="flex items-center gap-1 shrink-0">
-                <button onClick={() => editMut.mutate({ id: p.id, data: { isActive: !p.isActive } })}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
-                  title={p.isActive ? "Идэвхгүй болгох" : "Идэвхтэй болгох"}
-                  data-testid={`btn-toggle-product-${p.id}`}>
-                  {p.isActive ? <ToggleRight size={18} className="text-green-400" /> : <ToggleLeft size={18} />}
-                </button>
-                <button onClick={() => startEdit(p)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
-                  data-testid={`btn-edit-product-${p.id}`}>
-                  <Pencil size={14} />
-                </button>
-                <button onClick={() => deleteMut.mutate(p.id)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
-                  data-testid={`btn-delete-product-${p.id}`}>
-                  <Trash2 size={14} />
-                </button>
+              <div className="space-y-1.5">
+                {items.map(p => (
+                  <div key={p.id} className={`flex items-center gap-3 bg-slate-800 border rounded-xl px-4 py-3 transition-all ${p.isActive ? "border-slate-700" : "border-slate-700/40 opacity-50"}`}
+                    data-testid={`row-product-${p.id}`}>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-medium text-sm">{p.name}</span>
+                        <span className="text-xs text-amber-500 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full">{p.unit}</span>
+                      </div>
+                      {p.description && <p className="text-slate-400 text-xs mt-0.5 truncate">{p.description}</p>}
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button onClick={() => editMut.mutate({ id: p.id, data: { isActive: !p.isActive } })}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
+                        title={p.isActive ? "Идэвхгүй болгох" : "Идэвхтэй болгох"}
+                        data-testid={`btn-toggle-product-${p.id}`}>
+                        {p.isActive ? <ToggleRight size={18} className="text-green-400" /> : <ToggleLeft size={18} />}
+                      </button>
+                      <button onClick={() => startEdit(p)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-amber-400 transition-colors"
+                        data-testid={`btn-edit-product-${p.id}`}>
+                        <Pencil size={14} />
+                      </button>
+                      <button onClick={() => deleteMut.mutate(p.id)}
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-red-400 transition-colors"
+                        data-testid={`btn-delete-product-${p.id}`}>
+                        <Trash2 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
