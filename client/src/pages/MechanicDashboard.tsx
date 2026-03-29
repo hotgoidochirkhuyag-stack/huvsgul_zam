@@ -17,13 +17,15 @@ function getHeaders() {
 
 const VEHICLE_TYPES = ["Экскаватор", "Бульдозер", "Автомашин", "Кран", "Грейдер", "Думпер", "Асфальт тавигч", "Индүү", "Автопомп", "Миксер", "Өөр"];
 const EQUIPMENT_TYPES: { value: string; label: string }[] = [
-  { value: "vehicle",     label: "Автомашин / Тээврийн хэрэгсэл" },
-  { value: "excavator",   label: "Экскаватор" },
-  { value: "bulldozer",   label: "Бульдозер / Грейдер" },
-  { value: "jaw_crusher", label: "Хацарт бутлуур (Jaw Crusher)" },
-  { value: "conveyor",    label: "Туузан дамжуулагч (Conveyor)" },
-  { value: "screen",      label: "Ялгагч / Дэлгэц (Screen)" },
-  { value: "motor",       label: "Мотор / Генератор" },
+  { value: "vehicle",         label: "Автомашин / Тээврийн хэрэгсэл" },
+  { value: "excavator",       label: "Экскаватор" },
+  { value: "bulldozer",       label: "Бульдозер / Грейдер" },
+  { value: "jaw_crusher",     label: "Хацарт бутлуур (Jaw Crusher)" },
+  { value: "conveyor",        label: "Туузан дамжуулагч (Conveyor)" },
+  { value: "screen",          label: "Ялгагч / Дэлгэц (Screen)" },
+  { value: "motor",           label: "Мотор / Генератор" },
+  { value: "concrete_plant",  label: "Бетон зуурмагийн үйлдвэр (YBS-90)" },
+  { value: "asphalt_plant",   label: "Асфальт хольц хийгч үйлдвэр" },
 ];
 
 const TODAY = new Date().toISOString().slice(0, 10);

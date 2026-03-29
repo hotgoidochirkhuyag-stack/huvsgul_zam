@@ -40,6 +40,24 @@ const CHECKLIST_TEMPLATES: Record<string, { key: string; label: string; detail: 
 };
 CHECKLIST_TEMPLATES.excavator    = CHECKLIST_TEMPLATES.vehicle;
 CHECKLIST_TEMPLATES.bulldozer    = CHECKLIST_TEMPLATES.vehicle;
+CHECKLIST_TEMPLATES.concrete_plant = [
+  { key: "mixer_blades",   label: "Зуурагчийн хутга болон хошуу (Mixer blades & liner)",  detail: "Twin-shaft зуурагчийн хутганы элэгдэл, хошууны бэхэлгээ шалгана" },
+  { key: "belt_conveyor",  label: "Туузан дамжуулагч (Belt Conveyor)",                    detail: "Туузны татлага, төвлөрөл, ирмэгийн элэгдэл, тулгуур булуудыг шалгана" },
+  { key: "screw_conveyor", label: "Шнек дамжуулагч (Screw Conveyor)",                     detail: "Цементийг силосоос дамжуулах шнекийн эргэлт, хатуурлын байдал, тосолгоо" },
+  { key: "load_cells",     label: "Жинлүүрийн мэдрэгч (Load cells)",                      detail: "Ус, цемент, хайрга тус бүрийн жинлүүрийн тэг тохиргоо, нарийвчлалыг шалгана" },
+  { key: "lubrication",    label: "Тосолгооны систем (Lubrication)",                       detail: "Бүх холхивч, зуурагч, шнек, туузны дулаалгын тосолгооны байдал" },
+  { key: "plc_system",     label: "PLC хяналтын систем (Control system)",                  detail: "Компьютерийн дэлгэц, мэдрэгчүүдийн холбоо, автомат дозаторын ажиллагааг шалгана" },
+  { key: "guards",         label: "Хамгаалалтын хаалт, хашлага",                          detail: "Хөдөлгөөнт хэсгүүдийн бүх хашлага, аюулгүйн нөхцлийг шалгана" },
+];
+CHECKLIST_TEMPLATES.asphalt_plant = [
+  { key: "burner",         label: "Халаалтын систем / Горелка (Burner)",                   detail: "Шатах хийн горелкын ажиллагаа, шатаалтын чанарыг шалгана" },
+  { key: "dryer_drum",     label: "Хайрга хатаагч хувин (Aggregate dryer drum)",           detail: "Дулааны хувин, хурдасны системийн байдал, элэгдлийг шалгана" },
+  { key: "bitumen_heater", label: "Битумийн халаалт ба насос (Bitumen heater & pump)",     detail: "Битумийн температур 150-160°C байгааг, насосны даралтыг шалгана" },
+  { key: "belt_conveyor",  label: "Дамжуулга тууз (Conveyor)",                             detail: "Туузны татлага, элэгдэл, тулгуур булуудыг шалгана" },
+  { key: "dust_filter",    label: "Тоосжилтын шүүлтүүр (Dust filter/Bag house)",           detail: "Шүүлтүүрийн цэвэрлэгээ, тоосны хуримтлалыг шалгана" },
+  { key: "lubrication",    label: "Тосолгооны систем",                                     detail: "Бүх холхивч, хувин, насос, хүлцэлийн тосолгоо" },
+  { key: "guards",         label: "Хамгаалалтын хаалт, хашлага",                          detail: "Халуун гадаргуу, хөдөлгөөнт хэсгүүдийн хашлага бүрэн бүтэн байдал" },
+];
 CHECKLIST_TEMPLATES.motor        = [
   { key: "lubrication", label: "Тосолгооны систем",  detail: "Тулгуур, холхивчийн тосолгоо" },
   { key: "cooling",     label: "Хөргөлтийн систем",  detail: "Агаарын болон усан хөргөлт" },
@@ -49,19 +67,23 @@ CHECKLIST_TEMPLATES.motor        = [
 ];
 
 const EQUIPMENT_LABELS: Record<string, string> = {
-  vehicle:     "Автомашин",
-  excavator:   "Экскаватор",
-  bulldozer:   "Бульдозер",
-  jaw_crusher: "Хацарт бутлуур",
-  conveyor:    "Туузан дамжуулагч",
-  screen:      "Ялгагч / Дэлгэц",
-  motor:       "Мотор / Генератор",
+  vehicle:        "Автомашин",
+  excavator:      "Экскаватор",
+  bulldozer:      "Бульдозер",
+  jaw_crusher:    "Хацарт бутлуур",
+  conveyor:       "Туузан дамжуулагч",
+  screen:         "Ялгагч / Дэлгэц",
+  motor:          "Мотор / Генератор",
+  concrete_plant: "Бетон зуурмагийн үйлдвэр (YBS-90)",
+  asphalt_plant:  "Асфальт хольц хийгч үйлдвэр",
 };
 
 const EQUIPMENT_ICONS: Record<string, typeof Truck> = {
-  jaw_crusher: Factory,
-  conveyor:    Settings,
-  motor:       Gauge,
+  jaw_crusher:    Factory,
+  conveyor:       Settings,
+  motor:          Gauge,
+  concrete_plant: Factory,
+  asphalt_plant:  Factory,
 };
 
 type CheckState = "ok" | "warn" | null;
