@@ -3431,25 +3431,40 @@ ${cert.testResults ? `
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
-  // Шинэ санал үүсгэх + AI норм генерейт
+  // Шинэ санал үүсгэх + норм генерейт
   app.post("/api/price-proposals", requireAdmin, async (req, res) => {
     try {
-      const { productType, productName, unit = "м³", requestedBy = "SALES" } = req.body;
+      const { productName, productCategory = "concrete", unit = "м³", requestedBy = "SALES" } = req.body;
+      const productType = `${productCategory}_custom`;
       const [proposal] = await db.insert(schema.priceProposals)
         .values({ productType, productName, unit, requestedBy, status: "draft" })
         .returning();
 
-      // norm_configs DB-ийн бэлэн нормоос татах (Gemini-ийн оронд)
-      const RECIPE_MAP: Record<string, { key: string; category: string }> = {
-        concrete_b15:  { key: "C15/20",  category: "concrete" },
-        concrete_b20:  { key: "C20/25",  category: "concrete" },
-        concrete_b25:  { key: "C25/30",  category: "concrete" },
-        concrete_b30:  { key: "C30/37",  category: "concrete" },
-        asphalt_ab1:   { key: "АБ-1",    category: "asphalt"  },
-        asphalt_ab2:   { key: "АБ-2",    category: "asphalt"  },
-        asphalt_dab:   { key: "ДАБ",     category: "asphalt"  },
-        crushed_plant: { key: "Бутлах",  category: "crushing" },
-      };
+      // Бүтээгдэхүүний нэр болон категориос норм тодорхойлно
+      const nameLow = (productName || "").toLowerCase();
+      let recipeKey: string | null = null;
+      let recipeCategory: string | null = null;
+
+      if (productCategory === "concrete" || nameLow.includes("бетон")) {
+        recipeCategory = "concrete";
+        if      (nameLow.includes("b15") || nameLow.includes("м150") || nameLow.includes("m150")) recipeKey = "C15/20";
+        else if (nameLow.includes("b20") || nameLow.includes("м200") || nameLow.includes("m200")) recipeKey = "C20/25";
+        else if (nameLow.includes("b25") || nameLow.includes("м250") || nameLow.includes("m250")) recipeKey = "C25/30";
+        else if (nameLow.includes("b30") || nameLow.includes("м300") || nameLow.includes("m300")
+              || nameLow.includes("м350") || nameLow.includes("м400")) recipeKey = "C30/37";
+        else recipeKey = "C25/30"; // default бетон
+      } else if (productCategory === "asphalt" || nameLow.includes("асфальт")) {
+        recipeCategory = "asphalt";
+        if      (nameLow.includes("аб-2") || nameLow.includes("ab-2")) recipeKey = "АБ-2";
+        else if (nameLow.includes("даб")  || nameLow.includes("dab"))  recipeKey = "ДАБ";
+        else recipeKey = "АБ-1"; // default асфальт
+      } else if (productCategory === "stone" || nameLow.includes("бутлас") || nameLow.includes("хайрга")) {
+        recipeCategory = "crushing";
+        recipeKey = "Бутлах";
+      }
+
+      const mapped = recipeKey && recipeCategory ? { key: recipeKey, category: recipeCategory } : null;
+
       const DEFAULT_LABOR: Record<string, Array<{ roleName: string; count: number; hoursPerUnit: number }>> = {
         concrete: [
           { roleName: "Бетонч",           count: 2, hoursPerUnit: 0.50 },
@@ -3474,7 +3489,6 @@ ${cert.testResults ? `
         ],
       };
 
-      const mapped = RECIPE_MAP[productType];
       let dbNormsLoaded = false;
 
       if (mapped) {

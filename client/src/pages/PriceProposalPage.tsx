@@ -23,15 +23,7 @@ const STATUS: Record<string, { label: string; color: string; next?: string; next
   completed:       { label: "Дууссан",               color: "bg-green-600" },
 };
 
-const PRODUCTS = [
-  { value: "concrete_b15", label: "Бетон зуурмаг B15", unit: "м³" },
-  { value: "concrete_b20", label: "Бетон зуурмаг B20", unit: "м³" },
-  { value: "concrete_b25", label: "Бетон зуурмаг B25", unit: "м³" },
-  { value: "concrete_b30", label: "Бетон зуурмаг B30", unit: "м³" },
-  { value: "asphalt_ab1",  label: "Асфальт АБ-1",      unit: "тн" },
-  { value: "crushed_5_10", label: "Бутласан чулуу 5-10мм", unit: "тн" },
-  { value: "crushed_10_20",label: "Бутласан чулуу 10-20мм", unit: "тн" },
-];
+// Бүтээгдэхүүн DB-ээс татна (hardcode байхгүй)
 
 const CATEGORY_LABEL: Record<string, string> = {
   material: "Материал", labor: "Хөдөлмөр", equipment: "Тоног", overhead: "Бусад",
@@ -356,12 +348,17 @@ export default function PriceProposalPage() {
   const { toast } = useToast();
   const r = role();
   const [showCreate, setShowCreate] = useState(false);
-  const [form, setForm] = useState({ productType: "concrete_b25", unit: "м³" });
+  const [form, setForm] = useState({ productId: 0, productName: "", unit: "м³", productCategory: "concrete" });
 
   const { data: _raw, isLoading } = useQuery<any[]>({
     queryKey: ["/api/price-proposals"],
     queryFn: () => api("/api/price-proposals").then(r => r.json()),
     refetchInterval: 15000,
+  });
+
+  const { data: companyProducts = [] } = useQuery<any[]>({
+    queryKey: ["/api/company-products"],
+    queryFn: () => fetch("/api/company-products").then(r => r.json()),
   });
   const proposals: any[] = Array.isArray(_raw) ? _raw : [];
 
@@ -376,13 +373,18 @@ export default function PriceProposalPage() {
 
   const createMut = useMutation({
     mutationFn: () => {
-      const prod = PRODUCTS.find(p => p.value === form.productType);
+      if (!form.productName) throw new Error("Бүтээгдэхүүн сонгоно уу");
       return api("/api/price-proposals", {
         method: "POST",
-        body: JSON.stringify({ productType: form.productType, productName: prod?.label ?? form.productType, unit: prod?.unit ?? "м³", requestedBy: r }),
+        body: JSON.stringify({
+          productName: form.productName,
+          productCategory: form.productCategory,
+          unit: form.unit,
+          requestedBy: r,
+        }),
       }).then(r => r.json());
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals"] }); setShowCreate(false); toast({ title: "AI орц норм үүсгэж байна... ✨", description: "Хэдэн секунд хүлээнэ үү" }); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals"] }); setShowCreate(false); toast({ title: "Норм үүсгэж байна... ✨", description: "Хэдэн секунд хүлээнэ үү" }); },
     onError: (e: any) => toast({ title: "Алдаа", description: e.message, variant: "destructive" }),
   });
 
@@ -450,13 +452,28 @@ export default function PriceProposalPage() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-slate-400 mb-1 block">Бүтээгдэхүүн</label>
-                <select value={form.productType}
-                  onChange={e => setForm(f => ({ ...f, productType: e.target.value }))}
+                <select
+                  value={form.productId}
+                  onChange={e => {
+                    const id = parseInt(e.target.value);
+                    const prod = (companyProducts as any[]).find((p: any) => p.id === id);
+                    if (prod) setForm({ productId: id, productName: prod.name, unit: prod.unit, productCategory: prod.category });
+                  }}
                   className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-3 py-2.5 text-sm"
                   data-testid="select-product-type-proposal">
-                  {PRODUCTS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+                  <option value={0}>-- Сонгоно уу --</option>
+                  {(companyProducts as any[]).filter((p: any) => p.isActive !== false).map((p: any) => (
+                    <option key={p.id} value={p.id}>{p.name} ({p.unit})</option>
+                  ))}
                 </select>
               </div>
+              {form.productName && (
+                <div className="flex items-center gap-2 bg-slate-700/50 rounded-xl px-3 py-2">
+                  <span className="text-xs text-slate-400">Нэгж:</span>
+                  <span className="text-white font-bold text-sm">{form.unit}</span>
+                  <span className="ml-auto text-xs text-amber-400 capitalize">{form.productCategory}</span>
+                </div>
+              )}
             </div>
             <div className="bg-blue-900/20 border border-blue-500/20 rounded-xl px-4 py-2.5 text-xs text-blue-300">
               <Sparkles size={11} className="inline mr-1.5" />
