@@ -275,22 +275,25 @@ export default function Pricelist() {
   const onSubmit = async (data: PriceRequestData) => {
     setIsSending(true);
     try {
-      await emailjs.send(
-        "service_zo80ffc", "template_1qp8wlm",
-        { name: data.name, email: data.email, phone: data.phone, product: data.product, quantity: data.quantity, message: data.message },
-        "jMUTsjEJc7DCIHEK4"
-      );
       const productNote = `Бүтээгдэхүүн: ${data.product}${data.quantity ? `, Тоо хэмжээ: ${data.quantity}` : ""}. `;
-      await fetch("/api/contacts", {
+      // DB-д эхлээд хадгална (EmailJS-ээс үл хамааран)
+      const r = await fetch("/api/contacts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          name: data.name, email: data.email, phone: data.phone,
+          name: data.name, email: data.email || "noemail@example.com", phone: data.phone,
           message: `${productNote}${data.message || "Үнийн санал авах хүсэлт"}`,
           type: "Үнийн санал",
         }),
       });
-      toast({ title: "Хүсэлт амжилттай илгээгдлээ!", description: "Бид үнийн саналыг боловсруулаад тантай эргэж холбогдох болно." });
+      if (!r.ok) throw new Error("DB хадгалах алдаа");
+      // EmailJS-г тусдаа оролдоно (алдаа гарсан ч хэрэглэгчид нөлөөлөхгүй)
+      emailjs.send(
+        "service_zo80ffc", "template_1qp8wlm",
+        { name: data.name, email: data.email, phone: data.phone, product: data.product, quantity: data.quantity, message: data.message },
+        "jMUTsjEJc7DCIHEK4"
+      ).catch(() => {});
+      toast({ title: "Хүсэлт амжилттай илгээгдлээ!", description: "Борлуулалтын алба тантай эргэж холбогдох болно." });
       form.reset();
     } catch {
       toast({ variant: "destructive", title: "Алдаа гарлаа", description: "Илгээхэд алдаа гарлаа. Та дахин оролдоно уу." });

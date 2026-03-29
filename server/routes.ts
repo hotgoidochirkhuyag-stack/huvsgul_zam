@@ -747,6 +747,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.get("/api/contacts", requireAdmin, async (_req, res) => {
     res.json(await db.select().from(schema.contacts).orderBy(schema.contacts.createdAt));
   });
+  // Борлуулалтын алба: Үнийн санал хүсэлтүүд — /:id-ийн ӨМНӨ байх ёстой
+  app.get("/api/contacts/inquiries", requireAdmin, async (_req, res) => {
+    const rows = await db.select().from(schema.contacts)
+      .where(eq(schema.contacts.type, "Үнийн санал"))
+      .orderBy(desc(schema.contacts.createdAt));
+    res.json(rows);
+  });
   app.delete("/api/contacts/:id", requireAdmin, async (req, res) => {
     const id = parseInt(req.params.id);
     if (isNaN(id)) return res.status(400).json({ error: "Буруу ID" });
@@ -3305,14 +3312,6 @@ ${cert.testResults ? `
         .returning();
       res.json(updated);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
-  });
-
-  // Admin: контактын жагсаалт (Sales-д харагдах Үнийн санал хүсэлтүүд)
-  app.get("/api/contacts/inquiries", requireAdmin, async (_req, res) => {
-    const rows = await db.select().from(schema.contacts)
-      .where(eq(schema.contacts.type, "Үнийн санал"))
-      .orderBy(desc(schema.contacts.createdAt));
-    res.json(rows);
   });
 
   // ======= COMPANY PRODUCTS (борлуулалтын бүтээгдэхүүн) =======
