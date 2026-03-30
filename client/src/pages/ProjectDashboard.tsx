@@ -66,7 +66,7 @@ const TABS = [
   { key: "requests",  label: "Хүсэлт",                  icon: MessageSquare },
   { key: "orders",    label: "Үйлдвэрийн захиалга",      icon: ShoppingCart  },
   { key: "contracts", label: "Гэрээ",                    icon: FileSignature },
-  { key: "tenders",   label: "Тендерт явуулсан төслүүд", icon: FileText      },
+  { key: "tenders",   label: "Хамтарч ажиллах төслүүд", icon: FileText      },
   { key: "contacts",  label: "Холбогдох хүмүүс",         icon: Users         },
   { key: "report",    label: "Тайлан",                   icon: BarChart3     },
 ];

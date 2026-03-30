@@ -59,7 +59,7 @@ function StatCard({
   );
 }
 
-/* ══════════════════════ 1. ИРЕЦ / ХАБЭА ══════════════════════ */
+/* ══════════════════════ 1. ИРЦ / ХАБЭА ══════════════════════ */
 function AttendanceTab() {
   const { data: _rowsRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/erp/attendance"],
