@@ -447,7 +447,7 @@ const servicesData = [
   }
 ];
 
-// ===== Хамтрах боломжтой төслүүд modal =====
+// ===== Тендерт явуулсан төслүүд modal =====
 const CATS_FILTER = ["Бүгд", "Авто зам", "Гүүр", "Барилга", "Дэд бүтэц"];
 
 function TenderProjectsModal({ onClose }: { onClose: () => void }) {
@@ -475,8 +475,8 @@ function TenderProjectsModal({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div>
-            <h2 className="text-lg font-bold text-white">Хамтрах боломжтой төслүүд</h2>
-            <p className="text-slate-400 text-xs mt-0.5">Манай компани бүтээгдэхүүн нийлүүлэх боломжтой төслүүд</p>
+            <h2 className="text-lg font-bold text-white">Тендерт явуулсан төслүүд</h2>
+            <p className="text-slate-400 text-xs mt-0.5">Зам гүүр, барилга угсралтын Хөвсгөл зам ХХК</p>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"><X className="w-5 h-5" /></button>
         </div>
@@ -648,7 +648,7 @@ export default function Services() {
                   className="mt-auto w-full py-2.5 bg-amber-600 hover:bg-amber-500 active:bg-amber-700 text-white font-bold text-sm rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-amber-900/20"
                 >
                   <FileText className="w-4 h-4" />
-                  Хамтрах төслүүд
+                  Тендерт явуулсан төслүүд
                 </button>
               )}
 
