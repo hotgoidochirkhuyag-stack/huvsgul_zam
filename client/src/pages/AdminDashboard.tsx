@@ -9,7 +9,7 @@ import {
 import {
   UserCheck, ShieldCheck, TrendingUp, Factory, BookOpen, Target,
   AlertTriangle, CheckCircle2, Clock, Gauge, Bot, RefreshCw,
-  Sparkles, FileText, ChevronRight, Video, Loader2, Globe,
+  Sparkles, FileText, ChevronRight, ChevronDown, Video, Loader2, Globe,
   MapPin, Ruler, Calendar, Building2, DollarSign, Pencil, Save, X, ImageIcon,
   Plus, Trash2, Download, FolderOpen, KeyRound, Eye, EyeOff, Check, ScrollText,
   ShieldAlert, LogIn, LogOut, Award, FlaskConical, FileBarChart2, Printer, QrCode,
@@ -1206,6 +1206,151 @@ function WebsiteTab() {
 
       {/* ── Stats зургийн тайлбар ── */}
       <StatsImageDescriptions />
+
+      {/* ── Хамтрах боломжтой төслүүд ── */}
+      <TenderProjectsManager />
+    </div>
+  );
+}
+
+// ── Хамтрах боломжтой төслүүд менежмент ──
+const TENDER_CATS = ["Авто зам", "Гүүр", "Барилга", "Дэд бүтэц"];
+const emptyTender = () => ({ title: "", description: "", category: "Авто зам", location: "", year: "", progress: 0, deadline: "", requiredProducts: "" });
+
+function TenderProjectsManager() {
+  const qc = useQueryClient();
+  const token = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") || "" });
+  const { toast } = useToast();
+
+  const [expanded, setExpanded] = useState(false);
+  const [addOpen,  setAddOpen]  = useState(false);
+  const [editId,   setEditId]   = useState<number | null>(null);
+  const [form,     setForm]     = useState(emptyTender());
+
+  const { data: raw } = useQuery<any>({ queryKey: ["/api/tender-projects"], queryFn: () => fetch("/api/tender-projects").then(r => r.json()) });
+  const tenders: any[] = Array.isArray(raw) ? raw : [];
+
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["/api/tender-projects"] });
+
+  const createM = useMutation({
+    mutationFn: (d: any) => fetch("/api/tender-projects", { method: "POST", headers: token(), body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { invalidate(); setAddOpen(false); setForm(emptyTender()); toast({ title: "Нэмэгдлээ" }); },
+  });
+  const updateM = useMutation({
+    mutationFn: ({ id, d }: any) => fetch(`/api/tender-projects/${id}`, { method: "PATCH", headers: token(), body: JSON.stringify(d) }).then(r => r.json()),
+    onSuccess: () => { invalidate(); setEditId(null); toast({ title: "Хадгалагдлаа" }); },
+  });
+  const deleteM = useMutation({
+    mutationFn: (id: number) => fetch(`/api/tender-projects/${id}`, { method: "DELETE", headers: token() }).then(r => r.json()),
+    onSuccess: () => { invalidate(); toast({ title: "Устгагдлаа" }); },
+  });
+
+  const startEdit = (t: any) => {
+    setEditId(t.id);
+    setForm({ title: t.title || "", description: t.description || "", category: t.category || "Авто зам",
+               location: t.location || "", year: t.year || "", progress: t.progress ?? 0,
+               deadline: t.deadline || "", requiredProducts: t.requiredProducts || "" });
+  };
+
+  const TenderForm = ({ onSave, onCancel, saving }: { onSave: () => void; onCancel: () => void; saving: boolean }) => (
+    <div className="space-y-3">
+      <input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Төслийн нэр *" className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500" />
+      <textarea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="Тайлбар" rows={2} className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500 resize-none" />
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block">Ангилал</label>
+          <select value={form.category} onChange={e => setForm(f => ({ ...f, category: e.target.value }))} className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm text-white">
+            {TENDER_CATS.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block">Гүйцэтгэл (%)</label>
+          <input type="number" min={0} max={100} value={form.progress} onChange={e => setForm(f => ({ ...f, progress: Number(e.target.value) }))} className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm text-white" />
+        </div>
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block">Байршил</label>
+          <input value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} placeholder="Сум/Аймаг" className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500" />
+        </div>
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block">Он</label>
+          <input value={form.year} onChange={e => setForm(f => ({ ...f, year: e.target.value }))} placeholder="2025" className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500" />
+        </div>
+        <div>
+          <label className="text-xs text-slate-400 mb-1 block">Хугацаа (Deadline)</label>
+          <input value={form.deadline} onChange={e => setForm(f => ({ ...f, deadline: e.target.value }))} placeholder="2025-12-31" className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500" />
+        </div>
+      </div>
+      <div>
+        <label className="text-xs text-slate-400 mb-1 block">Шаардах бүтээгдэхүүн (таслалаар тусгаарлана)</label>
+        <input value={form.requiredProducts} onChange={e => setForm(f => ({ ...f, requiredProducts: e.target.value }))} placeholder="М300 бетон, Асфальт хольц, Хайрга" className="w-full px-3 py-2 bg-slate-800 border border-white/10 rounded-lg text-sm text-white placeholder-slate-500" />
+        <p className="text-xs text-slate-600 mt-1">Жишээ: М300 бетон, Асфальт хольц АБ-1, Хайрга</p>
+      </div>
+      <div className="flex gap-2 pt-1">
+        <button onClick={onSave} disabled={!form.title || saving} className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:opacity-50 text-white font-bold rounded-lg text-sm transition-all">
+          {saving ? <><RefreshCw size={13} className="animate-spin" /> Хадгалж байна...</> : <><Save size={13} /> Хадгалах</>}
+        </button>
+        <button onClick={onCancel} className="px-4 py-2 bg-slate-700 text-slate-300 hover:bg-slate-600 rounded-lg text-sm transition-all">Болих</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="mt-8 bg-slate-900/50 border border-white/10 rounded-2xl overflow-hidden">
+      <button onClick={() => setExpanded(e => !e)} className="w-full flex items-center justify-between px-6 py-4 hover:bg-white/5 transition-all text-left">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-amber-600/20 rounded-xl flex items-center justify-center"><Globe className="w-5 h-5 text-amber-400" /></div>
+          <div>
+            <p className="text-white font-bold text-sm">Хамтрах боломжтой төслүүд</p>
+            <p className="text-slate-500 text-xs">Нийтэд харагдах тендерийн төслүүд — {tenders.length} бүртгэл</p>
+          </div>
+        </div>
+        <ChevronDown size={18} className={`text-slate-400 transition-transform ${expanded ? "rotate-180" : ""}`} />
+      </button>
+
+      {expanded && (
+        <div className="border-t border-white/10 p-5 space-y-4">
+          {/* Шинэ нэмэх */}
+          {!addOpen ? (
+            <button onClick={() => { setAddOpen(true); setEditId(null); }} className="flex items-center gap-2 px-4 py-2 bg-emerald-600/20 hover:bg-emerald-600/30 border border-emerald-500/30 text-emerald-400 rounded-xl text-sm font-bold transition-all">
+              <Plus size={15} /> Шинэ төсөл нэмэх
+            </button>
+          ) : (
+            <div className="bg-slate-800/60 border border-white/10 rounded-xl p-4">
+              <p className="text-sm font-bold text-white mb-3">Шинэ төсөл</p>
+              <TenderForm onSave={() => createM.mutate(form)} onCancel={() => { setAddOpen(false); setForm(emptyTender()); }} saving={createM.isPending} />
+            </div>
+          )}
+
+          {/* Жагсаалт */}
+          <div className="space-y-2">
+            {tenders.map(t => (
+              <div key={t.id} className="bg-slate-800/40 border border-white/8 rounded-xl overflow-hidden">
+                <div className="flex items-center justify-between px-4 py-3">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <span className="px-2 py-0.5 bg-amber-500/15 text-amber-400 rounded text-xs font-bold shrink-0">{t.category}</span>
+                    <p className="text-white text-sm font-semibold truncate">{t.title}</p>
+                    {t.deadline && <span className="text-slate-500 text-xs shrink-0 hidden sm:block">· {t.deadline}</span>}
+                  </div>
+                  <div className="flex items-center gap-1 ml-2 shrink-0">
+                    <button onClick={() => editId === t.id ? setEditId(null) : startEdit(t)} className="p-1.5 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-lg transition-all"><Pencil size={14} /></button>
+                    <button onClick={() => { if (confirm("Устгах уу?")) deleteM.mutate(t.id); }} className="p-1.5 text-slate-400 hover:text-red-400 hover:bg-white/5 rounded-lg transition-all"><Trash2 size={14} /></button>
+                  </div>
+                </div>
+                {editId === t.id && (
+                  <div className="px-4 pb-4 border-t border-white/5">
+                    <div className="pt-3">
+                      <TenderForm onSave={() => updateM.mutate({ id: t.id, d: form })} onCancel={() => setEditId(null)} saving={updateM.isPending} />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+            {tenders.length === 0 && (
+              <div className="text-center py-10 text-slate-500 text-sm">Тендерийн төсөл бүртгэгдээгүй байна</div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

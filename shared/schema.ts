@@ -805,14 +805,16 @@ export type InsertVehicleDocument = z.infer<typeof insertVehicleDocSchema>;
 
 // ===================== ТЕНДЕРТ ЯВУУЛСАН ТӨСЛҮҮД =====================
 export const tenderProjects = pgTable("tender_projects", {
-  id:          serial("id").primaryKey(),
-  title:       text("title").notNull(),
-  description: text("description").default(""),
-  category:    text("category").default("Авто зам"),
-  location:    text("location").default(""),
-  year:        text("year").default(""),
-  progress:    integer("progress").default(0),
-  createdAt:   timestamp("created_at").defaultNow(),
+  id:               serial("id").primaryKey(),
+  title:            text("title").notNull(),
+  description:      text("description").default(""),
+  category:         text("category").default("Авто зам"),
+  location:         text("location").default(""),
+  year:             text("year").default(""),
+  progress:         integer("progress").default(0),
+  deadline:         text("deadline").default(""),
+  requiredProducts: text("required_products").default(""),
+  createdAt:        timestamp("created_at").defaultNow(),
 });
 export const insertTenderProjectSchema = createInsertSchema(tenderProjects).omit({ id: true, createdAt: true });
 export type TenderProject    = typeof tenderProjects.$inferSelect;

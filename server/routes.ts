@@ -282,11 +282,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   });
   app.post("/api/tender-projects", requireAdmin, async (req, res) => {
     try {
-      const { title, description, category, location, year, progress } = req.body;
+      const { title, description, category, location, year, progress, deadline, requiredProducts } = req.body;
       if (!title) return res.status(400).json({ error: "title шаардлагатай" });
       const [p] = await db.insert(schema.tenderProjects).values({
         title, description: description || "", category: category || "Авто зам",
         location: location || "", year: year || "", progress: Number(progress ?? 0),
+        deadline: deadline || "", requiredProducts: requiredProducts || "",
       }).returning();
       res.status(201).json(p);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
@@ -294,9 +295,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.patch("/api/tender-projects/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const { title, description, category, location, year, progress } = req.body;
+      const { title, description, category, location, year, progress, deadline, requiredProducts } = req.body;
       const [p] = await db.update(schema.tenderProjects)
-        .set({ title, description, category, location, year, progress: Number(progress ?? 0) })
+        .set({ title, description, category, location, year, progress: Number(progress ?? 0),
+               deadline: deadline || "", requiredProducts: requiredProducts || "" })
         .where(eq(schema.tenderProjects.id, id)).returning();
       res.json(p);
     } catch (e: any) { res.status(400).json({ error: e.message }); }

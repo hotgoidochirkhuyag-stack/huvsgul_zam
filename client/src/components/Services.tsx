@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, FileText, Wrench, Plus, Pencil, Trash2 } from "lucide-react";
+import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, FileText, Wrench, Plus, Pencil, Trash2, MapPin, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -447,18 +447,20 @@ const servicesData = [
   }
 ];
 
-// ===== Тендерт явуулсан төслүүд modal =====
-const PROG_CLR = (p: number) =>
-  p === 100 ? "bg-green-500" : p >= 60 ? "bg-blue-500" : p >= 30 ? "bg-amber-500" : "bg-red-400";
+// ===== Хамтрах боломжтой төслүүд modal =====
+const CATS_FILTER = ["Бүгд", "Авто зам", "Гүүр", "Барилга", "Дэд бүтэц"];
 
 function TenderProjectsModal({ onClose }: { onClose: () => void }) {
+  const [activeCat, setActiveCat] = useState("Бүгд");
+
   const { data: _tendersRaw, isLoading } = useQuery<any>({
     queryKey: ["/api/tender-projects"],
     queryFn: () => fetch("/api/tender-projects").then(r => r.json()),
+    staleTime: 60_000,
   });
   const tenders: any[] = Array.isArray(_tendersRaw) ? _tendersRaw : [];
-  const done   = tenders.filter((t: any) => t.progress === 100).length;
-  const active = tenders.filter((t: any) => t.progress > 0 && t.progress < 100).length;
+  const filtered = activeCat === "Бүгд" ? tenders : tenders.filter((t: any) => t.category === activeCat);
+
   return (
     <motion.div
       initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
@@ -467,65 +469,96 @@ function TenderProjectsModal({ onClose }: { onClose: () => void }) {
     >
       <motion.div
         initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.95, opacity: 0 }}
-        className="bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden"
+        className="bg-[#0f172a] border border-white/10 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-white/10 shrink-0">
           <div>
             <h2 className="text-lg font-bold text-white">Хамтрах боломжтой төслүүд</h2>
-            <p className="text-slate-400 text-xs mt-0.5">Зам гүүр, барилга угсралтын Хөвсгөл зам ХХК</p>
+            <p className="text-slate-400 text-xs mt-0.5">Манай компани бүтээгдэхүүн нийлүүлэх боломжтой төслүүд</p>
           </div>
           <button onClick={onClose} className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all"><X className="w-5 h-5" /></button>
         </div>
-        {/* Stats */}
-        {tenders.length > 0 && (
-          <div className="grid grid-cols-3 divide-x divide-white/10 border-b border-white/10">
-            {[
-              { label: "Нийт", val: tenders.length, color: "text-white" },
-              { label: "Дууссан", val: done,   color: "text-green-400" },
-              { label: "Явагдаж байна", val: active, color: "text-amber-400" },
-            ].map(s => (
-              <div key={s.label} className="py-3 text-center">
-                <p className={`text-xl font-black ${s.color}`}>{s.val}</p>
-                <p className="text-slate-500 text-xs">{s.label}</p>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* List */}
-        <div className="overflow-y-auto max-h-[60vh] p-4 space-y-3">
+
+        {/* Ангиллын шүүлт */}
+        <div className="flex items-center gap-2 px-5 py-3 border-b border-white/10 overflow-x-auto shrink-0">
+          {CATS_FILTER.map(c => (
+            <button key={c} onClick={() => setActiveCat(c)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-all ${
+                activeCat === c
+                  ? "bg-amber-600 text-white"
+                  : "bg-white/5 text-slate-400 hover:bg-white/10 hover:text-white"
+              }`}>
+              {c}
+              {c !== "Бүгд" && tenders.filter((t: any) => t.category === c).length > 0 && (
+                <span className="ml-1 opacity-70">({tenders.filter((t: any) => t.category === c).length})</span>
+              )}
+              {c === "Бүгд" && <span className="ml-1 opacity-70">({tenders.length})</span>}
+            </button>
+          ))}
+        </div>
+
+        {/* Жагсаалт */}
+        <div className="overflow-y-auto flex-1 p-4 space-y-3">
           {isLoading ? (
-            <div className="py-12 text-center text-slate-400">Уншиж байна...</div>
-          ) : tenders.length === 0 ? (
-            <div className="py-12 text-center text-slate-500">
+            <div className="py-16 text-center text-slate-400 text-sm">Уншиж байна...</div>
+          ) : filtered.length === 0 ? (
+            <div className="py-16 text-center text-slate-500">
               <FileText className="w-10 h-10 mx-auto mb-3 opacity-20" />
-              <p>Тендер байхгүй байна</p>
+              <p className="text-sm">Энэ ангилалд төсөл байхгүй байна</p>
             </div>
-          ) : tenders.map((t: any) => (
-            <div key={t.id} className="bg-slate-800/50 border border-white/5 rounded-xl p-4 hover:border-white/10 transition-all">
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap mb-1">
-                    <span className="px-2 py-0.5 bg-amber-500/15 text-amber-400 rounded-lg text-xs font-bold">{t.category || "Авто зам"}</span>
-                    {t.year && <span className="text-slate-500 text-xs">{t.year} он</span>}
-                    {t.location && <span className="text-slate-500 text-xs">· {t.location}</span>}
-                  </div>
-                  <p className="text-white font-bold text-sm">{t.title}</p>
-                  {t.description && <p className="text-slate-400 text-xs mt-1">{t.description}</p>}
-                  <div className="mt-2.5">
-                    <div className="flex justify-between text-xs mb-1">
-                      <span className="text-slate-500">Гүйцэтгэл</span>
-                      <span className={`font-bold ${t.progress === 100 ? "text-green-400" : t.progress > 0 ? "text-amber-400" : "text-slate-500"}`}>{t.progress}%</span>
+          ) : filtered.map((t: any) => {
+            const prods: string[] = t.requiredProducts
+              ? t.requiredProducts.split(",").map((s: string) => s.trim()).filter(Boolean)
+              : [];
+            return (
+              <div key={t.id} className="bg-slate-800/60 border border-white/8 rounded-xl p-4 hover:border-amber-500/20 transition-all group">
+                {/* Ангилал + байршил + он */}
+                <div className="flex items-center gap-2 flex-wrap mb-2">
+                  <span className="px-2 py-0.5 bg-amber-500/15 text-amber-400 rounded-lg text-xs font-bold">{t.category || "Авто зам"}</span>
+                  {t.location && (
+                    <span className="flex items-center gap-1 text-slate-400 text-xs">
+                      <MapPin className="w-3 h-3" />{t.location}
+                    </span>
+                  )}
+                  {t.year && <span className="text-slate-500 text-xs">{t.year} он</span>}
+                </div>
+
+                {/* Гарчиг */}
+                <p className="text-white font-bold text-sm mb-1">{t.title}</p>
+                {t.description && <p className="text-slate-400 text-xs mb-3">{t.description}</p>}
+
+                {/* Шаардах бүтээгдэхүүн */}
+                {prods.length > 0 && (
+                  <div className="mb-3">
+                    <p className="text-slate-500 text-[11px] mb-1.5 uppercase tracking-wider">Нийлүүлэх бүтээгдэхүүн:</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {prods.map((prod, i) => (
+                        <span key={i} className="px-2 py-0.5 bg-blue-500/15 text-blue-300 border border-blue-500/20 rounded-full text-xs">
+                          {prod}
+                        </span>
+                      ))}
                     </div>
-                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full ${PROG_CLR(t.progress)}`} style={{ width: `${t.progress}%` }} />
-                    </div>
                   </div>
+                )}
+
+                {/* Хугацаа + холбоо барих */}
+                <div className="flex items-center justify-between mt-2">
+                  {t.deadline ? (
+                    <span className="flex items-center gap-1 text-xs text-slate-400">
+                      <Calendar className="w-3 h-3" /> Хугацаа: <span className="text-white font-semibold">{t.deadline}</span>
+                    </span>
+                  ) : <span />}
+                  <a href="#contact"
+                    onClick={onClose}
+                    className="flex items-center gap-1 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold rounded-lg transition-all">
+                    Холбоо барих →
+                  </a>
                 </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </motion.div>
     </motion.div>
