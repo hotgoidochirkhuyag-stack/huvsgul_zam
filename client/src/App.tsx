@@ -38,6 +38,7 @@ const ProtectedRoute = ({ component: Component, role }: { component: React.Compo
     const redirects: Record<string, string> = {
       PROJECT:    "/dashboard/project",
       ADMIN:      "/dashboard/admin",
+      BOARD:      "/dashboard/board",
       ENGINEER:   "/dashboard/engineer",
       HR:         "/dashboard/hr",
       SUPERVISOR: "/dashboard/supervisor",
@@ -73,6 +74,13 @@ function Router() {
       {/* Удирдлагын самбарууд */}
       <Route path="/dashboard/project"    component={() => <ProtectedRoute component={ProjectDashboard}    role="PROJECT" />} />
       <Route path="/dashboard/admin"      component={() => <ProtectedRoute component={AdminDashboard}      role="ADMIN" />} />
+      <Route path="/dashboard/board"      component={() => {
+        const token    = localStorage.getItem("adminToken");
+        const userRole = localStorage.getItem("userRole");
+        if (!token) return <Redirect to="/admin/BOARD" />;
+        if (!["ADMIN","BOARD"].includes(userRole ?? "")) return <Redirect to={`/admin/BOARD`} />;
+        return <AdminDashboard />;
+      }} />
       <Route path="/dashboard/engineer"   component={() => <ProtectedRoute component={EngineerDashboard}   role="ENGINEER" />} />
       <Route path="/dashboard/hr"         component={() => <ProtectedRoute component={HRDashboard}         role="HR" />} />
       <Route path="/dashboard/supervisor" component={() => <ProtectedRoute component={SupervisorDashboard} role="SUPERVISOR" />} />
