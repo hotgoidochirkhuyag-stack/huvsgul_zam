@@ -3584,7 +3584,7 @@ ${cert.testResults ? `
       } else if (req.body.status === "finance_pricing") {
         await db.insert(schema.notifications).values({ toRole: "WAREHOUSE", title: "📋 Үнийн санал — Таны ээлж", body: `${row.productName} — санхүүгийн үнэ бөглөж дуусгана уу`, sourceType: "project_order", sourceId: id });
       } else if (req.body.status === "hr_review") {
-        await db.insert(schema.notifications).values({ toRole: "HR", title: "📋 Үнийн санал — Хөдөлмөрийн норм бөглөх", body: `${row.productName} — хөдөлмөрийн норм бөглөнө үү`, sourceType: "project_order", sourceId: id });
+        await db.insert(schema.notifications).values({ toRole: "HR", title: "📋 Үнийн санал — Таны ээлж", body: `${row.productName} — хүний зардал тооцоолж дуусгана уу`, sourceType: "project_order", sourceId: id });
       } else if (req.body.status === "completed") {
         await db.insert(schema.notifications).values({ toRole: "SALES", title: "✅ Үнийн санал бэлэн боллоо", body: `${row.productName} — нэгж үнэ: ₮${row.suggestedPrice?.toLocaleString() ?? "тооцоологдоогүй"}`, sourceType: "project_order", sourceId: id });
         await db.insert(schema.notifications).values({ toRole: "ADMIN", title: "✅ Үнийн санал бэлэн боллоо", body: `${row.productName} — бүх алхам дуусгавар боллоо`, sourceType: "project_order", sourceId: id });
