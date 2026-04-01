@@ -183,6 +183,7 @@ export const workReports = pgTable("work_reports", {
   quantity: text("quantity"),             // Хийсэн хэмжээ
   unit: text("unit"),                     // Нэгж
   issues: text("issues"),                 // Бэрхшээл
+  hasAccident: boolean("has_accident").default(false), // Осол/зөрчил гарсан уу?
   createdAt: timestamp("created_at").defaultNow(),
 });
 

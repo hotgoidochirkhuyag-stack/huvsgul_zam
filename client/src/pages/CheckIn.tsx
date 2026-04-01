@@ -59,7 +59,7 @@ export default function CheckIn() {
   const [attendance, setAttendance] = useState<any>(null);
   const [checkedItems, setCheckedItems] = useState<Record<number, boolean>>({});
   const [activeTaskId, setActiveTaskId] = useState<number | null>(null);
-  const [report, setReport] = useState({ description: "", quantity: "", unit: "", issues: "" });
+  const [report, setReport] = useState({ description: "", quantity: "", unit: "", issues: "", hasAccident: false });
 
   const { data: _checkEmpRaw } = useQuery<any>({
     queryKey: ["/api/checkin/employees"],
@@ -416,6 +416,38 @@ export default function CheckIn() {
                   data-testid="input-report-issues"
                   className="w-full bg-slate-800/60 border border-white/10 rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-amber-500/50 resize-none"
                 />
+              </div>
+
+              {/* ХАБЭА — Осол/зөрчил */}
+              <div className="rounded-xl border border-white/10 overflow-hidden">
+                <div className="px-4 py-2 bg-white/5">
+                  <span className="text-xs font-bold text-amber-400 uppercase tracking-wider">⛑ ХАБЭА — Аюулгүй байдал</span>
+                </div>
+                <div className="grid grid-cols-2 divide-x divide-white/10">
+                  <button
+                    type="button"
+                    data-testid="btn-no-accident"
+                    onClick={() => setReport(p => ({ ...p, hasAccident: false }))}
+                    className={`flex flex-col items-center gap-1.5 py-3 transition-all ${!report.hasAccident ? "bg-green-500/20 text-green-400" : "text-slate-500 hover:bg-white/5"}`}
+                  >
+                    <span className="text-xl">🟢</span>
+                    <span className="text-xs font-bold">Аюулгүй ажилласан</span>
+                  </button>
+                  <button
+                    type="button"
+                    data-testid="btn-has-accident"
+                    onClick={() => setReport(p => ({ ...p, hasAccident: true }))}
+                    className={`flex flex-col items-center gap-1.5 py-3 transition-all ${report.hasAccident ? "bg-red-500/20 text-red-400" : "text-slate-500 hover:bg-white/5"}`}
+                  >
+                    <span className="text-xl">🔴</span>
+                    <span className="text-xs font-bold">Осол / зөрчил гарсан</span>
+                  </button>
+                </div>
+                <div className="px-4 py-2 bg-white/5 text-xs text-slate-500">
+                  {!report.hasAccident
+                    ? "✅ Тайлан илгээхэд ХАБЭА автоматаар баталгааждаг"
+                    : "⚠️ Ахлахад мэдэгдэл очно, ХАБЭА баталгаажахгүй"}
+                </div>
               </div>
             </div>
 

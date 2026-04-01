@@ -737,16 +737,16 @@ export default function HRDashboard() {
                     </div>
                   </div>
 
-                  {/* Ирцийн коэффициент */}
+                  {/* ХАБЭА коэффициент */}
                   <div className="flex justify-between items-center py-2.5 border-b border-white/5">
                     <div>
-                      <span className="text-slate-400 text-sm">Ирцийн коэффициент</span>
+                      <span className="text-slate-400 text-sm">ХАБЭА коэффициент</span>
                       <div className="text-xs text-slate-500 mt-0.5">
-                        {calcData.att?.days ?? 0}/{calcData.att?.workingDays ?? 0} өдөр ирсэн ({calcData.att?.pct ?? 0}%)
+                        {calcData.hab?.habDays ?? calcData.att?.days ?? 0}/{calcData.hab?.totalPresent ?? calcData.att?.days ?? 0} өдөр аюулгүй ({calcData.hab?.pct ?? calcData.att?.pct ?? 0}%)
                       </div>
                     </div>
-                    <span className={`text-sm font-bold ${(calcData.att?.coeff ?? 1) < 0.9 ? "text-red-400" : (calcData.att?.coeff ?? 1) < 1 ? "text-amber-400" : "text-green-400"}`}>
-                      × {calcData.att?.coeff ?? 1}
+                    <span className={`text-sm font-bold ${(calcData.hab?.coeff ?? calcData.att?.coeff ?? 1) < 0.9 ? "text-red-400" : (calcData.hab?.coeff ?? calcData.att?.coeff ?? 1) < 1 ? "text-amber-400" : "text-green-400"}`}>
+                      × {calcData.hab?.coeff ?? calcData.att?.coeff ?? 1}
                     </span>
                   </div>
 

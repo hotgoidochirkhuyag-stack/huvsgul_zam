@@ -1085,15 +1085,26 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
   // Ажлын тайлан оруулах (нийтийн)
   app.post("/api/checkin/reports", async (req, res) => {
-    const { employeeId, taskId, description, quantity, unit, issues } = req.body;
+    const { employeeId, taskId, description, quantity, unit, issues, hasAccident } = req.body;
     if (!employeeId || !description) return res.status(400).json({ message: "employeeId, description шаардлагатай" });
     const today = new Date().toISOString().slice(0, 10);
+    const accidentFlag = hasAccident === true || hasAccident === "true";
     const [report] = await db.insert(schema.workReports).values({
       employeeId, taskId: taskId || null, date: today, description, quantity, unit, issues,
+      hasAccident: accidentFlag,
     }).returning();
     // Даалгавар дуусгагдсан гэж тэмдэглэх
     if (taskId) {
       await db.update(schema.tasks).set({ status: "completed" }).where(eq(schema.tasks.id, taskId));
+    }
+    // Осол гарсангүй бол → ХАБЭА автоматаар баталгааждаг
+    if (!accidentFlag) {
+      await db.update(schema.attendance)
+        .set({ safetyConfirmed: true, safetyConfirmedAt: new Date() })
+        .where(and(
+          eq(schema.attendance.employeeId, employeeId),
+          eq(schema.attendance.date, today)
+        ));
     }
     res.status(201).json(report);
   });
@@ -2172,17 +2183,16 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       else if (avgSkill >= 2.0) skillBonusPct = 15;
       const skillBonus = Math.round(base * skillBonusPct / 100);
 
-      // 3. Ирцийн тооцоолол
+      // 3. ХАБЭА тооцоолол (саяын ирцэд үндэслэн)
       const [y, m] = month.split("-").map(Number);
       const daysInMonth = new Date(y, m, 0).getDate();
-      // Ажлын өдрүүд (Да-Ба гэрийн хурал)
       let workingDays = 0;
       for (let d = 1; d <= daysInMonth; d++) {
         const dow = new Date(y, m - 1, d).getDay();
         if (dow !== 0 && dow !== 6) workingDays++;
       }
       const attRows = await db
-        .select({ date: schema.attendance.date })
+        .select({ date: schema.attendance.date, safetyConfirmed: schema.attendance.safetyConfirmed })
         .from(schema.attendance)
         .where(
           and(
@@ -2190,12 +2200,13 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
             sql`TO_CHAR(${schema.attendance.date}, 'YYYY-MM') = ${month}`
           )
         );
-      const attDays = attRows.length;
-      const attPct = workingDays > 0 ? Math.round((attDays / workingDays) * 100) : 0;
+      const attDays = attRows.length; // нийт ирсэн өдөр
+      const habDays = attRows.filter(r => r.safetyConfirmed).length; // ХАБЭА баталгааджсан өдөр
+      const habPct = attDays > 0 ? Math.round((habDays / attDays) * 100) : 0;
       let attCoeff = 1.0;
-      if (attPct < 80)      attCoeff = 0.8;
-      else if (attPct < 90) attCoeff = 0.9;
-      else if (attPct < 96) attCoeff = 0.95;
+      if (habPct < 80)      attCoeff = 0.8;
+      else if (habPct < 90) attCoeff = 0.9;
+      else if (habPct < 96) attCoeff = 0.95;
 
       // 4. KPI тооцоолол (тухайн сарын даалгавраар)
       const taskRows = await db
@@ -2228,7 +2239,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         base,
         skill:    { avgLevel: avgSkill, count: skillCount, bonusPct: skillBonusPct, bonus: skillBonus },
         kpi:      { totalTasks, doneTasks, kpiPct, bonusPct: kpiBonusPct, bonus: kpiBonus },
-        att:      { days: attDays, workingDays, pct: attPct, coeff: attCoeff },
+        att:      { days: attDays, workingDays, pct: habPct, coeff: attCoeff },
+        hab:      { totalPresent: attDays, habDays, pct: habPct, coeff: attCoeff },
         subtotal,
         finalSalary,
       });
