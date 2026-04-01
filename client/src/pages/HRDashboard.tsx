@@ -5,7 +5,7 @@ import {
   Users, Plus, Trash2, QrCode, LogOut, RefreshCw,
   Clock, ShieldCheck, Download, Search, Building2, HardHat, Factory, ChevronDown,
   Pencil, X, Check, Award, GraduationCap, Wrench, AlertTriangle, CheckCircle2,
-  Calculator, Sparkles, Brain,
+  Calculator, Sparkles,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useLocation } from "wouter";
@@ -43,7 +43,7 @@ export default function HRDashboard() {
   const qc = useQueryClient();
 
   const today = new Date().toISOString().slice(0, 10);
-  const [tab, setTab] = useState<"employees" | "attendance" | "certs" | "trainings" | "skills" | "norms" | "ai_cache">("employees");
+  const [tab, setTab] = useState<"employees" | "attendance" | "certs" | "trainings" | "skills" | "norms">("employees");
   const [search, setSearch] = useState("");
   const [filterDept, setFilterDept] = useState("all");
   const [selectedQrEmployee, setSelectedQrEmployee] = useState<any>(null);
@@ -210,7 +210,6 @@ export default function HRDashboard() {
             { key: "trainings",  label: "Сургалт/ХАБЭА",   icon: GraduationCap  },
             { key: "skills",     label: "Чадварын матриц", icon: Wrench         },
             { key: "norms",      label: "Хөдөлмөрийн норм", icon: Factory       },
-            { key: "ai_cache",   label: "AI Норм Кэш",       icon: Brain         },
           ] as { key: typeof tab; label: string; icon: any }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === t.key ? "bg-purple-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
@@ -652,9 +651,6 @@ export default function HRDashboard() {
 
       {/* ── ХӨДӨЛМӨРИЙН НОРМ ── */}
       {tab === "norms" && <NormsTab qc={qc} toast={toast} />}
-
-      {/* ── AI НОРМ КЭШ ── */}
-      {tab === "ai_cache" && <AiNormCacheTab qc={qc} toast={toast} />}
 
       {/* QR карт modal */}
       {selectedQrEmployee && (
@@ -1566,124 +1562,6 @@ function NormsTab({ qc, toast }: any) {
               </div>
             );
           })}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ==================== AI НОРМ КЭШ ТАБ ====================
-function AiNormCacheTab({ qc, toast }: { qc: any; toast: any }) {
-  const [refreshing, setRefreshing] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState<string | null>(null);
-
-  const { data: caches = [], isLoading } = useQuery<any[]>({
-    queryKey: ["/api/ai-norm-cache"],
-    queryFn: () => fetch("/api/ai-norm-cache", { headers: getAdminHeaders() }).then(r => r.json()),
-  });
-
-  const handleRefresh = async (c: any) => {
-    setRefreshing(c.productType);
-    try {
-      const res = await fetch("/api/ai-norm-cache/refresh", {
-        method: "POST",
-        headers: { ...getAdminHeaders(), "Content-Type": "application/json" },
-        body: JSON.stringify({ productType: c.productType, productName: c.productName, unit: c.unit }),
-      });
-      const data = await res.json();
-      toast({ title: `✅ ${c.productName} норм шинэчлэгдлээ`, description: data.notes });
-      qc.invalidateQueries({ queryKey: ["/api/ai-norm-cache"] });
-    } catch {
-      toast({ title: "Алдаа гарлаа", variant: "destructive" });
-    }
-    setRefreshing(null);
-  };
-
-  const handleDelete = async (productType: string) => {
-    await fetch(`/api/ai-norm-cache/${encodeURIComponent(productType)}`, {
-      method: "DELETE", headers: getAdminHeaders(),
-    });
-    toast({ title: "Кэш устгагдлаа. Дараагийн саналд AI дахин тооцоолно." });
-    qc.invalidateQueries({ queryKey: ["/api/ai-norm-cache"] });
-  };
-
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center gap-3 mb-2">
-        <Brain className="w-5 h-5 text-purple-400" />
-        <div>
-          <h2 className="text-white font-black text-lg">AI Норм Кэш</h2>
-          <p className="text-slate-400 text-xs">Бүтээгдэхүүн тус бүрт нэг удаа AI дуудаж нормыг хадгалдаг. Шинэчлэх товч дарахад AI дахин тооцоолно.</p>
-        </div>
-      </div>
-
-      {isLoading ? (
-        <div className="text-slate-400 text-center py-10">Ачааллаж байна...</div>
-      ) : caches.length === 0 ? (
-        <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-8 text-center">
-          <Brain className="w-10 h-10 text-slate-600 mx-auto mb-3" />
-          <p className="text-slate-400 text-sm">Кэш хоосон байна.</p>
-          <p className="text-slate-500 text-xs mt-1">Үнийн санал үүсгэхэд AI автоматаар нормыг тооцоолж энд хадгална.</p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {caches.map((c: any) => (
-            <div key={c.productType} className="bg-slate-900/60 border border-white/10 rounded-xl overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3">
-                <div className="flex items-center gap-3 cursor-pointer flex-1" onClick={() => setExpanded(expanded === c.productType ? null : c.productType)}>
-                  <Brain className="w-4 h-4 text-purple-400 shrink-0" />
-                  <div>
-                    <p className="text-white text-sm font-bold">{c.productName}</p>
-                    <p className="text-slate-500 text-xs">{c.productType} · {c.unit} · {c.materials?.length ?? 0} материал · {c.labor?.length ?? 0} мэргэжил</p>
-                    <p className="text-slate-600 text-xs">{new Date(c.updatedAt).toLocaleString("mn-MN")} · {c.updatedBy}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => handleRefresh(c)} disabled={refreshing === c.productType}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-purple-600/20 text-purple-300 hover:bg-purple-600/40 rounded-lg text-xs font-bold transition-all disabled:opacity-50">
-                    <RefreshCw className={`w-3 h-3 ${refreshing === c.productType ? "animate-spin" : ""}`} />
-                    Шинэчлэх
-                  </button>
-                  <button onClick={() => handleDelete(c.productType)}
-                    className="p-1.5 text-red-400/50 hover:text-red-400 transition-colors">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {expanded === c.productType && (
-                <div className="border-t border-white/5 px-4 py-3 grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs text-slate-500 font-bold mb-2 uppercase tracking-wider">Материалын норм</p>
-                    <div className="space-y-1">
-                      {(c.materials ?? []).map((m: any, i: number) => (
-                        <div key={i} className="flex justify-between text-xs">
-                          <span className="text-slate-300">{m.name}</span>
-                          <span className="text-slate-500">{m.norm} {m.unit}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-xs text-slate-500 font-bold mb-2 uppercase tracking-wider">Хөдөлмөрийн норм</p>
-                    <div className="space-y-1">
-                      {(c.labor ?? []).map((l: any, i: number) => (
-                        <div key={i} className="flex justify-between text-xs">
-                          <span className="text-slate-300">{l.roleName} ×{l.count}</span>
-                          <span className="text-slate-500">{l.hoursPerUnit}ц/нэгж</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  {c.aiNotes && (
-                    <div className="col-span-2 bg-slate-800/60 rounded-lg px-3 py-2">
-                      <p className="text-xs text-slate-400">{c.aiNotes}</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
         </div>
       )}
     </div>
