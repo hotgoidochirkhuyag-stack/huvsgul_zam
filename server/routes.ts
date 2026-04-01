@@ -3738,22 +3738,86 @@ ${cert.testResults ? `
       const id = parseInt(req.params.id);
       const [proposal] = await db.select().from(schema.priceProposals).where(eq(schema.priceProposals.id, id));
       if (!proposal) return res.status(404).json({ message: "Олдсонгүй" });
+
+      // Системийн бэлэн нормууд (fallback)
+      const SYSTEM_LABOR: Record<string, Array<{ roleName: string; count: number; hoursPerUnit: number }>> = {
+        foam_block: [
+          { roleName: "Блок хийгч",         count: 2, hoursPerUnit: 0.80 },
+          { roleName: "Зуурмагч операторч",  count: 1, hoursPerUnit: 0.40 },
+          { roleName: "Хэвлэлийн ажилтан",  count: 1, hoursPerUnit: 0.50 },
+          { roleName: "Туслах ажилтан",      count: 2, hoursPerUnit: 0.35 },
+        ],
+        concrete: [
+          { roleName: "Бетонч",             count: 2, hoursPerUnit: 0.50 },
+          { roleName: "Зуурмагч",           count: 1, hoursPerUnit: 0.25 },
+          { roleName: "Тоног ажиллуулагч",  count: 1, hoursPerUnit: 0.20 },
+          { roleName: "Туслах ажилтан",     count: 2, hoursPerUnit: 0.30 },
+        ],
+        asphalt: [
+          { roleName: "Асфальтч",           count: 2, hoursPerUnit: 0.40 },
+          { roleName: "Тоног ажиллуулагч",  count: 2, hoursPerUnit: 0.30 },
+          { roleName: "Тавигч (оператор)",  count: 1, hoursPerUnit: 0.20 },
+          { roleName: "Туслах ажилтан",     count: 2, hoursPerUnit: 0.35 },
+        ],
+        crushing: [
+          { roleName: "Бутлуурч",           count: 2, hoursPerUnit: 0.60 },
+          { roleName: "Тоног ажиллуулагч",  count: 1, hoursPerUnit: 0.30 },
+          { roleName: "Туслах ажилтан",     count: 2, hoursPerUnit: 0.40 },
+        ],
+        default: [
+          { roleName: "Ажилтан",            count: 2, hoursPerUnit: 0.50 },
+          { roleName: "Тоног ажиллуулагч",  count: 1, hoursPerUnit: 0.30 },
+        ],
+      };
+
+      // productType-оос ангилал тодорхойлно
+      const pt = (proposal.productType ?? "").toLowerCase();
+      const sysCategory =
+        pt.includes("foam") ? "foam_block" :
+        pt.includes("concrete") ? "concrete" :
+        pt.includes("asphalt") ? "asphalt" :
+        pt.includes("crush") || pt.includes("stone") ? "crushing" : "default";
+
+      // Хэрэглэгчийн тохируулсан нормыг эхлэж хайна
       const norms = await db.select().from(schema.productLaborNorms)
         .where(eq(schema.productLaborNorms.productType, proposal.productType));
-      if (norms.length === 0) return res.status(200).json({ message: "Норм бүртгэгдээгүй байна", created: 0 });
+
       // Хуучин labor мөрүүдийг устгана
       await db.delete(schema.priceProposalLabor).where(eq(schema.priceProposalLabor.proposalId, id));
-      // Норм тус бүрт labor мөр үүсгэнэ
-      const laborRows = norms.map(n => ({
-        proposalId: id,
-        roleName: n.roleName,
-        count: 1,
-        hoursPerUnit: n.hoursPerDay / n.unitsPerPersonPerDay,
-        hourlyRate: n.hourlyRate ?? 0,
-        totalPerUnit: (n.hoursPerDay / n.unitsPerPersonPerDay) * (n.hourlyRate ?? 0),
-      }));
+
+      let laborRows: any[];
+      let source: string;
+
+      if (norms.length > 0) {
+        // Хэрэглэгчийн тохируулсан норм байвал тэрийг ашиглана
+        laborRows = norms.map(n => ({
+          proposalId: id,
+          roleName: n.roleName,
+          count: 1,
+          hoursPerUnit: n.hoursPerDay / n.unitsPerPersonPerDay,
+          hourlyRate: n.hourlyRate ?? 0,
+          totalPerUnit: (n.hoursPerDay / n.unitsPerPersonPerDay) * (n.hourlyRate ?? 0),
+        }));
+        source = "custom";
+      } else {
+        // Системийн бэлэн норм ашиглана (fallback)
+        const sysNorms = SYSTEM_LABOR[sysCategory] ?? SYSTEM_LABOR.default;
+        laborRows = sysNorms.map(n => ({
+          proposalId: id,
+          roleName: n.roleName,
+          count: n.count,
+          hoursPerUnit: n.hoursPerUnit,
+          hourlyRate: 0,
+          totalPerUnit: 0,
+        }));
+        source = "system";
+      }
+
       const created = await db.insert(schema.priceProposalLabor).values(laborRows).returning();
-      res.json({ message: `${created.length} мэргэжлийн норм тохируулагдлаа`, created: created.length, rows: created });
+      const msg = source === "system"
+        ? `${created.length} мэргэжил — системийн бэлэн норм ашигласан. Цагийн тарифыг бөглөнө үү.`
+        : `${created.length} мэргэжлийн норм тохируулагдлаа`;
+      res.json({ message: msg, created: created.length, rows: created, source });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
