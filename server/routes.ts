@@ -1,7 +1,7 @@
 import type { Express, Request, Response, NextFunction } from "express";
 import type { Server } from "http";
 import express from "express";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import OpenAI from "openai";
 import { storage } from "./storage.js";
 import { db } from "./db.js";
 import * as schema from "../shared/schema.js";
@@ -375,15 +375,11 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.json(cachedData);
     }
 
-    const apiKey = process.env.GEMINI_API_KEY;
+    const openaiKey = process.env.OPENAI_API_KEY;
 
-    if (apiKey) {
+    if (openaiKey) {
       try {
-        const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({
-          model: "gemini-2.0-flash",
-          tools: [{ googleSearch: {} } as any],
-        });
+        const openai = new OpenAI({ apiKey: openaiKey });
 
         const prompt = `Чи бол Монголын барилга, дэд бүтцийн материалын зах зээлийн шинжээч.
 Хэрэглэгч: "${product}" бүтээгдэхүүний ${qty} нэгж захиалахыг хүсэж байна.
@@ -407,8 +403,12 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
 
 Зөвхөн цэвэр JSON буцаа. Үнийг Монгол төгрөгөөр бич. Нийт дүнг quantity=${qty}-р үржүүлж тооцоол.`;
 
-        const result = await model.generateContent(prompt);
-        const text = result.response.text().trim();
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4o-mini",
+          messages: [{ role: "user", content: prompt }],
+          response_format: { type: "json_object" },
+        });
+        const text = completion.choices[0].message.content ?? "{}";
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (!jsonMatch) throw new Error("JSON parse failed");
         const parsed = JSON.parse(jsonMatch[0]);
@@ -3576,22 +3576,38 @@ ${cert.testResults ? `
         );
       }
 
-      // DB норм олдоогүй бол Gemini API-г дахиул (бутлуур, бусад бүтээгдэхүүн)
+      // DB норм олдоогүй бол OpenAI API-г дахиул (бутлуур, бусад бүтээгдэхүүн)
       if (!dbNormsLoaded) {
-        const apiKey = process.env.GEMINI_API_KEY;
-        if (apiKey) {
+        const openaiKey = process.env.OPENAI_API_KEY;
+        if (openaiKey) {
           try {
-            const genAI = new GoogleGenerativeAI(apiKey);
-            const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
-            const prompt = `БНбД болон MNS стандарт дээр тулгуурлан "${productName}" бүтээгдэхүүний 1 ${unit}-д хэрэгцэх материал, хүний нөөцийн нормыг JSON-оор өг. Формат: {"notes":"...","materials":[{"name":"...","norm":0.0,"unit":"...","category":"material"}],"labor":[{"roleName":"...","count":1,"hoursPerUnit":0.5}]}. Зөвхөн JSON.`;
-            const result = await model.generateContent(prompt);
-            const text = result.response.text().trim().replace(/```json|```/g, "");
+            const openai = new OpenAI({ apiKey: openaiKey });
+            const prompt = `Та Монголын барилга, дэд бүтцийн инженер-шинжээч. БНбД болон MNS стандарт дээр тулгуурлан "${productName}" бүтээгдэхүүний 1 ${unit}-д хэрэгцэх материал болон хүний нөөцийн нормыг нарийн тооцоолж JSON форматаар өг.
+
+Формат:
+{
+  "notes": "стандартын дугаар, онцлог тэмдэглэл",
+  "materials": [
+    {"name": "материалын нэр", "norm": 0.0, "unit": "нэгж", "category": "material"}
+  ],
+  "labor": [
+    {"roleName": "мэргэжил", "count": 1, "hoursPerUnit": 0.5}
+  ]
+}
+
+Зөвхөн JSON буцаа.`;
+            const completion = await openai.chat.completions.create({
+              model: "gpt-4o-mini",
+              messages: [{ role: "user", content: prompt }],
+              response_format: { type: "json_object" },
+            });
+            const text = (completion.choices[0].message.content ?? "{}").replace(/```json|```/g, "");
             const parsed = JSON.parse(text);
             if (parsed.notes) await db.update(schema.priceProposals).set({ aiNotes: parsed.notes }).where(eq(schema.priceProposals.id, proposal.id));
             if (parsed.materials?.length) await db.insert(schema.priceProposalItems).values(parsed.materials.map((m: any, i: number) => ({ proposalId: proposal.id, category: m.category ?? "material", materialName: m.name, norm: parseFloat(m.norm) || 0, unit: m.unit, source: "ai", sortOrder: i })));
             if (parsed.labor?.length) await db.insert(schema.priceProposalLabor).values(parsed.labor.map((l: any) => ({ proposalId: proposal.id, roleName: l.roleName, count: parseInt(l.count) || 1, hoursPerUnit: parseFloat(l.hoursPerUnit) || 1 })));
           } catch (aiErr) {
-            console.error("AI норм алдаа:", aiErr);
+            console.error("OpenAI норм алдаа:", aiErr);
             // AI амжилтгүй болоход — хоосон placeholder мөр үүсгэнэ
             await db.insert(schema.priceProposalItems).values([
               { proposalId: proposal.id, category: "material", materialName: "Материал 1 (гараар бөглөнэ)", norm: 0, unit: unit, source: "manual", sortOrder: 0 },
