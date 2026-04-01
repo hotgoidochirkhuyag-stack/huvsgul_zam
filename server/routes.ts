@@ -3577,14 +3577,17 @@ ${cert.testResults ? `
       const [row] = await db.update(schema.priceProposals).set(updateData).where(eq(schema.priceProposals.id, id)).returning();
       // Workflow notification
       if (req.body.status === "lab_review") {
-        await db.insert(schema.notifications).values({ toRole: "LAB", title: "Орц нормын шалгалт хүсэлт", body: `${row.productName} — нормыг шалгаж батлана уу`, sourceType: "project_order", sourceId: id });
+        await db.insert(schema.notifications).values({ toRole: "LAB", title: "📋 Үнийн санал — Орц норм шалгах", body: `${row.productName} — нормыг шалгаж батлана уу`, sourceType: "project_order", sourceId: id });
       } else if (req.body.status === "lab_approved") {
-        await db.insert(schema.notifications).values({ toRole: "SALES", title: "Lab орц нормыг баталлаа", body: `${row.productName} — үнийн судалгаа хийх шаардлагатай`, sourceType: "project_order", sourceId: id });
-        await db.insert(schema.notifications).values({ toRole: "ADMIN", title: "Lab орц нормыг баталлаа", body: `${row.productName} — санхүүгийн судалгаа хийх шаардлагатай`, sourceType: "project_order", sourceId: id });
+        await db.insert(schema.notifications).values({ toRole: "WAREHOUSE", title: "📋 Үнийн санал — Санхүүгийн үнэ бөглөх", body: `${row.productName} — материалын нэгж үнийг бөглөнө үү`, sourceType: "project_order", sourceId: id });
+        await db.insert(schema.notifications).values({ toRole: "ADMIN", title: "📋 Үнийн санал — Lab баталлаа", body: `${row.productName} — санхүүгийн үнэ бөглөгдөхийг хүлээж байна`, sourceType: "project_order", sourceId: id });
+      } else if (req.body.status === "finance_pricing") {
+        await db.insert(schema.notifications).values({ toRole: "WAREHOUSE", title: "📋 Үнийн санал — Таны ээлж", body: `${row.productName} — санхүүгийн үнэ бөглөж дуусгана уу`, sourceType: "project_order", sourceId: id });
       } else if (req.body.status === "hr_review") {
-        await db.insert(schema.notifications).values({ toRole: "HR", title: "Хүний нөөцийн мэдээлэл шаардлагатай", body: `${row.productName} — хөдөлмөрийн норм бөглөнө үү`, sourceType: "project_order", sourceId: id });
+        await db.insert(schema.notifications).values({ toRole: "HR", title: "📋 Үнийн санал — Хөдөлмөрийн норм бөглөх", body: `${row.productName} — хөдөлмөрийн норм бөглөнө үү`, sourceType: "project_order", sourceId: id });
       } else if (req.body.status === "completed") {
-        await db.insert(schema.notifications).values({ toRole: "SALES", title: "Үнийн санал бэлэн боллоо", body: `${row.productName} — нэгж үнэ: ₮${row.suggestedPrice?.toLocaleString() ?? "тооцоологдоогүй"}`, sourceType: "project_order", sourceId: id });
+        await db.insert(schema.notifications).values({ toRole: "SALES", title: "✅ Үнийн санал бэлэн боллоо", body: `${row.productName} — нэгж үнэ: ₮${row.suggestedPrice?.toLocaleString() ?? "тооцоологдоогүй"}`, sourceType: "project_order", sourceId: id });
+        await db.insert(schema.notifications).values({ toRole: "ADMIN", title: "✅ Үнийн санал бэлэн боллоо", body: `${row.productName} — бүх алхам дуусгавар боллоо`, sourceType: "project_order", sourceId: id });
       }
       res.json(row);
     } catch (e: any) { res.status(500).json({ error: e.message }); }

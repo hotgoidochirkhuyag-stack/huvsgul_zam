@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import NotificationBell from "@/components/NotificationBell";
 import {
   FlaskConical, Plus, Trash2, LogOut, RefreshCw, CheckCircle2,
   XCircle, Clock, FileText, AlertTriangle, ShieldCheck, History, Pencil,
@@ -481,8 +482,9 @@ export default function LabQCDashboard() {
             <button onClick={() => setLocation("/price-proposals")}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-400 border border-amber-600/40 hover:bg-amber-600/10 rounded-xl transition-all"
               data-testid="btn-price-proposals">
-              <Sparkles size={12} /> Орц норм
+              <Sparkles size={12} /> Үнийн санал
             </button>
+            <NotificationBell role="LAB" />
             <button onClick={() => refetch()}
               className="p-2 text-white/40 hover:text-white hover:bg-white/5 rounded-xl transition-all">
               <RefreshCw className="w-4 h-4" />

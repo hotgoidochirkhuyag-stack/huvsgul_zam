@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import NotificationBell from "@/components/NotificationBell";
 import {
   Users, Plus, Trash2, QrCode, LogOut, RefreshCw,
   Clock, ShieldCheck, Download, Search, Building2, HardHat, Factory, ChevronDown,
@@ -171,8 +172,9 @@ export default function HRDashboard() {
             <button onClick={() => setLocation("/price-proposals")}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-400 border border-amber-600/40 hover:bg-amber-600/10 rounded-xl transition-all"
               data-testid="btn-price-proposals">
-              <Sparkles size={12} /> Хөдөлмөрийн норм
+              <Sparkles size={12} /> Үнийн санал
             </button>
+            <NotificationBell role="HR" />
             <button
               onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
               className="flex items-center gap-2 px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 rounded-xl text-sm transition-all"
