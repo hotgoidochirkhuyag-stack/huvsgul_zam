@@ -3576,17 +3576,32 @@ ${cert.testResults ? `
         );
       }
 
-      // DB норм олдоогүй бол OpenAI API-г дахиул (бутлуур, бусад бүтээгдэхүүн)
+      // DB норм олдоогүй бол кэш → OpenAI (бутлуур, бусад бүтээгдэхүүн)
       if (!dbNormsLoaded) {
         const openaiKey = process.env.OPENAI_API_KEY;
         if (openaiKey) {
           try {
-            const openai = new OpenAI({ apiKey: openaiKey });
-            const prompt = `Та Монголын барилга, дэд бүтцийн инженер-шинжээч. БНбД болон MNS стандарт дээр тулгуурлан "${productName}" бүтээгдэхүүний 1 ${unit}-д хэрэгцэх материал болон хүний нөөцийн нормыг нарийн тооцоолж JSON форматаар өг.
+            // 1. Кэш шалгана
+            const [cached] = await db.select().from(schema.aiNormCache)
+              .where(eq(schema.aiNormCache.productType, productType));
+
+            let parsed: any;
+            if (cached) {
+              // Кэш байна → AI дуудалгүй ашиглана
+              parsed = {
+                notes: cached.aiNotes ?? "",
+                materials: JSON.parse(cached.materials),
+                labor: JSON.parse(cached.labor),
+              };
+              console.log(`[AI кэш] ${productType} — кэшээс ашигласан`);
+            } else {
+              // Кэш байхгүй → OpenAI дуудана → кэшэд хадгална
+              const openai = new OpenAI({ apiKey: openaiKey });
+              const prompt = `Та Монголын барилга, дэд бүтцийн мэргэжлийн инженер. БНбД болон MNS стандарт дээр тулгуурлан "${productName}" бүтээгдэхүүний 1 ${unit}-д хэрэгцэх материал болон хүний нөөцийн нормыг нарийн тооцоолж JSON форматаар өг.
 
 Формат:
 {
-  "notes": "стандартын дугаар, онцлог тэмдэглэл",
+  "notes": "ашигласан стандартын дугаар, онцлог тэмдэглэл",
   "materials": [
     {"name": "материалын нэр", "norm": 0.0, "unit": "нэгж", "category": "material"}
   ],
@@ -3596,13 +3611,36 @@ ${cert.testResults ? `
 }
 
 Зөвхөн JSON буцаа.`;
-            const completion = await openai.chat.completions.create({
-              model: "gpt-4o-mini",
-              messages: [{ role: "user", content: prompt }],
-              response_format: { type: "json_object" },
-            });
-            const text = (completion.choices[0].message.content ?? "{}").replace(/```json|```/g, "");
-            const parsed = JSON.parse(text);
+              const completion = await openai.chat.completions.create({
+                model: "gpt-4o-mini",
+                messages: [{ role: "user", content: prompt }],
+                response_format: { type: "json_object" },
+              });
+              const text = (completion.choices[0].message.content ?? "{}").replace(/```json|```/g, "");
+              parsed = JSON.parse(text);
+
+              // Кэшэд хадгална (дараагийн санал тэрийг ашиглана)
+              await db.insert(schema.aiNormCache).values({
+                productType,
+                productName,
+                unit,
+                materials: JSON.stringify(parsed.materials ?? []),
+                labor: JSON.stringify(parsed.labor ?? []),
+                aiNotes: parsed.notes ?? "",
+                updatedBy: "ai",
+              }).onConflictDoUpdate({
+                target: schema.aiNormCache.productType,
+                set: {
+                  materials: JSON.stringify(parsed.materials ?? []),
+                  labor: JSON.stringify(parsed.labor ?? []),
+                  aiNotes: parsed.notes ?? "",
+                  updatedAt: new Date(),
+                  updatedBy: "ai",
+                },
+              });
+              console.log(`[AI кэш] ${productType} — OpenAI-с татаж кэшэд хадгаллаа`);
+            }
+
             if (parsed.notes) await db.update(schema.priceProposals).set({ aiNotes: parsed.notes }).where(eq(schema.priceProposals.id, proposal.id));
             if (parsed.materials?.length) await db.insert(schema.priceProposalItems).values(parsed.materials.map((m: any, i: number) => ({ proposalId: proposal.id, category: m.category ?? "material", materialName: m.name, norm: parseFloat(m.norm) || 0, unit: m.unit, source: "ai", sortOrder: i })));
             if (parsed.labor?.length) await db.insert(schema.priceProposalLabor).values(parsed.labor.map((l: any) => ({ proposalId: proposal.id, roleName: l.roleName, count: parseInt(l.count) || 1, hoursPerUnit: parseFloat(l.hoursPerUnit) || 1 })));
@@ -3745,6 +3783,81 @@ ${cert.testResults ? `
     try {
       await db.delete(schema.productLaborNorms).where(eq(schema.productLaborNorms.id, parseInt(req.params.id)));
       res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ==================== AI НОРМ КЭШ удирдлага ====================
+  // Бүх кэш жагсаах
+  app.get("/api/ai-norm-cache", requireAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(schema.aiNormCache).orderBy(desc(schema.aiNormCache.updatedAt));
+      res.json(rows.map(r => ({
+        ...r,
+        materials: JSON.parse(r.materials),
+        labor: JSON.parse(r.labor),
+      })));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Тодорхой productType-ийн кэшийг устгах (дараагийн саналд AI дахин дуудагдана)
+  app.delete("/api/ai-norm-cache/:productType", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.aiNormCache).where(eq(schema.aiNormCache.productType, req.params.productType));
+      res.json({ message: "Кэш устгагдлаа. Дараагийн санал үүсгэхэд AI дахин норм тооцоолно." });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Тодорхой productType-ийн кэшийг шинэчлэх (OpenAI дуудаж хадгална)
+  app.post("/api/ai-norm-cache/refresh", requireAdmin, async (req, res) => {
+    try {
+      const { productType, productName, unit } = req.body;
+      if (!productType || !productName) return res.status(400).json({ message: "productType, productName шаардлагатай" });
+      const openaiKey = process.env.OPENAI_API_KEY;
+      if (!openaiKey) return res.status(503).json({ message: "OPENAI_API_KEY тохируулагдаагүй" });
+
+      const openai = new OpenAI({ apiKey: openaiKey });
+      const u = unit ?? "м³";
+      const prompt = `Та Монголын барилга, дэд бүтцийн мэргэжлийн инженер. БНбД болон MNS стандарт дээр тулгуурлан "${productName}" бүтээгдэхүүний 1 ${u}-д хэрэгцэх материал болон хүний нөөцийн нормыг нарийн тооцоолж JSON форматаар өг.
+
+Формат:
+{
+  "notes": "ашигласан стандартын дугаар, онцлог тэмдэглэл",
+  "materials": [{"name": "материалын нэр", "norm": 0.0, "unit": "нэгж", "category": "material"}],
+  "labor": [{"roleName": "мэргэжил", "count": 1, "hoursPerUnit": 0.5}]
+}
+Зөвхөн JSON буцаа.`;
+
+      const completion = await openai.chat.completions.create({
+        model: "gpt-4o-mini",
+        messages: [{ role: "user", content: prompt }],
+        response_format: { type: "json_object" },
+      });
+      const parsed = JSON.parse(completion.choices[0].message.content ?? "{}");
+
+      await db.insert(schema.aiNormCache).values({
+        productType, productName, unit: u,
+        materials: JSON.stringify(parsed.materials ?? []),
+        labor: JSON.stringify(parsed.labor ?? []),
+        aiNotes: parsed.notes ?? "",
+        updatedBy: req.authUser ?? req.authRole ?? "admin",
+      }).onConflictDoUpdate({
+        target: schema.aiNormCache.productType,
+        set: {
+          productName,
+          materials: JSON.stringify(parsed.materials ?? []),
+          labor: JSON.stringify(parsed.labor ?? []),
+          aiNotes: parsed.notes ?? "",
+          updatedAt: new Date(),
+          updatedBy: req.authUser ?? req.authRole ?? "admin",
+        },
+      });
+
+      res.json({
+        message: `"${productName}" норм шинэчлэгдлээ`,
+        materials: parsed.materials ?? [],
+        labor: parsed.labor ?? [],
+        notes: parsed.notes ?? "",
+      });
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 

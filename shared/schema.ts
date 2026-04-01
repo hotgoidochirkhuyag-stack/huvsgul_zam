@@ -1106,6 +1106,20 @@ export const insertProductLaborNormSchema = createInsertSchema(productLaborNorms
 export type ProductLaborNorm       = typeof productLaborNorms.$inferSelect;
 export type InsertProductLaborNorm = z.infer<typeof insertProductLaborNormSchema>;
 
+// ===================== AI НОРМ КЭШ (Бүтээгдэхүүн тус бүрт нэг удаа AI дуудана) =====================
+export const aiNormCache = pgTable("ai_norm_cache", {
+  id:          serial("id").primaryKey(),
+  productType: text("product_type").notNull().unique(),
+  productName: text("product_name").notNull(),
+  unit:        text("unit").notNull().default("м³"),
+  materials:   text("materials_json").notNull().default("[]"),
+  labor:       text("labor_json").notNull().default("[]"),
+  aiNotes:     text("ai_notes"),
+  updatedAt:   timestamp("updated_at").defaultNow(),
+  updatedBy:   text("updated_by").default("ai"),
+});
+export type AiNormCache = typeof aiNormCache.$inferSelect;
+
 // ===================== ГЭРЭЭНИЙ ЗАГВАР (Contract Template) =====================
 export const contractTemplateSections = pgTable("contract_template_sections", {
   id:           serial("id").primaryKey(),
