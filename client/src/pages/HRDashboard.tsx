@@ -15,6 +15,7 @@ function getAdminHeaders() {
 }
 
 const DEPT_OPTIONS = [
+  { value: "road",      label: "Зам гүүрийн төслийн",            icon: HardHat,   color: "yellow" },
   { value: "asphalt",   label: "Асфальт бетон хольцын үйлдвэр",  icon: Factory,   color: "orange" },
   { value: "concrete",  label: "Бетон зуурмагийн үйлдвэр",        icon: Factory,   color: "blue" },
   { value: "crushing",  label: "Бутлан ангилах үйлдвэр",          icon: HardHat,   color: "red" },
@@ -24,6 +25,7 @@ const DEPT_OPTIONS = [
 ];
 
 const DEPT_LABEL: Record<string, { label: string; cls: string }> = {
+  road:      { label: "Зам гүүрийн төслийн",           cls: "bg-yellow-500/10 text-yellow-400" },
   asphalt:   { label: "Асфальт бетон хольцын үйлдвэр", cls: "bg-orange-500/10 text-orange-400" },
   concrete:  { label: "Бетон зуурмагийн үйлдвэр",       cls: "bg-blue-500/10 text-blue-400" },
   crushing:  { label: "Бутлан ангилах үйлдвэр",         cls: "bg-red-500/10 text-red-400" },
