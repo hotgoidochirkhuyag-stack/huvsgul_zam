@@ -51,8 +51,24 @@ function ProposalCard({ proposal }: { proposal: any }) {
     mutationFn: ({ id, body }: any) => api(`/api/price-proposal-items/${id}`, { method: "PATCH", body: JSON.stringify(body) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); },
   });
+  const addItem = useMutation({
+    mutationFn: () => api("/api/price-proposal-items", { method: "POST", body: JSON.stringify({ proposalId: proposal.id, category: "material", materialName: "Шинэ материал", norm: 0, unit: "кг", source: "lab_adjusted", sortOrder: 99 }) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); toast({ title: "Мөр нэмэгдлээ" }); },
+  });
+  const deleteItem = useMutation({
+    mutationFn: (id: number) => api(`/api/price-proposal-items/${id}`, { method: "DELETE" }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); },
+  });
   const patchLabor = useMutation({
     mutationFn: ({ id, body }: any) => api(`/api/price-proposal-labor/${id}`, { method: "PATCH", body: JSON.stringify(body) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); },
+  });
+  const addLabor = useMutation({
+    mutationFn: () => api("/api/price-proposal-labor", { method: "POST", body: JSON.stringify({ proposalId: proposal.id, roleName: "Шинэ мэргэжил", count: 1, hoursPerUnit: 0.5 }) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); toast({ title: "Мэргэжил нэмэгдлээ" }); },
+  });
+  const deleteLabor = useMutation({
+    mutationFn: (id: number) => api(`/api/price-proposal-labor/${id}`, { method: "DELETE" }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); },
   });
   const autoLabor = useMutation({
@@ -155,22 +171,35 @@ function ProposalCard({ proposal }: { proposal: any }) {
                       <th className="text-center px-3 py-2 text-slate-400">Нэгж үнэ ₮</th>
                       <th className="text-right px-3 py-2 text-slate-400">Нийт/нэгж ₮</th>
                       <th className="text-center px-3 py-2 text-slate-400">Эх</th>
+                      {canEditNorms && <th className="w-8" />}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/50">
                     {materials.map((item: any) => (
                       <ItemRow key={item.id} item={item} canEditNorm={canEditNorms} canEditPrice={canEditPrices}
-                        onSave={(body) => patchItem.mutate({ id: item.id, body })} />
+                        canDelete={canEditNorms}
+                        onSave={(body) => patchItem.mutate({ id: item.id, body })}
+                        onDelete={() => deleteItem.mutate(item.id)} />
                     ))}
                   </tbody>
                   <tfoot className="bg-slate-700/30">
                     <tr>
-                      <td colSpan={4} className="px-3 py-2 text-slate-400 font-bold">Материалын нийт өртөг</td>
+                      <td colSpan={canEditNorms ? 5 : 4} className="px-3 py-2 text-slate-400 font-bold">Материалын нийт өртөг</td>
                       <td className="px-3 py-2 text-right text-amber-400 font-black">
                         ₮{materials.reduce((s, i) => s + ((i.norm ?? 0) * (i.unitPrice ?? 0)), 0).toLocaleString()}
                       </td>
                       <td />
                     </tr>
+                    {canEditNorms && (
+                      <tr>
+                        <td colSpan={7} className="px-3 py-2">
+                          <button onClick={() => addItem.mutate()} disabled={addItem.isPending}
+                            className="flex items-center gap-1.5 text-xs text-teal-400 hover:text-teal-300 font-bold transition-colors">
+                            <Plus size={13} /> Мөр нэмэх
+                          </button>
+                        </td>
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
               </div>
@@ -204,12 +233,15 @@ function ProposalCard({ proposal }: { proposal: any }) {
                       <th className="text-center px-3 py-2 text-slate-400">Цаг/нэгж</th>
                       <th className="text-center px-3 py-2 text-slate-400">Цагийн тариф ₮</th>
                       <th className="text-right px-3 py-2 text-slate-400">Нийт/нэгж ₮</th>
+                      {canEditLabor && <th className="w-8" />}
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-700/50">
                     {labor.map((l: any) => (
                       <LaborRow key={l.id} labor={l} canEdit={canEditLabor}
-                        onSave={(body) => patchLabor.mutate({ id: l.id, body })} />
+                        canDelete={canEditLabor}
+                        onSave={(body) => patchLabor.mutate({ id: l.id, body })}
+                        onDelete={() => deleteLabor.mutate(l.id)} />
                     ))}
                   </tbody>
                   <tfoot className="bg-slate-700/30">
@@ -218,7 +250,18 @@ function ProposalCard({ proposal }: { proposal: any }) {
                       <td className="px-3 py-2 text-right text-purple-400 font-black">
                         ₮{labor.reduce((s, l) => s + ((l.count ?? 1) * (l.hoursPerUnit ?? 1) * (l.hourlyRate ?? 0)), 0).toLocaleString()}
                       </td>
+                      {canEditLabor && <td />}
                     </tr>
+                    {canEditLabor && (
+                      <tr>
+                        <td colSpan={6} className="px-3 py-2">
+                          <button onClick={() => addLabor.mutate()} disabled={addLabor.isPending}
+                            className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 font-bold transition-colors">
+                            <Plus size={13} /> Мэргэжил нэмэх
+                          </button>
+                        </td>
+                      </tr>
+                    )}
                   </tfoot>
                 </table>
               </div>
@@ -286,14 +329,22 @@ function ProposalCard({ proposal }: { proposal: any }) {
 }
 
 // ── Орц мөр ─────────────────────────────────────────────────────────────────
-function ItemRow({ item, canEditNorm, canEditPrice, onSave }: any) {
+function ItemRow({ item, canEditNorm, canEditPrice, canDelete, onSave, onDelete }: any) {
+  const [name, setName] = useState(item.materialName ?? "");
+  const [unit, setUnit] = useState(item.unit ?? "кг");
   const [norm, setNorm] = useState(String(item.norm ?? ""));
   const [price, setPrice] = useState(String(item.unitPrice ?? ""));
-  const SOURCE_COLOR: Record<string, string> = { ai: "text-blue-400", lab_adjusted: "text-teal-400", finance_set: "text-amber-400" };
-  const SOURCE_LABEL: Record<string, string> = { ai: "AI", lab_adjusted: "Lab", finance_set: "Санхүү" };
+  const SOURCE_COLOR: Record<string, string> = { ai: "text-blue-400", lab_adjusted: "text-teal-400", finance_set: "text-amber-400", db_norm: "text-green-400", manual: "text-slate-400" };
+  const SOURCE_LABEL: Record<string, string> = { ai: "AI", lab_adjusted: "Lab", finance_set: "Санхүү", db_norm: "БНбД", manual: "Гараар" };
   return (
-    <tr className="hover:bg-slate-700/20 transition-colors">
-      <td className="px-3 py-2 text-white">{item.materialName}</td>
+    <tr className="hover:bg-slate-700/20 transition-colors group">
+      <td className="px-3 py-2 text-white">
+        {canEditNorm ? (
+          <input type="text" value={name} onChange={e => setName(e.target.value)}
+            onBlur={() => onSave({ materialName: name })}
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded px-1.5 py-0.5 text-xs" />
+        ) : item.materialName}
+      </td>
       <td className="px-3 py-2 text-center">
         {canEditNorm ? (
           <input type="number" value={norm} onChange={e => setNorm(e.target.value)}
@@ -301,7 +352,13 @@ function ItemRow({ item, canEditNorm, canEditPrice, onSave }: any) {
             className="w-20 bg-slate-700 border border-slate-600 text-white rounded px-1.5 py-0.5 text-xs text-center" />
         ) : <span className="text-slate-300">{item.norm}</span>}
       </td>
-      <td className="px-3 py-2 text-center text-slate-400">{item.unit}</td>
+      <td className="px-3 py-2 text-center">
+        {canEditNorm ? (
+          <input type="text" value={unit} onChange={e => setUnit(e.target.value)}
+            onBlur={() => onSave({ unit })}
+            className="w-14 bg-slate-700 border border-slate-600 text-white rounded px-1.5 py-0.5 text-xs text-center" />
+        ) : <span className="text-slate-400">{item.unit}</span>}
+      </td>
       <td className="px-3 py-2 text-center">
         {canEditPrice ? (
           <input type="number" value={price} onChange={e => setPrice(e.target.value)}
@@ -318,6 +375,14 @@ function ItemRow({ item, canEditNorm, canEditPrice, onSave }: any) {
           {SOURCE_LABEL[item.source] ?? item.source}
         </span>
       </td>
+      {canDelete && (
+        <td className="px-2 py-2 text-center">
+          <button onClick={() => onDelete()}
+            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all">
+            <Trash2 size={13} />
+          </button>
+        </td>
+      )}
     </tr>
   );
 }
@@ -371,14 +436,21 @@ function WorkerCalculator({ labor, unit }: { labor: any[]; unit: string }) {
 }
 
 // ── Хүний нөөц мөр ──────────────────────────────────────────────────────────
-function LaborRow({ labor, canEdit, onSave }: any) {
+function LaborRow({ labor, canEdit, canDelete, onSave, onDelete }: any) {
+  const [roleName, setRoleName] = useState(labor.roleName ?? "");
   const [rate, setRate] = useState(String(labor.hourlyRate ?? ""));
   const [count, setCount] = useState(String(labor.count ?? 1));
   const [hours, setHours] = useState(String(labor.hoursPerUnit ?? 1));
   const total = (parseFloat(count) || 1) * (parseFloat(hours) || 1) * (parseFloat(rate) || 0);
   return (
-    <tr className="hover:bg-slate-700/20 transition-colors">
-      <td className="px-3 py-2 text-white">{labor.roleName}</td>
+    <tr className="hover:bg-slate-700/20 transition-colors group">
+      <td className="px-3 py-2 text-white">
+        {canEdit ? (
+          <input type="text" value={roleName} onChange={e => setRoleName(e.target.value)}
+            onBlur={() => onSave({ roleName })}
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded px-1.5 py-0.5 text-xs" />
+        ) : labor.roleName}
+      </td>
       <td className="px-3 py-2 text-center">
         {canEdit ? (
           <input type="number" value={count} onChange={e => setCount(e.target.value)}
@@ -404,6 +476,14 @@ function LaborRow({ labor, canEdit, onSave }: any) {
       <td className="px-3 py-2 text-right text-purple-300 font-medium">
         {total > 0 ? `₮${total.toLocaleString()}` : "—"}
       </td>
+      {canDelete && (
+        <td className="px-2 py-2 text-center">
+          <button onClick={() => onDelete()}
+            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all">
+            <Trash2 size={13} />
+          </button>
+        </td>
+      )}
     </tr>
   );
 }
