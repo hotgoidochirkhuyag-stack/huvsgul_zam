@@ -55,6 +55,13 @@ function ProposalCard({ proposal }: { proposal: any }) {
     mutationFn: ({ id, body }: any) => api(`/api/price-proposal-labor/${id}`, { method: "PATCH", body: JSON.stringify(body) }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); },
   });
+  const autoLabor = useMutation({
+    mutationFn: () => api(`/api/price-proposals/${proposal.id}/auto-labor`, { method: "POST" }).then(r => r.json()),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] });
+      toast({ title: data.message ?? "Авто норм тохируулагдлаа" });
+    },
+  });
   const recalc = useMutation({
     mutationFn: () => api(`/api/price-proposals/${proposal.id}/recalculate`, { method: "POST" }).then(r => r.json()),
     onSuccess: (data) => {
@@ -171,11 +178,23 @@ function ProposalCard({ proposal }: { proposal: any }) {
           )}
 
           {/* Хүний нөөц */}
-          {labor.length > 0 && (
+          {(labor.length > 0 || canEditLabor) && (
             <div>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5 mb-2">
-                <Users size={12} className="text-purple-400" /> Хүний нөөцийн норм
-              </p>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                  <Users size={12} className="text-purple-400" /> Хүний нөөцийн норм
+                </p>
+                {canEditLabor && (
+                  <button onClick={() => autoLabor.mutate()} disabled={autoLabor.isPending}
+                    className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-600/30 rounded-lg transition-all">
+                    {autoLabor.isPending ? "⏳ Тооцоолж байна..." : "⚡ Авто норм"}
+                  </button>
+                )}
+              </div>
+              {/* Захиалгын тоо тооцоолол */}
+              {canEditLabor && labor.length > 0 && (
+                <WorkerCalculator labor={labor} unit={proposal.unit} />
+              )}
               <div className="overflow-x-auto rounded-xl border border-slate-700">
                 <table className="w-full text-xs">
                   <thead className="bg-slate-700/50">
@@ -300,6 +319,54 @@ function ItemRow({ item, canEditNorm, canEditPrice, onSave }: any) {
         </span>
       </td>
     </tr>
+  );
+}
+
+// ── Хүний тоо тооцоолол ───────────────────────────────────────────────────────
+function WorkerCalculator({ labor, unit }: { labor: any[]; unit: string }) {
+  const [qty, setQty] = useState("");
+  const [days, setDays] = useState("1");
+  const qtyNum = parseFloat(qty) || 0;
+  const daysNum = parseFloat(days) || 1;
+
+  const rows = labor.map(l => {
+    const unitsPerPersonPerDay = l.hoursPerUnit > 0 ? 8 / l.hoursPerUnit : 0;
+    const needed = unitsPerPersonPerDay > 0 ? Math.ceil(qtyNum / (unitsPerPersonPerDay * daysNum)) : 0;
+    return { role: l.roleName, needed, unitsPerDay: Math.round(unitsPerPersonPerDay) };
+  });
+  const totalWorkers = rows.reduce((s, r) => s + r.needed, 0);
+
+  return (
+    <div className="mb-3 bg-purple-900/20 border border-purple-600/30 rounded-xl p-3">
+      <p className="text-xs font-bold text-purple-300 mb-2">🧮 Хэдэн хүн хэрэгтэй вэ?</p>
+      <div className="flex gap-2 mb-3">
+        <div className="flex-1">
+          <label className="text-xs text-slate-400 mb-1 block">Захиалгын тоо ({unit})</label>
+          <input type="number" value={qty} onChange={e => setQty(e.target.value)} placeholder="жишээ: 400"
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2 py-1.5 text-xs" />
+        </div>
+        <div className="w-24">
+          <label className="text-xs text-slate-400 mb-1 block">Хэдэн өдөр</label>
+          <input type="number" value={days} onChange={e => setDays(e.target.value)} placeholder="1"
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2 py-1.5 text-xs" />
+        </div>
+      </div>
+      {qtyNum > 0 && (
+        <div className="space-y-1">
+          {rows.map(r => (
+            <div key={r.role} className="flex justify-between items-center text-xs">
+              <span className="text-slate-300">{r.role}</span>
+              <span className="text-purple-300 font-bold">{r.needed} хүн</span>
+            </div>
+          ))}
+          <div className="flex justify-between items-center text-xs border-t border-purple-600/30 pt-1 mt-1">
+            <span className="text-white font-bold">Нийт шаардлагатай</span>
+            <span className="text-white font-black text-sm">{totalWorkers} хүн</span>
+          </div>
+        </div>
+      )}
+      {!qtyNum && <p className="text-xs text-slate-500 text-center">Тоо ширхэг оруулна уу</p>}
+    </div>
   );
 }
 

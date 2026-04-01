@@ -3635,6 +3635,77 @@ ${cert.testResults ? `
   });
 
   // Хүний нөөц шинэчлэх (HR)
+  // ── ХӨДӨЛМӨРИЙН НОРМ (бүтээгдэхүүний стандарт) ──────────────────────────────
+  app.get("/api/labor-norms", async (req, res) => {
+    try {
+      const { productType } = req.query;
+      let rows;
+      if (productType) {
+        rows = await db.select().from(schema.productLaborNorms)
+          .where(eq(schema.productLaborNorms.productType, String(productType)));
+      } else {
+        rows = await db.select().from(schema.productLaborNorms);
+      }
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/labor-norms", requireAdmin, async (req, res) => {
+    try {
+      const [row] = await db.insert(schema.productLaborNorms).values(req.body).returning();
+      res.status(201).json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/labor-norms/:id", requireAdmin, async (req, res) => {
+    try {
+      const { productLabel, roleName, unitsPerPersonPerDay, unit, hourlyRate, hoursPerDay, department } = req.body;
+      const update: any = {};
+      if (productLabel !== undefined) update.productLabel = productLabel;
+      if (roleName !== undefined) update.roleName = roleName;
+      if (unitsPerPersonPerDay !== undefined) update.unitsPerPersonPerDay = parseFloat(unitsPerPersonPerDay);
+      if (unit !== undefined) update.unit = unit;
+      if (hourlyRate !== undefined) update.hourlyRate = parseFloat(hourlyRate);
+      if (hoursPerDay !== undefined) update.hoursPerDay = parseFloat(hoursPerDay);
+      if (department !== undefined) update.department = department;
+      const [row] = await db.update(schema.productLaborNorms).set(update)
+        .where(eq(schema.productLaborNorms.id, parseInt(req.params.id))).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/labor-norms/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.productLaborNorms).where(eq(schema.productLaborNorms.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Авто-дүүргэх: тухайн proposal-ын productType-аас норм татаж labor мөр үүсгэнэ
+  app.post("/api/price-proposals/:id/auto-labor", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [proposal] = await db.select().from(schema.priceProposals).where(eq(schema.priceProposals.id, id));
+      if (!proposal) return res.status(404).json({ message: "Олдсонгүй" });
+      const norms = await db.select().from(schema.productLaborNorms)
+        .where(eq(schema.productLaborNorms.productType, proposal.productType));
+      if (norms.length === 0) return res.status(200).json({ message: "Норм бүртгэгдээгүй байна", created: 0 });
+      // Хуучин labor мөрүүдийг устгана
+      await db.delete(schema.priceProposalLabor).where(eq(schema.priceProposalLabor.proposalId, id));
+      // Норм тус бүрт labor мөр үүсгэнэ
+      const laborRows = norms.map(n => ({
+        proposalId: id,
+        roleName: n.roleName,
+        count: 1,
+        hoursPerUnit: n.hoursPerDay / n.unitsPerPersonPerDay,
+        hourlyRate: n.hourlyRate ?? 0,
+        totalPerUnit: (n.hoursPerDay / n.unitsPerPersonPerDay) * (n.hourlyRate ?? 0),
+      }));
+      const created = await db.insert(schema.priceProposalLabor).values(laborRows).returning();
+      res.json({ message: `${created.length} мэргэжлийн норм тохируулагдлаа`, created: created.length, rows: created });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   app.patch("/api/price-proposal-labor/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

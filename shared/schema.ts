@@ -1089,6 +1089,23 @@ export const insertPriceProposalLaborSchema = createInsertSchema(priceProposalLa
 export type PriceProposalLabor       = typeof priceProposalLabor.$inferSelect;
 export type InsertPriceProposalLabor = z.infer<typeof insertPriceProposalLaborSchema>;
 
+// ===================== ХӨДӨЛМӨРИЙН НОРМ (Бүтээгдэхүүний стандарт) =====================
+export const productLaborNorms = pgTable("product_labor_norms", {
+  id:                   serial("id").primaryKey(),
+  productType:          text("product_type").notNull(),
+  productLabel:         text("product_label").notNull(),
+  roleName:             text("role_name").notNull(),
+  unitsPerPersonPerDay: real("units_per_person_per_day").notNull(),
+  unit:                 text("unit").notNull().default("ш"),
+  hourlyRate:           real("hourly_rate").default(0),
+  hoursPerDay:          real("hours_per_day").notNull().default(8),
+  department:           text("department"),
+  createdAt:            timestamp("created_at").defaultNow(),
+});
+export const insertProductLaborNormSchema = createInsertSchema(productLaborNorms).omit({ id: true, createdAt: true });
+export type ProductLaborNorm       = typeof productLaborNorms.$inferSelect;
+export type InsertProductLaborNorm = z.infer<typeof insertProductLaborNormSchema>;
+
 // ===================== ГЭРЭЭНИЙ ЗАГВАР (Contract Template) =====================
 export const contractTemplateSections = pgTable("contract_template_sections", {
   id:           serial("id").primaryKey(),

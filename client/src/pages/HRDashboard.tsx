@@ -42,7 +42,7 @@ export default function HRDashboard() {
   const qc = useQueryClient();
 
   const today = new Date().toISOString().slice(0, 10);
-  const [tab, setTab] = useState<"employees" | "attendance" | "certs" | "trainings" | "skills">("employees");
+  const [tab, setTab] = useState<"employees" | "attendance" | "certs" | "trainings" | "skills" | "norms">("employees");
   const [search, setSearch] = useState("");
   const [filterDept, setFilterDept] = useState("all");
   const [selectedQrEmployee, setSelectedQrEmployee] = useState<any>(null);
@@ -207,6 +207,7 @@ export default function HRDashboard() {
             { key: "certs",      label: "Гэрчилгээ",       icon: Award          },
             { key: "trainings",  label: "Сургалт/ХАБЭА",   icon: GraduationCap  },
             { key: "skills",     label: "Чадварын матриц", icon: Wrench         },
+            { key: "norms",      label: "Хөдөлмөрийн норм", icon: Factory       },
           ] as { key: typeof tab; label: string; icon: any }[]).map(t => (
             <button key={t.key} onClick={() => setTab(t.key)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === t.key ? "bg-purple-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
@@ -645,6 +646,9 @@ export default function HRDashboard() {
 
       {/* ── ЧАДВАРЫН МАТРИЦ ── */}
       {tab === "skills" && <SkillsTab employees={employees} qc={qc} toast={toast} />}
+
+      {/* ── ХӨДӨЛМӨРИЙН НОРМ ── */}
+      {tab === "norms" && <NormsTab qc={qc} toast={toast} />}
 
       {/* QR карт modal */}
       {selectedQrEmployee && (
@@ -1381,6 +1385,183 @@ function ViewAssessments({ empId, allSkills, hdrs }: { empId: number | null; all
           </tbody>
         </table>
       </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ХӨДӨЛМӨРИЙН НОРМ ТАБ
+// ──────────────────────────────────────────────────────────────────────────────
+const PRODUCT_TYPES = [
+  { value: "foam_block",    label: "Хөөсөн бетон блок" },
+  { value: "concrete_b25", label: "Бетон B25" },
+  { value: "concrete_b30", label: "Бетон B30" },
+  { value: "asphalt",      label: "Асфальт холимог" },
+  { value: "crushed_stone", label: "Бутлагдсан хайрга" },
+  { value: "road_base",    label: "Зам суурь" },
+];
+
+function NormsTab({ qc, toast }: any) {
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({
+    productType: "foam_block", productLabel: "Хөөсөн бетон блок",
+    roleName: "", unitsPerPersonPerDay: "", unit: "ш", hourlyRate: "", hoursPerDay: "8",
+  });
+
+  const { data: norms = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/labor-norms"],
+    queryFn: () => fetch("/api/labor-norms").then(r => r.json()),
+  });
+
+  const addNorm = useMutation({
+    mutationFn: () => fetch("/api/labor-norms", {
+      method: "POST",
+      headers: getAdminHeaders(),
+      body: JSON.stringify({
+        ...form,
+        unitsPerPersonPerDay: parseFloat(form.unitsPerPersonPerDay),
+        hourlyRate: parseFloat(form.hourlyRate) || 0,
+        hoursPerDay: parseFloat(form.hoursPerDay) || 8,
+      }),
+    }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/labor-norms"] });
+      setShowAdd(false);
+      setForm({ productType: "foam_block", productLabel: "Хөөсөн бетон блок", roleName: "", unitsPerPersonPerDay: "", unit: "ш", hourlyRate: "", hoursPerDay: "8" });
+      toast({ title: "Норм нэмэгдлээ" });
+    },
+  });
+
+  const deleteNorm = useMutation({
+    mutationFn: (id: number) => fetch(`/api/labor-norms/${id}`, { method: "DELETE", headers: getAdminHeaders() }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/labor-norms"] }); toast({ title: "Устгагдлаа" }); },
+  });
+
+  return (
+    <div className="max-w-5xl mx-auto px-6 pb-10">
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h2 className="text-white font-black text-lg">Хөдөлмөрийн норм</h2>
+          <p className="text-slate-400 text-xs mt-0.5">Бүтээгдэхүүн тус бүрийн мэргэжил + өдрийн гарц норм</p>
+        </div>
+        <button onClick={() => setShowAdd(!showAdd)}
+          className="flex items-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white font-bold rounded-xl text-sm transition-all">
+          <Plus className="w-4 h-4" /> Норм нэмэх
+        </button>
+      </div>
+
+      {showAdd && (
+        <div className="bg-slate-800/60 border border-white/10 rounded-2xl p-5 mb-6">
+          <p className="text-white font-bold mb-4">Шинэ норм нэмэх</p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Бүтээгдэхүүн</label>
+              <select value={form.productType}
+                onChange={e => {
+                  const pt = PRODUCT_TYPES.find(p => p.value === e.target.value);
+                  setForm(f => ({ ...f, productType: e.target.value, productLabel: pt?.label ?? e.target.value }));
+                }}
+                className="w-full bg-slate-700 border border-white/10 rounded-xl px-3 py-2 text-white text-sm">
+                {PRODUCT_TYPES.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Мэргэжил / Үүрэг</label>
+              <input value={form.roleName} onChange={e => setForm(f => ({ ...f, roleName: e.target.value }))}
+                placeholder="Операторч, Туслах ажилчин..."
+                className="w-full bg-slate-700 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">1 хүн өдөрт хэдийг хийдэг вэ?</label>
+              <div className="flex gap-2">
+                <input type="number" value={form.unitsPerPersonPerDay}
+                  onChange={e => setForm(f => ({ ...f, unitsPerPersonPerDay: e.target.value }))}
+                  placeholder="150"
+                  className="flex-1 bg-slate-700 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+                <input value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                  placeholder="ш"
+                  className="w-16 bg-slate-700 border border-white/10 rounded-xl px-3 py-2 text-white text-sm text-center" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Цагийн тариф (₮)</label>
+              <input type="number" value={form.hourlyRate}
+                onChange={e => setForm(f => ({ ...f, hourlyRate: e.target.value }))}
+                placeholder="15000"
+                className="w-full bg-slate-700 border border-white/10 rounded-xl px-3 py-2 text-white text-sm" />
+            </div>
+          </div>
+          <div className="flex gap-2 mt-4">
+            <button onClick={() => addNorm.mutate()} disabled={!form.roleName || !form.unitsPerPersonPerDay || addNorm.isPending}
+              className="px-5 py-2 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold rounded-xl text-sm transition-all">
+              {addNorm.isPending ? "Хадгалж байна..." : "Хадгалах"}
+            </button>
+            <button onClick={() => setShowAdd(false)}
+              className="px-5 py-2 bg-slate-700 text-slate-300 hover:bg-slate-600 rounded-xl text-sm transition-all">
+              Болих
+            </button>
+          </div>
+        </div>
+      )}
+
+      {isLoading ? (
+        <div className="text-center text-slate-400 py-10">Уншиж байна...</div>
+      ) : norms.length === 0 ? (
+        <div className="text-center py-16 text-slate-500">
+          <p className="text-4xl mb-3">📋</p>
+          <p className="font-bold">Норм бүртгэгдээгүй байна</p>
+          <p className="text-xs mt-1">Дээрх "Норм нэмэх" товчоор нэмнэ үү</p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          {PRODUCT_TYPES.map(pt => {
+            const rows = norms.filter((n: any) => n.productType === pt.value);
+            if (rows.length === 0) return null;
+            return (
+              <div key={pt.value} className="bg-slate-800/50 border border-white/10 rounded-2xl overflow-hidden">
+                <div className="px-5 py-3 bg-purple-600/10 border-b border-white/5 flex items-center gap-2">
+                  <Factory className="w-4 h-4 text-purple-400" />
+                  <span className="text-white font-bold text-sm">{pt.label}</span>
+                  <span className="ml-auto text-xs text-slate-400">{rows.length} мэргэжил</span>
+                </div>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-slate-400 border-b border-white/5">
+                      <th className="text-left px-5 py-2">Мэргэжил</th>
+                      <th className="text-center px-4 py-2">1 хүн/өдөр</th>
+                      <th className="text-center px-4 py-2">Цаг/нэгж</th>
+                      <th className="text-center px-4 py-2">Цагийн тариф</th>
+                      <th className="w-10 py-2" />
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {rows.map((n: any) => (
+                      <tr key={n.id} className="hover:bg-white/5 transition-colors">
+                        <td className="px-5 py-2.5 text-white font-medium">{n.roleName}</td>
+                        <td className="px-4 py-2.5 text-center text-amber-400 font-bold">
+                          {n.unitsPerPersonPerDay} {n.unit}
+                        </td>
+                        <td className="px-4 py-2.5 text-center text-slate-300">
+                          {((n.hoursPerDay ?? 8) / n.unitsPerPersonPerDay).toFixed(3)} цаг
+                        </td>
+                        <td className="px-4 py-2.5 text-center text-green-400">
+                          {n.hourlyRate ? `₮${n.hourlyRate.toLocaleString()}` : "—"}
+                        </td>
+                        <td className="px-2 py-2.5 text-center">
+                          <button onClick={() => deleteNorm.mutate(n.id)}
+                            className="text-red-400/50 hover:text-red-400 transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
