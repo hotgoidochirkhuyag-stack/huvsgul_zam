@@ -15,15 +15,23 @@ function getAdminHeaders() {
 }
 
 const DEPT_OPTIONS = [
-  { value: "office", label: "Оффис", icon: Building2, color: "blue" },
-  { value: "field",  label: "Талбай", icon: HardHat,  color: "amber" },
-  { value: "plant",  label: "Үйлдвэр", icon: Factory, color: "green" },
+  { value: "asphalt",   label: "Асфальт бетон хольцын үйлдвэр",  icon: Factory,   color: "orange" },
+  { value: "concrete",  label: "Бетон зуурмагийн үйлдвэр",        icon: Factory,   color: "blue" },
+  { value: "crushing",  label: "Бутлан ангилах үйлдвэр",          icon: HardHat,   color: "red" },
+  { value: "materials", label: "Барилгын материалын үйлдвэрлэл",  icon: Building2, color: "green" },
+  { value: "office",    label: "Оффисын",                         icon: Building2, color: "purple" },
+  { value: "utility",   label: "Аж ахуйн",                        icon: HardHat,   color: "slate" },
 ];
 
 const DEPT_LABEL: Record<string, { label: string; cls: string }> = {
-  office: { label: "Оффис",   cls: "bg-blue-500/10 text-blue-400" },
-  field:  { label: "Талбай",  cls: "bg-amber-500/10 text-amber-400" },
-  plant:  { label: "Үйлдвэр", cls: "bg-green-500/10 text-green-400" },
+  asphalt:   { label: "Асфальт бетон хольцын үйлдвэр", cls: "bg-orange-500/10 text-orange-400" },
+  concrete:  { label: "Бетон зуурмагийн үйлдвэр",       cls: "bg-blue-500/10 text-blue-400" },
+  crushing:  { label: "Бутлан ангилах үйлдвэр",         cls: "bg-red-500/10 text-red-400" },
+  materials: { label: "Барилгын материалын үйлдвэрлэл", cls: "bg-green-500/10 text-green-400" },
+  office:    { label: "Оффисын",                        cls: "bg-purple-500/10 text-purple-400" },
+  utility:   { label: "Аж ахуйн",                       cls: "bg-slate-500/10 text-slate-400" },
+  field:     { label: "Талбай",                         cls: "bg-amber-500/10 text-amber-400" },
+  plant:     { label: "Үйлдвэр",                        cls: "bg-green-500/10 text-green-400" },
 };
 
 export default function HRDashboard() {
@@ -37,7 +45,7 @@ export default function HRDashboard() {
   const [filterDept, setFilterDept] = useState("all");
   const [selectedQrEmployee, setSelectedQrEmployee] = useState<any>(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newEmp, setNewEmp] = useState({ name: "", department: "field", role: "", salaryBase: "", phone: "", registerNumber: "" });
+  const [newEmp, setNewEmp] = useState({ name: "", department: "asphalt", role: "", salaryBase: "", phone: "", registerNumber: "" });
   const [regError, setRegError] = useState("");
   const [editEmp, setEditEmp] = useState<any>(null);
   const [editRegError, setEditRegError] = useState("");
@@ -94,7 +102,7 @@ export default function HRDashboard() {
     onSuccess: (emp) => {
       qc.invalidateQueries({ queryKey: ["/api/erp/employees"] });
       setShowAddForm(false);
-      setNewEmp({ name: "", department: "field", role: "", salaryBase: "", phone: "", registerNumber: "" });
+      setNewEmp({ name: "", department: "asphalt", role: "", salaryBase: "", phone: "", registerNumber: "" });
       setRegError("");
       toast({ title: `${emp.name} бүртгэгдлээ — QR: ${emp.qrCode}` });
       // Шинэ ажилтны QR картыг автоматаар нээнэ

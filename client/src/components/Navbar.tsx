@@ -93,7 +93,7 @@ export default function Navbar() {
               onClick={() => scrollTo("admin")}
               className="ml-4 px-6 py-2.5 bg-primary text-primary-foreground font-display font-bold uppercase tracking-wider text-sm rounded-sm hover:bg-primary/90 hover:shadow-[0_0_15px_rgba(217,119,6,0.4)] transition-all duration-300 active:scale-95 whitespace-nowrap"
             >
-              EPR СИСТЕМ
+              ERP СИСТЕМ
             </button>
           </nav>
 
