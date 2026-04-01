@@ -3569,11 +3569,26 @@ ${cert.testResults ? `
             dbNormsLoaded = true;
           }
         }
-        // Хөдөлмөрийн норм — бэлэн жагсаалтаас
-        const laborList = DEFAULT_LABOR[mapped.category] ?? DEFAULT_LABOR.default;
-        await db.insert(schema.priceProposalLabor).values(
-          laborList.map(l => ({ proposalId: proposal.id, roleName: l.roleName, count: l.count, hoursPerUnit: l.hoursPerUnit }))
-        );
+        // Хөдөлмөрийн норм — HR табд оруулсан норм байвал тэрийг, эсвэл кодны тоо
+        const hrNorms = await db.select().from(schema.productLaborNorms)
+          .where(eq(schema.productLaborNorms.productType, mapped.category));
+        if (hrNorms.length > 0) {
+          await db.insert(schema.priceProposalLabor).values(
+            hrNorms.map(n => ({
+              proposalId: proposal.id,
+              roleName: n.roleName,
+              count: 1,
+              hoursPerUnit: n.unitsPerPersonPerDay > 0 ? n.hoursPerDay / n.unitsPerPersonPerDay : 1,
+              hourlyRate: n.hourlyRate ?? 0,
+              totalPerUnit: 0,
+            }))
+          );
+        } else {
+          const laborList = DEFAULT_LABOR[mapped.category] ?? DEFAULT_LABOR.default;
+          await db.insert(schema.priceProposalLabor).values(
+            laborList.map(l => ({ proposalId: proposal.id, roleName: l.roleName, count: l.count, hoursPerUnit: l.hoursPerUnit }))
+          );
+        }
       }
 
       // DB норм олдоогүй бол кэш → OpenAI (бутлуур, бусад бүтээгдэхүүн)
