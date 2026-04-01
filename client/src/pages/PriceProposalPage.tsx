@@ -84,12 +84,12 @@ function ProposalCard({ proposal }: { proposal: any }) {
   const canAdvance =
     (proposal.status === "draft" && ["SALES", "ADMIN"].includes(r)) ||
     (proposal.status === "lab_review" && ["LAB", "ADMIN"].includes(r)) ||
-    (proposal.status === "lab_approved" && ["ADMIN", "SALES"].includes(r)) ||
-    (proposal.status === "finance_pricing" && ["ADMIN", "SALES"].includes(r)) ||
+    (proposal.status === "lab_approved" && ["ADMIN", "SALES", "WAREHOUSE"].includes(r)) ||
+    (proposal.status === "finance_pricing" && ["ADMIN", "SALES", "WAREHOUSE"].includes(r)) ||
     (proposal.status === "hr_review" && ["HR", "ADMIN"].includes(r));
 
   const canEditNorms = ["LAB", "ADMIN"].includes(r) && ["lab_review", "lab_approved"].includes(proposal.status);
-  const canEditPrices = ["ADMIN", "SALES"].includes(r) && ["lab_approved", "finance_pricing"].includes(proposal.status);
+  const canEditPrices = ["ADMIN", "SALES", "WAREHOUSE"].includes(r) && ["lab_approved", "finance_pricing"].includes(proposal.status);
   const canEditLabor = ["HR", "ADMIN"].includes(r) && ["hr_review", "finance_pricing"].includes(proposal.status);
 
   return (
@@ -271,7 +271,7 @@ function ProposalCard({ proposal }: { proposal: any }) {
           )}
 
           {/* Устгах */}
-          {["ADMIN"].includes(r) && proposal.status === "draft" && (
+          {["ADMIN"].includes(r) && (
             <div className="flex justify-end">
               <button onClick={() => { if (confirm("Устгах уу?")) deleteProposal.mutate(); }}
                 className="flex items-center gap-1 text-xs text-red-400 hover:text-red-300 transition-colors">
@@ -435,6 +435,7 @@ export default function PriceProposalPage() {
     if (r === "SALES") return true;
     if (r === "LAB") return ["lab_review", "lab_approved", "finance_pricing", "hr_review", "completed"].includes(p.status);
     if (r === "HR") return ["hr_review", "finance_pricing", "completed"].includes(p.status);
+    if (r === "WAREHOUSE") return ["lab_approved", "finance_pricing", "hr_review", "completed"].includes(p.status);
     return false;
   });
 

@@ -101,7 +101,7 @@ function Router() {
         const token = localStorage.getItem("adminToken");
         const userRole = localStorage.getItem("userRole");
         if (!token) return <Redirect to="/admin/ADMIN" />;
-        if (!["ADMIN", "SALES", "LAB", "HR", "BOARD"].includes(userRole ?? "")) {
+        if (!["ADMIN", "SALES", "LAB", "HR", "BOARD", "WAREHOUSE"].includes(userRole ?? "")) {
           return <Redirect to="/" />;
         }
         return <PriceProposalPage />;

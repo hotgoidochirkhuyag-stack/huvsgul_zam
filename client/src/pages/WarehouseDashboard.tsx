@@ -1670,6 +1670,10 @@ export default function WarehouseDashboard() {
                 <BarChart3 className="w-3.5 h-3.5" /> Тайлан
               </button>
             </div>
+            <button onClick={() => setLocation("/price-proposals")}
+              className="flex items-center gap-1.5 text-xs font-bold text-amber-400 border border-amber-600/40 hover:bg-amber-600/10 rounded-xl px-3 py-2 transition-all">
+              💰 Санхүүгийн үнэ
+            </button>
             <button data-testid="btn-logout"
               onClick={() => { localStorage.removeItem("adminToken"); localStorage.removeItem("userRole"); setLocation("/select-role"); }}
               className="flex items-center gap-1.5 text-sm text-white/40 hover:text-white/70 border border-white/10 rounded-xl px-3 py-2 transition-colors">
