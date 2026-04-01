@@ -508,6 +508,7 @@ function ProfitPanel() {
 // ── Бүтээгдэхүүн удирдах самбар ────────────────────────────────────────────────
 const CATEGORY_LABELS: Record<string, string> = {
   concrete: "Бетон зуурмаг",
+  foam_block: "Хөөстэй бетон блок",
   asphalt: "Асфальт",
   stone: "Чулуу / Хайрга",
   sand: "Элс",

@@ -3459,7 +3459,10 @@ ${cert.testResults ? `
       let recipeKey: string | null = null;
       let recipeCategory: string | null = null;
 
-      if (productCategory === "concrete" || nameLow.includes("бетон")) {
+      if (productCategory === "foam_block" || nameLow.includes("хөөс") || nameLow.includes("foam") || nameLow.includes("хөөстэй")) {
+        recipeCategory = "foam_block";
+        recipeKey = "foam_block";
+      } else if (productCategory === "concrete" || nameLow.includes("бетон")) {
         recipeCategory = "concrete";
         if      (nameLow.includes("b15") || nameLow.includes("м100") || nameLow.includes("м150") || nameLow.includes("m100") || nameLow.includes("m150")) recipeKey = "C15/20";
         else if (nameLow.includes("b20") || nameLow.includes("м200") || nameLow.includes("m200")) recipeKey = "C20/25";
@@ -3479,7 +3482,23 @@ ${cert.testResults ? `
 
       const mapped = recipeKey && recipeCategory ? { key: recipeKey, category: recipeCategory } : null;
 
+      // Хөөстэй бетон блокны статик норм (1 м³-д)
+      const FOAM_BLOCK_MATERIALS = [
+        { materialName: "Portland цемент М400",  norm: 300,  unit: "кг",  category: "material" },
+        { materialName: "Нарийн элс (0-2мм)",    norm: 180,  unit: "кг",  category: "material" },
+        { materialName: "Хөөслүүлэгч (foaming agent)", norm: 1.2, unit: "л", category: "material" },
+        { materialName: "Ус",                    norm: 260,  unit: "л",   category: "material" },
+        { materialName: "Хатуурагч (CaCl₂)",    norm: 2.5,  unit: "кг",  category: "material" },
+        { materialName: "Хэвлэлийн тос",        norm: 0.5,  unit: "кг",  category: "material" },
+      ];
+
       const DEFAULT_LABOR: Record<string, Array<{ roleName: string; count: number; hoursPerUnit: number }>> = {
+        foam_block: [
+          { roleName: "Блок хийгч",         count: 2, hoursPerUnit: 0.80 },
+          { roleName: "Зуурмагч операторч",  count: 1, hoursPerUnit: 0.40 },
+          { roleName: "Хэвлэлийн ажилтан",  count: 1, hoursPerUnit: 0.50 },
+          { roleName: "Туслах ажилтан",      count: 2, hoursPerUnit: 0.35 },
+        ],
         concrete: [
           { roleName: "Бетонч",           count: 2, hoursPerUnit: 0.50 },
           { roleName: "Зуурмагч",         count: 1, hoursPerUnit: 0.25 },
@@ -3506,32 +3525,49 @@ ${cert.testResults ? `
       let dbNormsLoaded = false;
 
       if (mapped) {
-        // DB-ийн norm_configs-оос татна
-        const dbNorms = await db.execute(
-          sql`SELECT material_name, bnbd_rate AS rate, unit, category, bnbd_ref FROM norm_configs
-              WHERE category = ${mapped.category} AND recipe_key ILIKE ${"%" + mapped.key + "%"}
-              ORDER BY id`
-        );
-        const rows = (dbNorms as any).rows ?? [];
-        if (rows.length > 0) {
-          // Материалын орц мөрүүд
+        // Хөөстэй бетон блок — статик норм шуудхан оруулна (DB/AI-г тойрно)
+        if (mapped.category === "foam_block") {
           await db.insert(schema.priceProposalItems).values(
-            rows.map((m: any, i: number) => ({
+            FOAM_BLOCK_MATERIALS.map((m, i) => ({
               proposalId: proposal.id,
-              category: "material",
-              materialName: m.material_name,
-              norm: parseFloat(m.rate) || 0,
+              category: m.category,
+              materialName: m.materialName,
+              norm: m.norm,
               unit: m.unit,
               source: "db_norm",
               sortOrder: i,
             }))
           );
-          // Нийтлэг тэмдэглэл
-          const refs = [...new Set(rows.map((r: any) => r.bnbd_ref).filter(Boolean))].join("; ");
           await db.update(schema.priceProposals)
-            .set({ aiNotes: `DB-ийн бэлэн норм: ${refs}. Лаборатори нормыг шалгаж баталгаажуулна.` })
+            .set({ aiNotes: "Хөөстэй бетон блок (D600 нягтралын класс) — 1 м³-д хэрэглэх орц. MNS 6834:2021 стандартын дагуу. Лаборатори нормыг баталгаажуулна." })
             .where(eq(schema.priceProposals.id, proposal.id));
           dbNormsLoaded = true;
+        } else {
+          // DB-ийн norm_configs-оос татна
+          const dbNorms = await db.execute(
+            sql`SELECT material_name, bnbd_rate AS rate, unit, category, bnbd_ref FROM norm_configs
+                WHERE category = ${mapped.category} AND recipe_key ILIKE ${"%" + mapped.key + "%"}
+                ORDER BY id`
+          );
+          const rows = (dbNorms as any).rows ?? [];
+          if (rows.length > 0) {
+            await db.insert(schema.priceProposalItems).values(
+              rows.map((m: any, i: number) => ({
+                proposalId: proposal.id,
+                category: "material",
+                materialName: m.material_name,
+                norm: parseFloat(m.rate) || 0,
+                unit: m.unit,
+                source: "db_norm",
+                sortOrder: i,
+              }))
+            );
+            const refs = [...new Set(rows.map((r: any) => r.bnbd_ref).filter(Boolean))].join("; ");
+            await db.update(schema.priceProposals)
+              .set({ aiNotes: `DB-ийн бэлэн норм: ${refs}. Лаборатори нормыг шалгаж баталгаажуулна.` })
+              .where(eq(schema.priceProposals.id, proposal.id));
+            dbNormsLoaded = true;
+          }
         }
         // Хөдөлмөрийн норм — бэлэн жагсаалтаас
         const laborList = DEFAULT_LABOR[mapped.category] ?? DEFAULT_LABOR.default;
@@ -3554,7 +3590,19 @@ ${cert.testResults ? `
             if (parsed.notes) await db.update(schema.priceProposals).set({ aiNotes: parsed.notes }).where(eq(schema.priceProposals.id, proposal.id));
             if (parsed.materials?.length) await db.insert(schema.priceProposalItems).values(parsed.materials.map((m: any, i: number) => ({ proposalId: proposal.id, category: m.category ?? "material", materialName: m.name, norm: parseFloat(m.norm) || 0, unit: m.unit, source: "ai", sortOrder: i })));
             if (parsed.labor?.length) await db.insert(schema.priceProposalLabor).values(parsed.labor.map((l: any) => ({ proposalId: proposal.id, roleName: l.roleName, count: parseInt(l.count) || 1, hoursPerUnit: parseFloat(l.hoursPerUnit) || 1 })));
-          } catch (aiErr) { console.error("AI норм алдаа:", aiErr); }
+          } catch (aiErr) {
+            console.error("AI норм алдаа:", aiErr);
+            // AI амжилтгүй болоход — хоосон placeholder мөр үүсгэнэ
+            await db.insert(schema.priceProposalItems).values([
+              { proposalId: proposal.id, category: "material", materialName: "Материал 1 (гараар бөглөнэ)", norm: 0, unit: unit, source: "manual", sortOrder: 0 },
+            ]);
+            await db.insert(schema.priceProposalLabor).values(
+              (DEFAULT_LABOR.default).map(l => ({ proposalId: proposal.id, roleName: l.roleName, count: l.count, hoursPerUnit: l.hoursPerUnit }))
+            );
+            await db.update(schema.priceProposals)
+              .set({ aiNotes: "AI норм автоматаар тооцоолж чадсангүй. Лаборатори нормыг гараар бөглөнө үү." })
+              .where(eq(schema.priceProposals.id, proposal.id));
+          }
         }
       }
 
