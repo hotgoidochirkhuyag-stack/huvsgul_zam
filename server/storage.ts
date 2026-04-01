@@ -12,7 +12,7 @@ if (process.env.CLOUDINARY_CLOUD_NAME) {
 }
 
 export const storage = {
-  // 1. Projects - 'road', 'bridge', 'construction' asset_folder-аас нэгтгэж авах
+  // 1. Projects - 'road', 'bridge', 'construction' хавтаснуудаас нэгтгэж авах
   async getProjects() {
     try {
       if (!process.env.CLOUDINARY_CLOUD_NAME) return [];
@@ -23,9 +23,9 @@ export const storage = {
         construction: "Дэд бүтэц",
       };
 
-      // asset_folder ашиглан хайх (шинэ Cloudinary folder system)
+      // Cloudinary-с зургуудыг татах
       const res = await cloudinary.search
-        .expression("asset_folder=road OR asset_folder=bridge OR asset_folder=construction")
+        .expression("folder:road/* OR folder:bridge/* OR folder:construction/*")
         .sort_by("created_at", "desc")
         .max_results(50)
         .execute();
@@ -36,13 +36,12 @@ export const storage = {
       for (const m of metaRows) metaMap[m.publicId] = m;
 
       return res.resources.map((r: any) => {
-        const folder = r.asset_folder ?? r.public_id.split("/")[0];
+        const folder = r.public_id.split("/")[0];
         const meta = metaMap[r.public_id];
-        const displayName = r.display_name ?? r.public_id.split("/").pop() ?? "Төсөл";
         return {
           id: r.public_id,
           imageUrl: r.secure_url,
-          title:         meta?.title         ?? displayName,
+          title:         meta?.title         ?? r.public_id.split("/").pop() ?? "Төсөл",
           description:   meta?.description   ?? "Бүтээн байгуулалт",
           category:      categoryMap[folder] ?? "Бусад",
           location:      meta?.location      ?? null,
@@ -59,13 +58,13 @@ export const storage = {
     }
   },
 
-  // 2. Stats Images - "stats" asset_folder-аас авах + DB-ийн тайлбартай нэгтгэх
+  // 2. Stats Images - "stats" хавтаснаас авах + DB-ийн тайлбартай нэгтгэх
   async getStats() {
     try {
       if (!process.env.CLOUDINARY_CLOUD_NAME) return [];
 
       const res = await cloudinary.search
-        .expression("asset_folder=stats")
+        .expression("folder:stats/*")
         .sort_by("created_at", "desc")
         .max_results(20)
         .execute();
@@ -75,11 +74,10 @@ export const storage = {
 
       return res.resources.map((r: any) => {
         const meta = metaMap.get(r.public_id);
-        const displayName = r.display_name ?? r.public_id.split("/").pop() ?? "Статистикийн зураг";
         return {
           id: r.public_id,
           imageUrl: r.secure_url,
-          description: meta?.description ?? displayName,
+          description: meta?.description ?? r.public_id.split("/").pop() ?? "Статистикийн зураг",
         };
       });
     } catch (e) {
@@ -97,13 +95,13 @@ export const storage = {
       });
   },
 
-  // 3. Featured Videos - "videos" asset_folder-аас авах
+  // 3. Featured Videos - "videos" хавтаснаас авах
   async getFeaturedVideos() {
     try {
       if (!process.env.CLOUDINARY_CLOUD_NAME) return [];
 
       const res = await cloudinary.search
-        .expression("asset_folder=videos AND resource_type:video")
+        .expression("folder:videos/*")
         .sort_by("created_at", "desc")
         .max_results(50)
         .execute();
@@ -111,7 +109,7 @@ export const storage = {
       return res.resources.map((r: any) => ({
         id: r.public_id,
         videoUrl: r.secure_url,
-        title: r.display_name ?? r.public_id.split("/").pop() ?? "Төслийн бичлэг",
+        title: r.public_id.split("/").pop() || "Төслийн бичлэг",
       }));
     } catch (e) {
       console.error("Cloudinary Videos алдаа:", e);
