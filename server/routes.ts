@@ -1653,6 +1653,56 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ===================== ЛАБОРАТОРИЙН ТУРШИЛТ ХҮСЭЛТ (Sales → Lab) =====================
+
+  // Бүх хүсэлтийн жагсаалт (Лаб болон Админ харна)
+  app.get("/api/lab/test-requests", requireAdmin, async (req, res) => {
+    try {
+      const rows = await db.select().from(schema.labTestRequests)
+        .orderBy(desc(schema.labTestRequests.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Туршилт хийж дүн бичих (Лаборант)
+  app.patch("/api/lab/test-requests/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { slumpMm, densityKgM3, strength7d, strength28d, airContent, tempC, testedBy, notes, status, pass } = req.body;
+      const updateData: any = {};
+      if (slumpMm     !== undefined) updateData.slumpMm     = slumpMm;
+      if (densityKgM3 !== undefined) updateData.densityKgM3 = densityKgM3;
+      if (strength7d  !== undefined) updateData.strength7d  = strength7d;
+      if (strength28d !== undefined) updateData.strength28d = strength28d;
+      if (airContent  !== undefined) updateData.airContent  = airContent;
+      if (tempC       !== undefined) updateData.tempC       = tempC;
+      if (testedBy    !== undefined) updateData.testedBy    = testedBy;
+      if (notes       !== undefined) updateData.notes       = notes;
+      if (pass        !== undefined) updateData.pass        = pass;
+      if (status      !== undefined) updateData.status      = status;
+      if (status === "passed" || status === "failed") {
+        updateData.testedAt = new Date();
+        updateData.pass = status === "passed";
+      }
+      const [row] = await db.update(schema.labTestRequests).set(updateData)
+        .where(eq(schema.labTestRequests.id, id)).returning();
+
+      // Туршилт дууссан бол Sales-д мэдэгдэл явуулах
+      if (status === "passed" || status === "failed") {
+        const passEmoji = status === "passed" ? "✅" : "❌";
+        await db.insert(schema.notifications).values({
+          toRole: "SALES",
+          title: `${passEmoji} Лаб дүн: ${status === "passed" ? "ТЭНЦСЭН" : "ТЭНЦЭЭГҮЙ"}`,
+          body: `${row.customerName} — ${row.grade} ${row.quantity}${row.unit} — захиалга #${row.salesOrderId}`,
+          sourceType: "lab_test_request",
+          sourceId: row.salesOrderId,
+          isRead: false,
+        });
+      }
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ===================== АЖЛЫН ФРОНТ =====================
 
   app.get("/api/work-fronts", requireAdmin, async (req, res) => {
@@ -2979,11 +3029,44 @@ ${cert.testResults ? `
         .set({ warehouseDeducted: true, warehouseDeductedAt: new Date(), status: "in_production" })
         .where(eq(schema.salesOrders.id, orderId));
 
+      // Лабораторийн туршилт хүсэлт автоматаар үүсгэх (бетон бүтээгдэхүүн)
+      const labProducts = ["concrete_m200", "concrete_m300", "concrete_m400", "concrete_b15", "concrete_b20", "concrete_b25"];
+      const needsLabTest = labProducts.some(p => order.product?.toLowerCase().includes(p.toLowerCase()) || p.toLowerCase().includes(order.product?.toLowerCase() ?? ""));
+      const alreadyHasRequest = await db.select().from(schema.labTestRequests)
+        .where(eq(schema.labTestRequests.salesOrderId, orderId));
+
+      if (needsLabTest && alreadyHasRequest.length === 0) {
+        const gradeMap: Record<string, string> = {
+          concrete_m200: "М200 (В15)", concrete_m300: "М300 (В22.5)", concrete_m400: "М400 (В30)",
+          concrete_b15: "В15", concrete_b20: "В20", concrete_b25: "В25",
+        };
+        const grade = gradeMap[order.product ?? ""] ?? order.product ?? "";
+        await db.insert(schema.labTestRequests).values({
+          salesOrderId: orderId,
+          customerName: order.customerName,
+          product: order.product ?? "concrete",
+          grade,
+          quantity: order.quantity,
+          unit: order.unit ?? "м³",
+          status: "pending",
+        });
+        // Лабад мэдэгдэл явуулах
+        await db.insert(schema.notifications).values({
+          toRole: "LAB",
+          title: "📋 Шинэ туршилт хүсэлт",
+          body: `${order.customerName} — ${grade} ${order.quantity}${order.unit ?? "м³"} — захиалга #${orderId}`,
+          sourceType: "lab_test_request",
+          sourceId: orderId,
+          isRead: false,
+        });
+      }
+
       const hasShortage = logs.some(l => !l.sufficient);
       res.json({
         ok: true,
         logs,
         hasShortage,
+        labRequestCreated: needsLabTest && alreadyHasRequest.length === 0,
         message: hasShortage
           ? "⚠️ Зарим материал дутуу байсан — боломжтой хэмжээгээр хассан. Агуулахыг нөхөх шаардлагатай!"
           : "✅ Бүх материал агуулахаас амжилттай хасагдлаа",

@@ -909,6 +909,30 @@ export const warehouseDeductionLogs = pgTable("warehouse_deduction_logs", {
 });
 export type WarehouseDeductionLog = typeof warehouseDeductionLogs.$inferSelect;
 
+// ===================== ЛАБОРАТОРИЙН ТУРШИЛТЫН ХҮСЭЛТ =====================
+export const labTestRequests = pgTable("lab_test_requests", {
+  id:            serial("id").primaryKey(),
+  salesOrderId:  integer("sales_order_id").notNull().references(() => salesOrders.id, { onDelete: "cascade" }),
+  customerName:  text("customer_name").notNull(),
+  product:       text("product").notNull(),
+  grade:         text("grade"),
+  quantity:      real("quantity").notNull(),
+  unit:          text("unit").notNull().default("м³"),
+  status:        text("status").notNull().default("pending"), // pending | in_testing | passed | failed
+  slumpMm:       integer("slump_mm"),
+  densityKgM3:   real("density_kg_m3"),
+  strength7d:    real("strength_7d"),
+  strength28d:   real("strength_28d"),
+  airContent:    real("air_content"),
+  tempC:         real("temp_c"),
+  testedBy:      text("tested_by"),
+  testedAt:      timestamp("tested_at"),
+  pass:          boolean("pass"),
+  notes:         text("notes"),
+  createdAt:     timestamp("created_at").defaultNow(),
+});
+export type LabTestRequest = typeof labTestRequests.$inferSelect;
+
 // ===================== ҮЙЛДВЭРИЙН ӨРТГИЙН ТОХИРГОО =====================
 export const productionCostConfig = pgTable("production_cost_config", {
   id:                  serial("id").primaryKey(),

@@ -4,7 +4,8 @@ import NotificationBell from "@/components/NotificationBell";
 import {
   FlaskConical, Plus, Trash2, LogOut, RefreshCw, CheckCircle2,
   XCircle, Clock, FileText, AlertTriangle, ShieldCheck, History, Pencil,
-  BarChart3, TrendingUp, TrendingDown, Printer, Sparkles
+  BarChart3, TrendingUp, TrendingDown, Printer, Sparkles, ClipboardList,
+  ChevronDown, ChevronUp, Send
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
@@ -343,7 +344,7 @@ export default function LabQCDashboard() {
   // Норм засах — зөвхөн ENGINEER (технологич инженер)
   const canEditNorms = role === "ENGINEER";
 
-  const [tab, setTab] = useState<"overview" | "list" | "add" | "norms" | "report">("overview");
+  const [tab, setTab] = useState<"overview" | "list" | "add" | "norms" | "report" | "orders">("overview");
   const [filterType,   setFilterType]   = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
 
@@ -392,6 +393,31 @@ export default function LabQCDashboard() {
         body: JSON.stringify({ status }),
       }).then(r => r.json()),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/lab-results"] }),
+  });
+
+  // Захиалгын туршилт хүсэлтүүд
+  const { data: _reqRaw } = useQuery<any>({
+    queryKey: ["/api/lab/test-requests"],
+    queryFn: () => fetch("/api/lab/test-requests", { headers: getHeaders() }).then(r => r.json()),
+  });
+  const testRequests: any[] = Array.isArray(_reqRaw) ? _reqRaw : [];
+  const pendingCount = testRequests.filter(r => r.status === "pending" || r.status === "in_testing").length;
+
+  const [expandedReq, setExpandedReq] = useState<number | null>(null);
+  const [reqForm, setReqForm] = useState<Record<number, any>>({});
+
+  const submitTestResult = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) =>
+      fetch(`/api/lab/test-requests/${id}`, {
+        method: "PATCH", headers: getHeaders(),
+        body: JSON.stringify(data),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/lab/test-requests"] });
+      toast({ title: "Туршилтын дүн илгээгдлээ ✓ Sales-д мэдэгдэл явуулсан" });
+      setExpandedReq(null);
+    },
+    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
   });
 
   const filtered   = results.filter(r =>
@@ -452,12 +478,13 @@ export default function LabQCDashboard() {
     printReport("Лабораторийн чанарын хяналтын тайлан", body);
   }
 
-  const TABS: { key: "overview"|"list"|"add"|"norms"|"report"; label: string; icon: any; show: boolean }[] = [
-    { key: "overview", label: "Хяналтын самбар",    icon: BarChart3,    show: true          },
-    { key: "list",     label: "Туршилтын дүн",      icon: FileText,     show: true          },
-    { key: "add",      label: "Шинэ туршилт",       icon: FlaskConical, show: true          },
-    { key: "norms",    label: "БНбД Норм",           icon: ShieldCheck,  show: canViewNorms  },
-    { key: "report",   label: "Тайлан (PDF)",         icon: Printer,      show: true          },
+  const TABS: { key: "overview"|"list"|"add"|"norms"|"report"|"orders"; label: string; icon: any; show: boolean; badge?: number }[] = [
+    { key: "overview", label: "Хяналтын самбар",    icon: BarChart3,      show: true          },
+    { key: "orders",   label: "Захиалгын туршилт",  icon: ClipboardList,  show: true,  badge: pendingCount },
+    { key: "list",     label: "Туршилтын дүн",      icon: FileText,       show: true          },
+    { key: "add",      label: "Шинэ туршилт",       icon: FlaskConical,   show: true          },
+    { key: "norms",    label: "БНбД Норм",           icon: ShieldCheck,    show: canViewNorms  },
+    { key: "report",   label: "Тайлан (PDF)",        icon: Printer,        show: true          },
   ];
 
   return (
@@ -502,9 +529,9 @@ export default function LabQCDashboard() {
 
         {/* Tabs */}
         <div className="flex gap-1 bg-white/5 rounded-xl p-1 w-fit flex-wrap">
-          {TABS.filter(t => t.show).map(({ key, label, icon: Icon }) => (
+          {TABS.filter(t => t.show).map(({ key, label, icon: Icon, badge }) => (
             <button key={key} data-testid={`tab-${key}`} onClick={() => setTab(key)}
-              className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+              className={`relative flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
                 tab === key
                   ? key === "norms"
                     ? "bg-amber-600/50 text-amber-100 shadow-sm"
@@ -513,6 +540,11 @@ export default function LabQCDashboard() {
               }`}>
               <Icon className="w-4 h-4" />
               {label}
+              {badge != null && badge > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold flex items-center justify-center">
+                  {badge}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -917,6 +949,187 @@ export default function LabQCDashboard() {
             </div>
           </div>
         )}
+        {/* ─── ORDERS TAB — Захиалгын туршилт ──────────────────────────────── */}
+        {tab === "orders" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h2 className="font-bold text-emerald-300 flex items-center gap-2">
+                <ClipboardList className="w-4 h-4" />
+                Захиалгын туршилт хүсэлтүүд
+              </h2>
+              <div className="flex gap-2 text-xs">
+                <span className="px-2 py-1 rounded bg-amber-500/15 text-amber-400 font-bold">
+                  {testRequests.filter(r => r.status === "pending").length} хүлээгдэж байна
+                </span>
+                <span className="px-2 py-1 rounded bg-blue-500/15 text-blue-400 font-bold">
+                  {testRequests.filter(r => r.status === "in_testing").length} хийгдэж байна
+                </span>
+                <span className="px-2 py-1 rounded bg-green-500/15 text-green-400 font-bold">
+                  {testRequests.filter(r => r.status === "passed").length} тэнцсэн
+                </span>
+              </div>
+            </div>
+
+            {testRequests.length === 0 ? (
+              <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-10 text-center text-white/30">
+                <ClipboardList className="w-10 h-10 mx-auto mb-2 opacity-30" />
+                Захиалгаас туршилт хүсэлт ирээгүй байна
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {testRequests.map((req: any) => {
+                  const isOpen = expandedReq === req.id;
+                  const statusCfg = {
+                    pending:    { cls: "bg-amber-500/15 text-amber-400",  label: "Хүлээгдэж байна", icon: Clock },
+                    in_testing: { cls: "bg-blue-500/15 text-blue-400",    label: "Хийгдэж байна",   icon: FlaskConical },
+                    passed:     { cls: "bg-green-500/15 text-green-400",  label: "Тэнцсэн",         icon: CheckCircle2 },
+                    failed:     { cls: "bg-red-500/15 text-red-400",      label: "Тэнцээгүй",       icon: XCircle },
+                  }[req.status as string] ?? { cls: "bg-white/10 text-white/50", label: req.status, icon: Clock };
+                  const StatusIcon = statusCfg.icon;
+                  const isDone = req.status === "passed" || req.status === "failed";
+                  const form = reqForm[req.id] ?? {};
+                  const setF = (k: string, v: any) => setReqForm(prev => ({ ...prev, [req.id]: { ...prev[req.id], [k]: v } }));
+
+                  return (
+                    <div key={req.id} className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden"
+                         data-testid={`lab-request-${req.id}`}>
+                      {/* Header row */}
+                      <div className="flex items-center justify-between px-5 py-4 cursor-pointer hover:bg-white/3 transition-colors"
+                           onClick={() => setExpandedReq(isOpen ? null : req.id)}>
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center">
+                            <FlaskConical className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div>
+                            <div className="font-semibold text-sm">{req.customerName}</div>
+                            <div className="text-xs text-white/40">
+                              {req.grade || req.product} · {req.quantity} {req.unit} · Захиалга #{req.salesOrderId}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className={`flex items-center gap-1 px-2.5 py-1 rounded text-xs font-bold ${statusCfg.cls}`}>
+                            <StatusIcon className="w-3 h-3" />
+                            {statusCfg.label}
+                          </span>
+                          <span className="text-xs text-white/30">
+                            {req.createdAt ? new Date(req.createdAt).toLocaleDateString("mn-MN") : ""}
+                          </span>
+                          {isOpen ? <ChevronUp className="w-4 h-4 text-white/30" /> : <ChevronDown className="w-4 h-4 text-white/30" />}
+                        </div>
+                      </div>
+
+                      {/* Expanded form */}
+                      {isOpen && (
+                        <div className="border-t border-white/10 px-5 py-5">
+                          {isDone ? (
+                            /* Дүн харуулах */
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                              {[
+                                { label: "Налуулалт (Slump)", value: req.slumpMm, unit: "мм" },
+                                { label: "Нягтрал", value: req.densityKgM3, unit: "кг/м³" },
+                                { label: "7 хоногийн бат бөх", value: req.strength7d, unit: "МПа" },
+                                { label: "28 хоногийн бат бөх", value: req.strength28d, unit: "МПа" },
+                                { label: "Агаарын агуулга", value: req.airContent, unit: "%" },
+                                { label: "Температур", value: req.tempC, unit: "°C" },
+                                { label: "Хариуцсан", value: req.testedBy, unit: "" },
+                                { label: "Туршсан огноо", value: req.testedAt ? new Date(req.testedAt).toLocaleDateString("mn-MN") : null, unit: "" },
+                              ].map(f => (
+                                <div key={f.label} className="bg-white/5 rounded-xl p-3">
+                                  <div className="text-xs text-white/40">{f.label}</div>
+                                  <div className={`font-bold mt-0.5 ${f.value != null ? "text-white" : "text-white/20"}`}>
+                                    {f.value != null ? `${f.value}${f.unit ? " " + f.unit : ""}` : "—"}
+                                  </div>
+                                </div>
+                              ))}
+                              {req.notes && (
+                                <div className="col-span-full bg-white/5 rounded-xl p-3">
+                                  <div className="text-xs text-white/40">Тэмдэглэл</div>
+                                  <div className="text-sm mt-0.5">{req.notes}</div>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            /* Дүн оруулах форм */
+                            <div className="space-y-4">
+                              <div className="text-xs text-amber-400 font-semibold uppercase tracking-widest mb-3">
+                                Туршилтын дүн оруулах — {req.grade || req.product}
+                              </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                {[
+                                  { k: "slumpMm",     label: "Налуулалт (мм)",         type: "number", placeholder: "ж: 120" },
+                                  { k: "densityKgM3", label: "Нягтрал (кг/м³)",        type: "number", placeholder: "ж: 2350" },
+                                  { k: "strength7d",  label: "Бат бөх 7 хон (МПа)",    type: "number", placeholder: "ж: 18.5" },
+                                  { k: "strength28d", label: "Бат бөх 28 хон (МПа)",   type: "number", placeholder: "ж: 28.0" },
+                                  { k: "airContent",  label: "Агаарын агуулга (%)",     type: "number", placeholder: "ж: 3.5" },
+                                  { k: "tempC",       label: "Температур (°C)",          type: "number", placeholder: "ж: 18" },
+                                ].map(f => (
+                                  <div key={f.k}>
+                                    <label className="text-xs text-white/50 block mb-1">{f.label}</label>
+                                    <input type={f.type} placeholder={f.placeholder}
+                                      data-testid={`req-input-${req.id}-${f.k}`}
+                                      value={form[f.k] ?? ""}
+                                      onChange={e => setF(f.k, e.target.value)}
+                                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/50"
+                                    />
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                  <label className="text-xs text-white/50 block mb-1">Хариуцсан лаборант</label>
+                                  <input type="text" placeholder="Овог нэр"
+                                    data-testid={`req-input-${req.id}-testedBy`}
+                                    value={form.testedBy ?? ""}
+                                    onChange={e => setF("testedBy", e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/50"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="text-xs text-white/50 block mb-1">Тэмдэглэл</label>
+                                  <input type="text" placeholder="Нэмэлт мэдэгдэл"
+                                    data-testid={`req-input-${req.id}-notes`}
+                                    value={form.notes ?? ""}
+                                    onChange={e => setF("notes", e.target.value)}
+                                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-white/20 focus:outline-none focus:border-emerald-500/50"
+                                  />
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3 pt-2">
+                                <button
+                                  data-testid={`req-btn-inprogress-${req.id}`}
+                                  onClick={() => submitTestResult.mutate({ id: req.id, data: { status: "in_testing", ...form } })}
+                                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold border border-blue-500/40 text-blue-400 hover:bg-blue-500/10 rounded-xl transition-all">
+                                  <FlaskConical className="w-4 h-4" />
+                                  Туршилт хийгдэж байна
+                                </button>
+                                <button
+                                  data-testid={`req-btn-passed-${req.id}`}
+                                  onClick={() => submitTestResult.mutate({ id: req.id, data: { status: "passed", ...form } })}
+                                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-green-600 hover:bg-green-500 text-white rounded-xl transition-all">
+                                  <CheckCircle2 className="w-4 h-4" />
+                                  Тэнцсэн — Мэдэгдэл явуулах
+                                </button>
+                                <button
+                                  data-testid={`req-btn-failed-${req.id}`}
+                                  onClick={() => submitTestResult.mutate({ id: req.id, data: { status: "failed", ...form } })}
+                                  className="flex items-center gap-1.5 px-4 py-2 text-sm font-bold bg-red-600/80 hover:bg-red-600 text-white rounded-xl transition-all">
+                                  <XCircle className="w-4 h-4" />
+                                  Тэнцээгүй — Мэдэгдэл явуулах
+                                </button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
       </div>
     </div>
   );
