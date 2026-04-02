@@ -340,6 +340,94 @@ function NewOrderModal({ onClose, configs }: { onClose: () => void; configs: Pro
   );
 }
 
+// ── Материалын шалгалтын самбар ───────────────────────────────────────────────
+function MaterialCheckPanel({ order, token }: { order: SalesOrder; token: string }) {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data, isLoading, refetch } = useQuery<{
+    materials: { itemId: number; name: string; unit: string; needed: number; inStock: number; sufficient: boolean; shortage: number }[];
+    canProduce: boolean;
+    alreadyDeducted: boolean;
+    deductedAt: string | null;
+  }>({
+    queryKey: ["/api/sales/orders/material-check", order.id],
+    queryFn: () => fetch(`/api/sales/orders/${order.id}/material-check`, {
+      headers: { "x-admin-token": token }
+    }).then(r => r.json()),
+  });
+
+  const deductMut = useMutation({
+    mutationFn: () => fetch(`/api/sales/orders/${order.id}/deduct-warehouse`, {
+      method: "POST",
+      headers: { "x-admin-token": token }
+    }).then(r => r.json()),
+    onSuccess: (result) => {
+      refetch();
+      qc.invalidateQueries({ queryKey: ["/api/sales/orders"] });
+      if (result.hasShortage) {
+        toast({ title: "⚠️ Дутуу материал байна", description: result.message, variant: "destructive" });
+      } else {
+        toast({ title: "✅ Агуулахаас хасагдлаа", description: result.message });
+      }
+    },
+  });
+
+  if (isLoading) return <div className="text-xs text-slate-500 py-2">Шалгаж байна...</div>;
+  if (!data) return null;
+
+  return (
+    <div className="mt-2 rounded-lg border border-slate-700 overflow-hidden">
+      <div className="bg-slate-800/60 px-3 py-2 flex items-center justify-between">
+        <span className="text-xs font-bold text-slate-300">
+          Шаардлагатай материал — {order.quantity} {order.unit}
+        </span>
+        {data.alreadyDeducted ? (
+          <span className="text-xs text-green-400 flex items-center gap-1">
+            <CheckCircle2 size={11} /> Агуулахаас хасагдсан
+            {data.deductedAt && ` · ${new Date(data.deductedAt).toLocaleDateString("mn-MN")}`}
+          </span>
+        ) : (
+          <button
+            onClick={() => deductMut.mutate()}
+            disabled={deductMut.isPending}
+            className={`flex items-center gap-1 text-xs px-3 py-1 rounded font-bold transition-all ${
+              data.canProduce
+                ? "bg-green-700 hover:bg-green-600 text-white"
+                : "bg-orange-700 hover:bg-orange-600 text-white"
+            }`}
+            data-testid={`btn-deduct-warehouse-${order.id}`}
+          >
+            {deductMut.isPending
+              ? <><Loader2 size={10} className="animate-spin mr-1" />Хасаж байна...</>
+              : data.canProduce
+                ? "✅ Агуулахаас хасах"
+                : "⚠️ Дутуу байна — хэсэгчлэн хасах"
+            }
+          </button>
+        )}
+      </div>
+      <div className="divide-y divide-slate-800">
+        {data.materials.map(m => (
+          <div key={m.itemId} className={`flex items-center justify-between px-3 py-1.5 text-xs ${!m.sufficient ? "bg-red-950/30" : ""}`}>
+            <span className="text-slate-300">{m.name}</span>
+            <div className="flex items-center gap-3">
+              <span className="text-slate-400">Хэрэгтэй: <span className="text-white font-medium">{m.needed} {m.unit}</span></span>
+              <span className={m.sufficient ? "text-green-400" : "text-red-400"}>
+                Нөөц: {m.inStock} {m.unit}
+                {!m.sufficient && ` (дутагдал: ${m.shortage} ${m.unit})`}
+              </span>
+            </div>
+          </div>
+        ))}
+        {data.materials.length === 0 && (
+          <div className="px-3 py-2 text-xs text-slate-500">Энэ бүтээгдэхүүнд материалын жор тохируулагдаагүй байна</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Захиалгын мөр ─────────────────────────────────────────────────────────────
 function OrderRow({ order, onStatusChange, onContractConfirm }: {
   order: SalesOrder;
@@ -351,6 +439,8 @@ function OrderRow({ order, onStatusChange, onContractConfirm }: {
   const margin = order.pricePerUnit && order.costPerUnit
     ? Math.round(((order.pricePerUnit - order.costPerUnit) / order.pricePerUnit) * 100)
     : null;
+  const token = localStorage.getItem("adminToken") || "";
+  const [showMaterials, setShowMaterials] = useState(false);
 
   return (
     <div className="bg-slate-900/80 border border-slate-700 rounded-xl p-4 flex flex-col gap-3"
@@ -423,6 +513,21 @@ function OrderRow({ order, onStatusChange, onContractConfirm }: {
         <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
           <Hammer size={12} className="text-purple-400" />
           <span className="text-xs text-purple-400">Үйлдвэрлэлд шилжсэн — Хяналтын инженерт мэдэгдсэн</span>
+        </div>
+      )}
+
+      {/* Материалын шалгалт — confirmed эсвэл in_production захиалгад */}
+      {(order.status === "confirmed" || order.status === "in_production") && (
+        <div className="pt-1">
+          <button
+            onClick={() => setShowMaterials(v => !v)}
+            className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-300 transition-colors"
+            data-testid={`btn-toggle-materials-${order.id}`}
+          >
+            <Package size={11} />
+            {showMaterials ? "Материал нуух" : "Агуулахын материал шалгах"}
+          </button>
+          {showMaterials && <MaterialCheckPanel order={order} token={token} />}
         </div>
       )}
     </div>

@@ -876,23 +876,38 @@ export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 
 // ===================== БОРЛУУЛАЛТЫН ЗАХИАЛГА =====================
 export const salesOrders = pgTable("sales_orders", {
-  id:            serial("id").primaryKey(),
-  customerName:  text("customer_name").notNull(),
-  product:       text("product").notNull(),       // concrete_m200/m300/m400 | asphalt | crushed_stone
-  quantity:      real("quantity").notNull(),       // м³ эсвэл тн
-  unit:          text("unit").notNull().default("м³"),
-  pricePerUnit:  real("price_per_unit"),           // тохирсон үнэ (борлуулалтын ажилтан баталгаажуулсан)
-  costPerUnit:   real("cost_per_unit"),            // тооцоолсон өртөг
-  deliveryDate:  text("delivery_date"),
-  location:      text("location"),
-  status:        text("status").default("pending"), // pending|confirmed|in_production|delivered|cancelled
-  notes:         text("notes"),
-  confirmedBy:   text("confirmed_by"),
-  createdAt:     timestamp("created_at").defaultNow(),
+  id:                    serial("id").primaryKey(),
+  customerName:          text("customer_name").notNull(),
+  product:               text("product").notNull(),       // concrete_m200/m300/m400 | asphalt | crushed_stone
+  quantity:              real("quantity").notNull(),       // м³ эсвэл тн
+  unit:                  text("unit").notNull().default("м³"),
+  pricePerUnit:          real("price_per_unit"),           // тохирсон үнэ
+  costPerUnit:           real("cost_per_unit"),            // тооцоолсон өртөг
+  deliveryDate:          text("delivery_date"),
+  location:              text("location"),
+  status:                text("status").default("pending"), // pending|confirmed|in_production|delivered|cancelled
+  notes:                 text("notes"),
+  confirmedBy:           text("confirmed_by"),
+  warehouseDeducted:     boolean("warehouse_deducted").default(false),
+  warehouseDeductedAt:   timestamp("warehouse_deducted_at"),
+  createdAt:             timestamp("created_at").defaultNow(),
 });
 export const insertSalesOrderSchema = createInsertSchema(salesOrders).omit({ id: true, createdAt: true });
 export type SalesOrder       = typeof salesOrders.$inferSelect;
 export type InsertSalesOrder = z.infer<typeof insertSalesOrderSchema>;
+
+// ========= АГУУЛАХЫН ХАСАЛТЫН ЛОГ =========
+export const warehouseDeductionLogs = pgTable("warehouse_deduction_logs", {
+  id:               serial("id").primaryKey(),
+  salesOrderId:     integer("sales_order_id").notNull().references(() => salesOrders.id, { onDelete: "cascade" }),
+  warehouseItemId:  integer("warehouse_item_id").notNull().references(() => warehouseItems.id),
+  itemName:         text("item_name").notNull(),
+  amountDeducted:   real("amount_deducted").notNull(),
+  unit:             text("unit").notNull(),
+  wasSufficient:    boolean("was_sufficient").notNull().default(true),
+  deductedAt:       timestamp("deducted_at").defaultNow(),
+});
+export type WarehouseDeductionLog = typeof warehouseDeductionLogs.$inferSelect;
 
 // ===================== ҮЙЛДВЭРИЙН ӨРТГИЙН ТОХИРГОО =====================
 export const productionCostConfig = pgTable("production_cost_config", {

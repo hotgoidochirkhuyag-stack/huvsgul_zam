@@ -2836,6 +2836,171 @@ ${cert.testResults ? `
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
 
+  // ======= АГУУЛАХЫН АВТОМАТ ХАСАЛТ =======
+  // Материалын жор: нэгж бүтээгдэхүүнд ногдох хэмжээ (warehouse_item id → amount per unit)
+  // Бетон зуурмагийн жор нь concrete_mix_designs хүснэгтэд байна
+  // Агуулахын item id-ууд: 8=Цемент ПЦ400(тн), 9=Элс(м³), 10=Хайрга5-10(м³), 11=Хайрга10-20(м³), 12=Химийн нэмэлт(кг)
+  // Асфальт: 1=Битум(тн), 2=Хайрга0-2(тн), 3=Хайрга2-5(тн), 4=Хайрга5-10(тн), 5=Хайрга10-20(тн), 6=Минерал нунтаг(тн), 7=Элс(тн)
+  // Бутлуур: 18=Байгалийн чулуу оролт(тн), 17=Шатах тос(л)
+  const PRODUCT_RECIPES: Record<string, { itemId: number; name: string; unit: string; perUnit: number }[]> = {
+    // Бетон М200 → В20 mix: цемент 310кг, элс 780кг≈0.52м³, хайрга 5-10: 490кг≈0.31м³, хайрга 10-20: 630кг≈0.39м³
+    concrete_m200: [
+      { itemId: 8,  name: "Цемент ПЦ400",     unit: "тн", perUnit: 0.310 },
+      { itemId: 9,  name: "Элс (бетон)",       unit: "м³", perUnit: 0.52  },
+      { itemId: 10, name: "Хайрга 5-10мм",     unit: "м³", perUnit: 0.31  },
+      { itemId: 11, name: "Хайрга 10-20мм",    unit: "м³", perUnit: 0.39  },
+    ],
+    // Бетон М300 → В25: цемент 360кг, элс 740кг≈0.49м³, хайрга 5-10: 500кг≈0.31м³, хайрга 10-20: 640кг≈0.40м³, нэмэлт 3.6кг
+    concrete_m300: [
+      { itemId: 8,  name: "Цемент ПЦ400",     unit: "тн", perUnit: 0.360 },
+      { itemId: 9,  name: "Элс (бетон)",       unit: "м³", perUnit: 0.49  },
+      { itemId: 10, name: "Хайрга 5-10мм",     unit: "м³", perUnit: 0.31  },
+      { itemId: 11, name: "Хайрга 10-20мм",    unit: "м³", perUnit: 0.40  },
+      { itemId: 12, name: "Химийн нэмэлт",     unit: "кг", perUnit: 3.6   },
+    ],
+    // Бетон М400 → В30: цемент 400кг, элс 700кг≈0.47м³, хайрга 5-10: 510кг≈0.32м³, хайрга 10-20: 660кг≈0.41м³, нэмэлт 4кг
+    concrete_m400: [
+      { itemId: 8,  name: "Цемент ПЦ400",     unit: "тн", perUnit: 0.400 },
+      { itemId: 9,  name: "Элс (бетон)",       unit: "м³", perUnit: 0.47  },
+      { itemId: 10, name: "Хайрга 5-10мм",     unit: "м³", perUnit: 0.32  },
+      { itemId: 11, name: "Хайрга 10-20мм",    unit: "м³", perUnit: 0.41  },
+      { itemId: 12, name: "Химийн нэмэлт",     unit: "кг", perUnit: 4.0   },
+    ],
+    // Асфальт АБ-1 per тн (нийт 100%: битум 5%, хайрга 70%, минерал 7%, элс 13%, бусад 5%)
+    asphalt: [
+      { itemId: 1,  name: "Битум БНД 60/90",   unit: "тн", perUnit: 0.050 },
+      { itemId: 2,  name: "Хайрга 0-2мм",      unit: "тн", perUnit: 0.050 },
+      { itemId: 3,  name: "Хайрга 2-5мм",      unit: "тн", perUnit: 0.100 },
+      { itemId: 4,  name: "Хайрга 5-10мм",     unit: "тн", perUnit: 0.150 },
+      { itemId: 5,  name: "Хайрга 10-20мм",    unit: "тн", perUnit: 0.400 },
+      { itemId: 6,  name: "Минерал нунтаг",     unit: "тн", perUnit: 0.070 },
+      { itemId: 7,  name: "Элс (асфальт)",      unit: "тн", perUnit: 0.130 },
+    ],
+    // Чулуу бутлуур per тн: оролтын чулуу + тос
+    crushed_stone: [
+      { itemId: 18, name: "Байгалийн чулуу (оролт)", unit: "тн", perUnit: 1.10 },
+      { itemId: 17, name: "Шатах тос (бутлуур)",     unit: "л",  perUnit: 0.20 },
+    ],
+    foam_block: [],
+  };
+
+  // requireSales + requireAdmin хоёулаа зөвшөөрдөг middleware
+  const requireSalesOrAdmin = (req: any, res: any, next: any) => {
+    const token = req.headers["x-admin-token"];
+    if (token === "authenticated") return next();
+    requireAdmin(req, res, next);
+  };
+
+  // Материалын шаардлага харах (хасахгүй — зөвхөн шалгах)
+  app.get("/api/sales/orders/:id/material-check", requireSalesOrAdmin, async (req, res) => {
+    try {
+      const order = await db.query.salesOrders.findFirst({
+        where: eq(schema.salesOrders.id, parseInt(req.params.id))
+      });
+      if (!order) return res.status(404).json({ error: "Захиалга олдсонгүй" });
+
+      const recipe = PRODUCT_RECIPES[order.product] ?? [];
+      if (recipe.length === 0) return res.json({ materials: [], canProduce: true, alreadyDeducted: order.warehouseDeducted });
+
+      const results = await Promise.all(recipe.map(async (r) => {
+        const [item] = await db.select().from(schema.warehouseItems).where(eq(schema.warehouseItems.id, r.itemId));
+        const needed = r.perUnit * order.quantity;
+        const stock = item?.currentStock ?? 0;
+        return {
+          itemId:      r.itemId,
+          name:        r.name,
+          unit:        r.unit,
+          needed:      Math.round(needed * 100) / 100,
+          inStock:     Math.round(stock * 100) / 100,
+          sufficient:  stock >= needed,
+          shortage:    stock < needed ? Math.round((needed - stock) * 100) / 100 : 0,
+        };
+      }));
+
+      res.json({
+        materials:      results,
+        canProduce:     results.every(r => r.sufficient),
+        alreadyDeducted: order.warehouseDeducted,
+        deductedAt:     order.warehouseDeductedAt,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Агуулахаас хасах (үйлдвэрлэл эхлэхэд дуудна)
+  app.post("/api/sales/orders/:id/deduct-warehouse", requireSalesOrAdmin, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      const order = await db.query.salesOrders.findFirst({
+        where: eq(schema.salesOrders.id, orderId)
+      });
+      if (!order) return res.status(404).json({ error: "Захиалга олдсонгүй" });
+      if (order.warehouseDeducted) return res.json({ ok: true, message: "Аль хэдийн хасагдсан байна" });
+
+      const recipe = PRODUCT_RECIPES[order.product] ?? [];
+      const logs: { itemId: number; name: string; unit: string; needed: number; inStock: number; deducted: number; sufficient: boolean }[] = [];
+
+      for (const r of recipe) {
+        const [item] = await db.select().from(schema.warehouseItems).where(eq(schema.warehouseItems.id, r.itemId));
+        if (!item) continue;
+        const needed = Math.round(r.perUnit * order.quantity * 100) / 100;
+        const canDeduct = Math.min(needed, item.currentStock ?? 0);
+        const sufficient = (item.currentStock ?? 0) >= needed;
+
+        // Агуулахаас хасах
+        await db.update(schema.warehouseItems)
+          .set({ currentStock: (item.currentStock ?? 0) - canDeduct, updatedAt: new Date() })
+          .where(eq(schema.warehouseItems.id, r.itemId));
+
+        // Агуулахын лог
+        await db.insert(schema.warehouseLogs).values({
+          itemId:     r.itemId,
+          date:       new Date().toISOString().split("T")[0],
+          quantity:   -canDeduct,   // сөрөг = гарсан
+          type:       "out",
+          notes:      `Захиалга #${orderId} — ${order.customerName} (${order.product} ${order.quantity}${order.unit})`,
+          recordedBy: req.authRole ?? "SALES",
+        });
+
+        // Хасалтын лог
+        await db.insert(schema.warehouseDeductionLogs).values({
+          salesOrderId:    orderId,
+          warehouseItemId: r.itemId,
+          itemName:        r.name,
+          amountDeducted:  canDeduct,
+          unit:            r.unit,
+          wasSufficient:   sufficient,
+        });
+
+        logs.push({ itemId: r.itemId, name: r.name, unit: r.unit, needed, inStock: item.currentStock ?? 0, deducted: canDeduct, sufficient });
+      }
+
+      // Захиалгыг хасагдсан гэж тэмдэглэх
+      await db.update(schema.salesOrders)
+        .set({ warehouseDeducted: true, warehouseDeductedAt: new Date(), status: "in_production" })
+        .where(eq(schema.salesOrders.id, orderId));
+
+      const hasShortage = logs.some(l => !l.sufficient);
+      res.json({
+        ok: true,
+        logs,
+        hasShortage,
+        message: hasShortage
+          ? "⚠️ Зарим материал дутуу байсан — боломжтой хэмжээгээр хассан. Агуулахыг нөхөх шаардлагатай!"
+          : "✅ Бүх материал агуулахаас амжилттай хасагдлаа",
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Хасалтын лог харах
+  app.get("/api/sales/orders/:id/deduction-log", requireSalesOrAdmin, async (req, res) => {
+    try {
+      const logs = await db.select().from(schema.warehouseDeductionLogs)
+        .where(eq(schema.warehouseDeductionLogs.salesOrderId, parseInt(req.params.id)))
+        .orderBy(schema.warehouseDeductionLogs.deductedAt);
+      res.json(logs);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Өртгийн тохиргоо
   app.get("/api/sales/cost-config", requireSales, async (_req, res) => {
     try {
