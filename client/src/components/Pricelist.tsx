@@ -1,10 +1,9 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertContactSchema } from "@shared/schema";
 import {
-  Phone, Loader2, Calculator, Sparkles, TrendingUp,
-  ChevronRight, RotateCcw, AlertCircle, BadgePercent,
+  Phone, Loader2, FileText, ChevronRight, Building2,
+  Package, Tag, Filter, CheckCircle, ExternalLink,
 } from "lucide-react";
 import emailjs from "@emailjs/browser";
 import { useState } from "react";
@@ -13,302 +12,299 @@ import { useToast } from "@/hooks/use-toast";
 import { z } from "zod";
 import type { CompanyProduct } from "@shared/schema";
 
-const priceRequestSchema = insertContactSchema.extend({
-  product: z.string().min(1, "Бүтээгдэхүүн сонгоно уу"),
-  quantity: z.string().min(1, "Тоо хэмжээ оруулна уу"),
-  email: z.string().min(1, "И-мэйл хаяг оруулна уу").email("Зөв и-мэйл хаяг оруулна уу"),
+const quoteSchema = z.object({
+  name:            z.string().min(1, "Нэр оруулна уу"),
+  company:         z.string().optional(),
+  phone:           z.string().min(6, "Утас оруулна уу"),
+  email:           z.string().email("Зөв и-мэйл").or(z.literal("")),
+  product:         z.string().min(1, "Бүтээгдэхүүн сонгоно уу"),
+  productId:       z.string().optional(),
+  unit:            z.string().optional(),
+  unitPrice:       z.string().optional(),
+  quantity:        z.string().min(1, "Тоо хэмжээ оруулна уу"),
+  deliveryAddress: z.string().optional(),
+  note:            z.string().optional(),
 });
-type PriceRequestData = z.infer<typeof priceRequestSchema>;
+type QuoteData = z.infer<typeof quoteSchema>;
 
-type PriceItem = {
-  name: string;
+type CatalogItem = {
+  id: number;
+  productName: string;
+  productType: string;
   unit: string;
-  pricePerUnit: { min: number; max: number; avg: number };
-  totalPrice: { min: number; max: number; avg: number };
-  note?: string;
+  suggestedPrice: number;
+  updatedAt: string;
 };
 
-type PriceResult = {
-  product: string;
-  quantity: number;
-  items: PriceItem[];
-  marketFactors: string[];
-  generalNote: string;
-  discount: string;
-  aiPowered: boolean;
+const CATEGORY_LABEL: Record<string, string> = {
+  concrete:   "Бетон зуурмаг",
+  foam_block: "Хөөс блок",
+  asphalt:    "Асфальт",
+  stone:      "Чулуу / Хайрга",
+  sand:       "Элс",
+  finished:   "Эцсийн бүтээгдэхүүн",
+  other:      "Бусад",
 };
 
-function fmtMNT(n: number) {
-  if (n >= 1_000_000_000) return `₮${(n / 1_000_000_000).toFixed(1)} тэрбум`;
-  if (n >= 1_000_000) return `₮${(n / 1_000_000).toFixed(1)} сая`;
-  return `₮${n.toLocaleString("mn-MN")}`;
+function getCategory(productType: string) {
+  const base = productType.replace("_custom", "");
+  return CATEGORY_LABEL[base] || "Бусад";
 }
 
-/* ─── AI Тооцоолол панел ─────────────────────────────────────── */
-function AiEstimator({
-  product, quantity,
-}: { product: string; quantity: string }) {
-  const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<PriceResult | null>(null);
-  const [error, setError] = useState("");
+function fmtMNT(n: number) {
+  if (n >= 1_000_000) return `₮${(n / 1_000_000).toFixed(1)} сая`;
+  return "₮" + n.toLocaleString("mn-MN");
+}
 
-  const estimate = async () => {
-    const qty = parseFloat(quantity);
-    if (!product || !qty || qty <= 0) {
-      setError("Материал болон тоо хэмжээг зөв оруулна уу.");
-      return;
-    }
-    setError("");
-    setResult(null);
-    setLoading(true);
-    try {
-      const res = await fetch("/api/ai/price-estimate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ product, quantity: qty }),
-      });
-      if (res.status === 429) {
-        const data = await res.json();
-        setError(data.error || "Хэт олон хайлт. Түр хүлээгээд дахин оролдоно уу.");
-        return;
-      }
-      if (!res.ok) throw new Error("Server error");
-      setResult(await res.json());
-    } catch {
-      setError("Тооцоолол хийхэд алдаа гарлаа. Дахин оролдоно уу.");
-    } finally {
-      setLoading(false);
-    }
-  };
+/* ─── Үнийн каталог ──────────────────────────────────────────── */
+function ProductCatalog({ onSelect }: {
+  onSelect: (item: { name: string; unit: string; price: number }) => void;
+}) {
+  const [activeFilter, setActiveFilter] = useState("all");
+
+  const { data: catalog = [], isLoading } = useQuery<CatalogItem[]>({
+    queryKey: ["/api/public/price-catalog"],
+    queryFn: () => fetch("/api/public/price-catalog").then(r => r.json()),
+  });
+
+  const { data: products = [] } = useQuery<CompanyProduct[]>({
+    queryKey: ["/api/company-products"],
+  });
+
+  const filters = [
+    { key: "all", label: "Бүгд" },
+    { key: "concrete", label: "Бетон" },
+    { key: "foam_block", label: "Хөөс блок" },
+    { key: "asphalt", label: "Асфальт" },
+    { key: "stone", label: "Чулуу" },
+  ];
+
+  const filtered = activeFilter === "all"
+    ? catalog
+    : catalog.filter(c => c.productType.includes(activeFilter));
+
+  const showProducts = products.filter(p => p.isActive);
 
   return (
     <div className="border border-border/60 rounded-sm overflow-hidden">
-      {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3 bg-primary/10 border-b border-border/40">
-        <Sparkles className="w-4 h-4 text-primary shrink-0" />
+        <Tag className="w-4 h-4 text-primary shrink-0" />
         <span className="text-xs font-bold uppercase tracking-widest text-primary">
-          Зах зээл дээрх үнийн судалгаа   </span>
+          Манай бүтээгдэхүүний үнэ
+        </span>
+        <span className="ml-auto text-[10px] text-muted-foreground">Батлагдсан үнэ</span>
       </div>
 
-      <div className="p-5 bg-background/40">
-        {/* Товч */}
-        {!result && !loading && (
-          <div className="text-center">
-            <p className="text-muted-foreground text-sm mb-4 leading-relaxed">
-              Материал болон тоо хэмжээг <span className="text-foreground font-black tracking-wide">ФОРМ</span>-д оруулаад <span className="text-primary font-bold">"AI-ээр хайлгах "</span> товч дарвал зах зээл дээрх үнийн судалгаа хийгдэнэ.
-            </p>
-            {error && (
-              <div className="flex items-center gap-2 text-destructive text-xs mb-3 justify-center">
-                <AlertCircle className="w-4 h-4" /> {error}
-              </div>
-            )}
-            <button
-              onClick={estimate}
-              disabled={!product || !quantity}
-              className="inline-flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground font-bold text-sm uppercase tracking-widest rounded-sm hover:bg-primary/90 transition-all active:scale-[0.97] disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <Sparkles className="w-4 h-4" />
-              AI-ээр хайлгах
-              <ChevronRight className="w-4 h-4" />
-            </button>
+      <div className="p-4 bg-background/40">
+        {isLoading ? (
+          <div className="py-8 text-center">
+            <Loader2 className="w-6 h-6 animate-spin text-primary mx-auto mb-2" />
+            <p className="text-xs text-muted-foreground">Ачааллаж байна...</p>
           </div>
-        )}
-
-        {/* Ачааллаж байна */}
-        {loading && (
-          <div className="py-6 flex flex-col items-center gap-4">
-            <div className="relative">
-              <div className="w-14 h-14 rounded-full border-2 border-primary/20 flex items-center justify-center">
-                <Sparkles className="w-6 h-6 text-primary animate-pulse" />
-              </div>
-              <div className="absolute inset-0 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-            </div>
-            <div className="text-center">
-              <p className="text-sm font-semibold text-foreground">Зах зээлийн мэдээлэл шинжилж байна...</p>
-              <p className="text-xs text-muted-foreground mt-1">Үнийн мэдээлэлд дүн шинжилгээ хийгдэж байна</p>
-            </div>
-            {/* Animated progress bars */}
-            <div className="w-full space-y-2">
-              {["Үнийн мэдээлэл татаж байна", "Зах зээлийн хэлбэлзэл шинжилж байна", "Захиалгын хэмжээ тооцоолж байна"].map((t, i) => (
-                <div key={i} className="flex items-center gap-3">
-                  <div className="flex-1 h-1.5 bg-border rounded-full overflow-hidden">
-                    <motion.div
-                      initial={{ width: "0%" }}
-                      animate={{ width: "100%" }}
-                      transition={{ duration: 0.8, delay: i * 0.3, ease: "easeInOut" }}
-                      className="h-full bg-primary rounded-full"
-                    />
-                  </div>
-                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">{t}</span>
-                </div>
+        ) : catalog.length > 0 ? (
+          <>
+            {/* Шүүлтүүр */}
+            <div className="flex gap-1.5 flex-wrap mb-3">
+              {filters.map(f => (
+                <button key={f.key} onClick={() => setActiveFilter(f.key)}
+                  className={`px-2.5 py-1 rounded-sm text-[10px] font-bold uppercase tracking-wide transition-all ${
+                    activeFilter === f.key
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-border/30 text-muted-foreground hover:bg-border/60"
+                  }`}>
+                  {f.label}
+                </button>
               ))}
             </div>
+
+            {/* Жагсаалт */}
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+              {filtered.length === 0 ? (
+                <p className="text-center text-xs text-muted-foreground py-4">Энэ ангиллын мэдээлэл алга</p>
+              ) : filtered.map((item) => (
+                <motion.button
+                  key={item.id}
+                  initial={{ opacity: 0, y: 6 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  onClick={() => onSelect({ name: item.productName, unit: item.unit, price: item.suggestedPrice })}
+                  className="w-full text-left border border-border/50 rounded-sm p-3 bg-background/60 hover:border-primary/40 hover:bg-primary/5 transition-all group"
+                  data-testid={`catalog-item-${item.id}`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-foreground leading-tight truncate">{item.productName}</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{getCategory(item.productType)}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-sm font-black text-primary">{fmtMNT(item.suggestedPrice)}</p>
+                      <p className="text-[10px] text-muted-foreground">/ {item.unit}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 mt-1.5 text-[10px] text-primary/70 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ChevronRight className="w-3 h-3" /> Формд нэмэх
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+          </>
+        ) : (
+          /* Дууссан санал байхгүй бол бүтээгдэхүүний жагсаалт харуулна */
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <p className="text-[10px] text-muted-foreground mb-2 flex items-center gap-1">
+              <Package className="w-3 h-3" /> Манай бүтээгдэхүүнүүд
+            </p>
+            {showProducts.length === 0 ? (
+              <p className="text-center text-xs text-muted-foreground py-4">Бүтээгдэхүүн байхгүй байна</p>
+            ) : showProducts.map((p) => (
+              <button
+                key={p.id}
+                onClick={() => onSelect({ name: p.name, unit: p.unit, price: 0 })}
+                className="w-full text-left flex items-center gap-3 border border-border/40 rounded-sm p-2.5 bg-background/50 hover:border-primary/30 transition-all group"
+                data-testid={`product-item-${p.id}`}
+              >
+                <div className="w-7 h-7 bg-primary/10 rounded flex items-center justify-center shrink-0">
+                  <Package className="w-3.5 h-3.5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-bold text-foreground truncate">{p.name}</p>
+                  <p className="text-[10px] text-muted-foreground">{CATEGORY_LABEL[p.category] || p.category} · {p.unit}</p>
+                </div>
+                <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+              </button>
+            ))}
           </div>
         )}
-
-        {/* Үр дүн */}
-        <AnimatePresence>
-          {result && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.4 }}
-              className="space-y-4"
-            >
-              {/* Гарчиг мөр */}
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-foreground">{result.product}</p>
-                  <p className="text-[10px] text-muted-foreground">{result.quantity} нэгжийн үнийн судалгаа · {result.items.length} ангилал</p>
-                </div>
-                {result.aiPowered && (
-                  <span className="inline-flex items-center gap-1 text-[10px] font-bold text-primary bg-primary/10 border border-primary/20 rounded-sm px-2 py-0.5">
-                    <Sparkles className="w-2.5 h-2.5" /> AI
-                  </span>
-                )}
-              </div>
-
-              {/* Ангиллуудын жагсаалт */}
-              <div className="space-y-2">
-                {result.items.map((item, i) => (
-                  <motion.div
-                    key={i}
-                    initial={{ opacity: 0, x: -8 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    transition={{ delay: i * 0.06, duration: 0.3 }}
-                    className="border border-border/50 rounded-sm p-3 bg-background/60 hover:border-primary/30 transition-colors"
-                  >
-                    <div className="flex items-start justify-between gap-2 mb-1">
-                      <p className="text-xs font-bold text-foreground leading-tight">{item.name}</p>
-                      <p className="text-xs font-black text-primary whitespace-nowrap shrink-0">
-                        {fmtMNT(item.totalPrice.avg)}
-                      </p>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <p className="text-[10px] text-muted-foreground">
-                        {fmtMNT(item.pricePerUnit.min)}–{fmtMNT(item.pricePerUnit.max)} / {item.unit}
-                      </p>
-                      <p className="text-[10px] text-muted-foreground">
-                        Нийт: {fmtMNT(item.totalPrice.min)}–{fmtMNT(item.totalPrice.max)}
-                      </p>
-                    </div>
-                    {/* Хамрах хүрээний мөр */}
-                    <div className="mt-2 h-1 bg-border rounded-full overflow-hidden">
-                      <motion.div
-                        initial={{ width: 0 }}
-                        animate={{ width: `${Math.min(100, 30 + i * 10)}%` }}
-                        transition={{ duration: 0.7, delay: i * 0.08 }}
-                        className="h-full bg-gradient-to-r from-primary/50 to-primary rounded-full"
-                      />
-                    </div>
-                    {item.note && (
-                      <p className="text-[10px] text-muted-foreground mt-1.5 leading-relaxed">{item.note}</p>
-                    )}
-                  </motion.div>
-                ))}
-              </div>
-
-              {/* Үнэд нөлөөлөх хүчин зүйлс */}
-              {result.marketFactors?.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1.5">
-                    <TrendingUp className="w-3 h-3" /> Үнэд нөлөөлөх хүчин зүйлс
-                  </p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {result.marketFactors.map((f, i) => (
-                      <div key={i} className="flex items-start gap-1.5 text-xs text-foreground/70">
-                        <span className="text-primary mt-0.5">▸</span> {f}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Нийтлэг тэмдэглэл */}
-              {result.generalNote && (
-                <div className="bg-amber-500/8 border border-amber-500/20 rounded-sm px-3 py-2 text-xs text-amber-400/90 leading-relaxed">
-                  ℹ {result.generalNote}
-                </div>
-              )}
-
-              {/* Хямдрал */}
-              {result.discount && (
-                <div className="flex items-start gap-2 bg-green-500/8 border border-green-500/20 rounded-sm px-3 py-2 text-xs text-green-400 leading-relaxed">
-                  <BadgePercent className="w-3.5 h-3.5 shrink-0 mt-0.5" /> {result.discount}
-                </div>
-              )}
-
-              {/* Дахин тооцоолох */}
-              <button
-                onClick={() => setResult(null)}
-                className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-              >
-                <RotateCcw className="w-3 h-3" /> Дахин тооцоолох
-              </button>
-            </motion.div>
-          )}
-        </AnimatePresence>
       </div>
     </div>
+  );
+}
+
+/* ─── Амжилтын хэсэг ──────────────────────────────────────────── */
+function QuoteSuccess({ data, onReset }: {
+  data: { quoteId: number; product: string; quantity: string; unit: string; unitPrice: string; totalAmount: number; validUntil: string; contractUrl: string; name: string; company: string; phone: string; email: string; deliveryAddress: string; };
+  onReset: () => void;
+}) {
+  const quoteParams = new URLSearchParams({
+    quoteId:   String(data.quoteId),
+    name:      data.name,
+    company:   data.company || "",
+    phone:     data.phone,
+    email:     data.email || "",
+    product:   data.product,
+    quantity:  data.quantity,
+    unit:      data.unit || "",
+    unitPrice: data.unitPrice || "0",
+    totalAmount: String(data.totalAmount),
+    validUntil:  data.validUntil,
+    contractUrl: data.contractUrl,
+    deliveryAddress: data.deliveryAddress || "",
+  });
+
+  const previewUrl = `/quote-preview?${quoteParams.toString()}`;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
+      <div className="flex items-start gap-3 bg-green-500/10 border border-green-500/30 rounded-sm px-4 py-3">
+        <CheckCircle className="w-5 h-5 text-green-400 shrink-0 mt-0.5" />
+        <div>
+          <p className="text-sm font-bold text-green-300">Хүсэлт амжилттай хүлээн авлаа!</p>
+          <p className="text-xs text-green-400/80 mt-0.5">Борлуулалтын алба удахгүй тантай холбогдох болно.</p>
+        </div>
+      </div>
+
+      <div className="bg-background/60 border border-border/60 rounded-sm p-4 space-y-2">
+        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">Таны хүсэлтийн дэлгэрэнгүй</p>
+        <div className="flex justify-between text-xs"><span className="text-muted-foreground">Бүтээгдэхүүн:</span><span className="font-semibold text-foreground">{data.product}</span></div>
+        <div className="flex justify-between text-xs"><span className="text-muted-foreground">Тоо хэмжээ:</span><span className="font-semibold text-foreground">{data.quantity} {data.unit}</span></div>
+        {data.totalAmount > 0 && (
+          <div className="flex justify-between text-xs"><span className="text-muted-foreground">Ойролцоо дүн:</span><span className="font-black text-primary text-sm">{fmtMNT(data.totalAmount)}</span></div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <a href={previewUrl} target="_blank" rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 py-3 bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs rounded-sm transition-all"
+          data-testid="btn-view-quote">
+          <FileText className="w-4 h-4" /> Үнийн санал харах
+          <ExternalLink className="w-3 h-3 opacity-60" />
+        </a>
+        <a href={data.contractUrl}
+          className="flex items-center justify-center gap-2 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-xs rounded-sm transition-all"
+          data-testid="btn-go-contract">
+          <FileText className="w-4 h-4" /> Гэрээ байгуулах
+        </a>
+      </div>
+
+      <button onClick={onReset} className="text-xs text-muted-foreground hover:text-primary transition-colors w-full text-center">
+        ← Шинэ хүсэлт гаргах
+      </button>
+    </motion.div>
   );
 }
 
 /* ─── Үндсэн компонент ──────────────────────────────────────── */
 export default function Pricelist() {
   const [isSending, setIsSending] = useState(false);
+  const [quoteResult, setQuoteResult] = useState<any>(null);
   const { toast } = useToast();
 
   const { data: products = [] } = useQuery<CompanyProduct[]>({
     queryKey: ["/api/company-products"],
   });
-
-  const activeProducts = products.filter(p => p.isActive);
-
-  const form = useForm<PriceRequestData>({
-    resolver: zodResolver(priceRequestSchema),
-    defaultValues: { name: "", email: "", phone: "", message: "", product: "", quantity: "" },
+  const { data: catalog = [] } = useQuery<CatalogItem[]>({
+    queryKey: ["/api/public/price-catalog"],
+    queryFn: () => fetch("/api/public/price-catalog").then(r => r.json()),
   });
 
-  const watchedProduct = form.watch("product");
-  const watchedQty     = form.watch("quantity");
+  const form = useForm<QuoteData>({
+    resolver: zodResolver(quoteSchema),
+    defaultValues: { name: "", company: "", email: "", phone: "", product: "", productId: "", unit: "", unitPrice: "", quantity: "", deliveryAddress: "", note: "" },
+  });
 
-  const onSubmit = async (data: PriceRequestData) => {
+  const handleCatalogSelect = (item: { name: string; unit: string; price: number }) => {
+    form.setValue("product", item.name);
+    form.setValue("unit", item.unit);
+    if (item.price > 0) form.setValue("unitPrice", String(item.price));
+  };
+
+  const onSubmit = async (data: QuoteData) => {
     setIsSending(true);
     try {
-      const productNote = `Бүтээгдэхүүн: ${data.product}${data.quantity ? `, Тоо хэмжээ: ${data.quantity}` : ""}. `;
-      // DB-д эхлээд хадгална (EmailJS-ээс үл хамааран)
-      const r = await fetch("/api/contacts", {
+      const unitPrice = parseFloat(data.unitPrice || "0") || 0;
+      const qty = parseFloat(data.quantity) || 1;
+      const totalAmount = Math.round(unitPrice * qty);
+
+      const r = await fetch("/api/public/quote-request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: data.name, email: data.email || "noemail@example.com", phone: data.phone,
-          message: `${productNote}${data.message || "Үнийн санал авах хүсэлт"}`,
-          type: "Үнийн санал",
-        }),
+        body: JSON.stringify({ ...data, unitPrice, totalAmount }),
       });
-      if (!r.ok) throw new Error("DB хадгалах алдаа");
-      // EmailJS-г тусдаа оролдоно (алдаа гарсан ч хэрэглэгчид нөлөөлөхгүй)
+      if (!r.ok) throw new Error("Алдаа");
+      const result = await r.json();
+
+      // EmailJS-ийн мэдэгдэл (алдаа гарсан ч үйл явцад нөлөөлөхгүй)
       emailjs.send(
         "service_zo80ffc", "template_1qp8wlm",
-        { name: data.name, email: data.email, phone: data.phone, product: data.product, quantity: data.quantity, message: data.message },
+        { name: data.name, email: data.email, phone: data.phone, product: data.product, quantity: data.quantity, message: data.note || "" },
         "jMUTsjEJc7DCIHEK4"
       ).catch(() => {});
-      toast({ title: "Хүсэлт амжилттай илгээгдлээ!", description: "Борлуулалтын алба тантай эргэж холбогдох болно." });
-      form.reset();
+
+      setQuoteResult({ ...result, ...data, unitPrice: data.unitPrice || "0" });
     } catch {
-      toast({ variant: "destructive", title: "Алдаа гарлаа", description: "Илгээхэд алдаа гарлаа. Та дахин оролдоно уу." });
+      toast({ variant: "destructive", title: "Алдаа гарлаа", description: "Дахин оролдоно уу." });
     } finally {
       setIsSending(false);
     }
   };
+
+  const activeProducts = products.filter(p => p.isActive);
 
   return (
     <section id="Pricelist" className="py-32 bg-card relative border-t border-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 lg:gap-24">
 
-          {/* Зүүн — мэдээлэл + AI estimator */}
+          {/* Зүүн — каталог + холбоо */}
           <motion.div
             initial={{ opacity: 0, x: -30 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -319,128 +315,154 @@ export default function Pricelist() {
               <span className="w-12 h-0.5 bg-primary" />
               Бүтээн байгуулалтын түнш
             </h2>
-            <h3 className="text-3xl md:text-4xl font-display font-black text-foreground uppercase mb-8">
+            <h3 className="text-3xl md:text-4xl font-display font-black text-foreground uppercase mb-6">
               Үнийн санал <span className="text-primary">Авах</span>
             </h3>
-            <p className="text-muted-foreground text-lg mb-10 max-w-md leading-relaxed">
-              Манай үйлдвэрлэж буй барилгын материалын үнийн саналыг авахыг хүсвэл баруун талд байх форм бөглөхөд л хангалттай. Бид таны хэрэгцээнд тохирсон хамгийн уян хатан нөхцөлийг санал болгоно.
+            <p className="text-muted-foreground text-base mb-8 max-w-md leading-relaxed">
+              Доорх жагсаалтаас бүтээгдэхүүн сонгоход форм автоматаар бөглөгдөнө. Хүсэлт илгээсний дараа PDF үнийн санал болон онлайн гэрээний линк нээгдэнэ.
             </p>
 
-            <div className="space-y-6">
+            <div className="space-y-5">
               {/* Утас */}
-              <div className="flex items-start gap-6 group">
-                <div className="w-14 h-14 bg-background border border-primary/20 rounded-sm flex items-center justify-center shrink-0 group-hover:bg-primary transition-all duration-300">
-                  <Phone className="w-6 h-6 text-primary group-hover:text-primary-foreground" />
+              <div className="flex items-start gap-5 group">
+                <div className="w-12 h-12 bg-background border border-primary/20 rounded-sm flex items-center justify-center shrink-0 group-hover:bg-primary transition-all duration-300">
+                  <Phone className="w-5 h-5 text-primary group-hover:text-primary-foreground" />
                 </div>
                 <div>
                   <h4 className="text-sm font-display font-bold text-foreground uppercase tracking-wide mb-1">Борлуулалтын алба</h4>
-                  <a href="tel:+97699112701" className="text-primary hover:underline text-2xl font-black tracking-tight"> (+976)  9941 2701 </a>
-                  <p className="text-muted-foreground text-sm mt-1">Даваа — Баасан: 09:00 – 18:00</p>
+                  <a href="tel:+97699412701" className="text-primary hover:underline text-xl font-black tracking-tight">+976 9941-2701</a>
+                  <p className="text-muted-foreground text-sm mt-0.5">Даваа — Баасан: 09:00 – 18:00</p>
                 </div>
               </div>
 
-              {/* AI Estimator */}
-              <AiEstimator product={watchedProduct} quantity={watchedQty} />
+              {/* Каталог */}
+              <ProductCatalog onSelect={handleCatalogSelect} />
             </div>
           </motion.div>
 
-          {/* Баруун — форм */}
+          {/* Баруун — форм / амжилтын хэсэг */}
           <motion.div
             initial={{ opacity: 0, x: 30 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
-            className="bg-background p-8 md:p-12 rounded-sm border border-border shadow-2xl shadow-black/50"
+            className="bg-background p-8 md:p-10 rounded-sm border border-border shadow-2xl shadow-black/50"
           >
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-5">
-              {/* Тайлбар */}
-              <div className="flex items-start gap-3 bg-primary/8 border border-primary/20 rounded-sm px-4 py-3">
-                <Sparkles className="w-4 h-4 text-primary shrink-0 mt-0.5" />
-                <p className="text-xs text-muted-foreground leading-relaxed">
-                  <span className="text-foreground font-semibold">Материал</span> болон <span className="text-foreground font-semibold">тоо хэмжээ</span>-г оруулаад зүүн талын{" "}
-                  <span className="text-primary font-bold">"AI-ээр хайлгах"</span> товч дарвал зах зээл дээрх үнийн судалгаа харагдана.
-                </p>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Материал сонгох *</label>
-                  <select
-                    {...form.register("product")}
-                    className="w-full bg-card border border-border px-4 py-3 rounded-sm text-foreground focus:border-primary focus:outline-none transition-all cursor-pointer"
-                    data-testid="select-product"
-                  >
-                    <option value="">— сонгоно уу —</option>
-                    {activeProducts.map(p => (
-                      <option key={p.id} value={`${p.name} (${p.unit})`}>
-                        {p.name} ({p.unit})
-                      </option>
-                    ))}
-                    <option value="Бүтээгдэхүүн">Бүтээгдэхүүн (тодорхойлно)</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Тоо хэмжээ (м³ / тн) *</label>
-                  <input
-                    {...form.register("quantity")}
-                    className="w-full bg-card border border-border px-4 py-3 rounded-sm text-foreground focus:border-primary focus:outline-none transition-all"
-                    placeholder="Жишээ: 50"
-                  />
-                  {form.formState.errors.quantity && <p className="text-destructive text-xs">{form.formState.errors.quantity.message}</p>}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Нэр *</label>
-                  <input
-                    {...form.register("name")}
-                    className="w-full bg-card border border-border px-4 py-3 rounded-sm text-foreground focus:border-primary focus:outline-none transition-all"
-                    placeholder="Таны нэр"
-                  />
-                  {form.formState.errors.name && <p className="text-destructive text-xs">{form.formState.errors.name.message}</p>}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Утас *</label>
-                  <input
-                    {...form.register("phone")}
-                    className="w-full bg-card border border-border px-4 py-3 rounded-sm text-foreground focus:border-primary focus:outline-none transition-all"
-                    placeholder="Холбоо барих утас"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">И-Мэйл *</label>
-                <input
-                  {...form.register("email")}
-                  type="email"
-                  className="w-full bg-card border border-border px-4 py-3 rounded-sm text-foreground focus:border-primary focus:outline-none transition-all"
-                  placeholder="email@example.com"
+            <AnimatePresence mode="wait">
+              {quoteResult ? (
+                <QuoteSuccess
+                  key="success"
+                  data={quoteResult}
+                  onReset={() => { setQuoteResult(null); form.reset(); }}
                 />
-              </div>
+              ) : (
+                <motion.form
+                  key="form"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onSubmit={form.handleSubmit(onSubmit)}
+                  className="space-y-4"
+                >
+                  <div>
+                    <h4 className="text-foreground font-bold text-lg mb-1">Үнийн санал хүсэх</h4>
+                    <p className="text-xs text-muted-foreground">Зүүн талаас бүтээгдэхүүн сонгоход автоматаар бөглөгдөнө</p>
+                  </div>
 
-              <div className="space-y-2">
-                <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Нэмэлт мэдээлэл</label>
-                <textarea
-                  {...form.register("message")}
-                  rows={3}
-                  className="w-full bg-card border border-border px-4 py-3 rounded-sm text-foreground focus:border-primary focus:outline-none transition-all resize-none"
-                  placeholder="Тээвэрлэлт эсвэл бусад шаардлага..."
-                />
-              </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Нэр *</label>
+                      <input {...form.register("name")} placeholder="Таны нэр"
+                        className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none"
+                        data-testid="input-quote-name" />
+                      {form.formState.errors.name && <p className="text-destructive text-[10px] mt-0.5">{form.formState.errors.name.message}</p>}
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Байгууллага</label>
+                      <input {...form.register("company")} placeholder="Компанийн нэр"
+                        className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none"
+                        data-testid="input-quote-company" />
+                    </div>
+                  </div>
 
-              <button
-                type="submit"
-                disabled={isSending}
-                className="w-full py-4 bg-primary text-primary-foreground font-display font-bold uppercase tracking-widest rounded-sm hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-3"
-              >
-                {isSending ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <><Calculator className="w-5 h-5" /> Үнийн санал авах</>
-                )}
-              </button>
-            </form>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Утас *</label>
+                      <input {...form.register("phone")} placeholder="9911-XXXX"
+                        className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none"
+                        data-testid="input-quote-phone" />
+                      {form.formState.errors.phone && <p className="text-destructive text-[10px] mt-0.5">{form.formState.errors.phone.message}</p>}
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">И-Мэйл</label>
+                      <input {...form.register("email")} type="email" placeholder="email@example.com"
+                        className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none"
+                        data-testid="input-quote-email" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Бүтээгдэхүүн *</label>
+                    <select {...form.register("product")}
+                      className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none cursor-pointer"
+                      data-testid="select-quote-product"
+                      onChange={e => {
+                        form.setValue("product", e.target.value);
+                        const found = catalog.find(c => c.productName === e.target.value);
+                        if (found) { form.setValue("unit", found.unit); form.setValue("unitPrice", String(found.suggestedPrice)); }
+                      }}>
+                      <option value="">— сонгоно уу —</option>
+                      {catalog.length > 0
+                        ? catalog.map(c => <option key={c.id} value={c.productName}>{c.productName} ({c.unit})</option>)
+                        : activeProducts.map(p => <option key={p.id} value={p.name}>{p.name} ({p.unit})</option>)
+                      }
+                    </select>
+                    {form.formState.errors.product && <p className="text-destructive text-[10px] mt-0.5">{form.formState.errors.product.message}</p>}
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Тоо хэмжээ *</label>
+                      <input {...form.register("quantity")} placeholder="100"
+                        className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none"
+                        data-testid="input-quote-quantity" />
+                      {form.formState.errors.quantity && <p className="text-destructive text-[10px] mt-0.5">{form.formState.errors.quantity.message}</p>}
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Нэгж</label>
+                      <input {...form.register("unit")} placeholder="м³"
+                        className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none"
+                        data-testid="input-quote-unit" />
+                    </div>
+                    <div>
+                      <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Нэгж үнэ ₮</label>
+                      <input {...form.register("unitPrice")} placeholder="195,000"
+                        className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none"
+                        data-testid="input-quote-price" />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Хүргэлтийн хаяг</label>
+                    <input {...form.register("deliveryAddress")} placeholder="Хаяг, дүүрэг, хот"
+                      className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none"
+                      data-testid="input-quote-address" />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Нэмэлт тайлбар</label>
+                    <textarea {...form.register("note")} rows={2} placeholder="Тусгай шаардлага, тээвэрлэлт..."
+                      className="w-full mt-1 bg-card border border-border px-3 py-2.5 rounded-sm text-foreground text-sm focus:border-primary focus:outline-none resize-none"
+                      data-testid="textarea-quote-note" />
+                  </div>
+
+                  <button type="submit" disabled={isSending}
+                    className="w-full py-3.5 bg-primary text-primary-foreground font-display font-bold uppercase tracking-widest rounded-sm hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-3"
+                    data-testid="btn-submit-quote">
+                    {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><FileText className="w-5 h-5" /> Үнийн санал авах</>}
+                  </button>
+                </motion.form>
+              )}
+            </AnimatePresence>
           </motion.div>
 
         </div>

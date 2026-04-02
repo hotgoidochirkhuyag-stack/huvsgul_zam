@@ -27,6 +27,7 @@ import EmployeeProfile from "@/pages/EmployeeProfile";
 import ConcretePlantERP from "@/pages/ConcretePlantERP";
 import ContractPage from "@/pages/ContractPage";
 import PriceProposalPage from "@/pages/PriceProposalPage";
+import QuotePreviewPage from "@/pages/QuotePreviewPage";
 
 const ProtectedRoute = ({ component: Component, role }: { component: React.ComponentType; role: string }) => {
   const userRole = localStorage.getItem("userRole");
@@ -70,6 +71,7 @@ function Router() {
       <Route path="/vehicle-inspection" component={EquipmentInspection} />
       <Route path="/manual" component={UserManual} />
       <Route path="/contract/:token" component={ContractPage} />
+      <Route path="/quote-preview" component={QuotePreviewPage} />
 
       {/* Удирдлагын самбарууд */}
       <Route path="/dashboard/project"    component={() => <ProtectedRoute component={ProjectDashboard}    role="PROJECT" />} />

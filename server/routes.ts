@@ -380,7 +380,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     if (geminiKey) {
       try {
         const genAI = new GoogleGenerativeAI(geminiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
 
         const prompt = `Чи бол Монголын барилга, дэд бүтцийн материалын зах зээлийн шинжээч.
 Хэрэглэгч: "${product}" бүтээгдэхүүний ${qty} нэгж захиалахыг хүсэж байна.
@@ -3389,6 +3389,46 @@ ${cert.testResults ? `
     res.json({ ok: true });
   });
 
+  // ── Нийтэд харагдах үнийн каталог (auth хэрэггүй) ──────────────────────────
+  app.get("/api/public/price-catalog", async (_req, res) => {
+    try {
+      const proposals = await db.select().from(schema.priceProposals)
+        .where(eq(schema.priceProposals.status, "completed"))
+        .orderBy(desc(schema.priceProposals.updatedAt));
+      const withPrice = proposals.filter(p => p.suggestedPrice && Number(p.suggestedPrice) > 0);
+      res.json(withPrice.map(p => ({
+        id: p.id,
+        productName: p.productName,
+        productType: p.productType,
+        unit: p.unit,
+        suggestedPrice: Number(p.suggestedPrice),
+        updatedAt: p.updatedAt,
+      })));
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // ── Нийтийн үнийн санал хүсэлт (quote request) ────────────────────────────
+  app.post("/api/public/quote-request", async (req, res) => {
+    try {
+      const { name, phone, email, company, product, productId, quantity, unit, unitPrice, deliveryAddress, note } = req.body;
+      const totalAmount = unitPrice && quantity ? Math.round(Number(unitPrice) * Number(quantity)) : 0;
+      const message = `Байгууллага: ${company || "-"}\nБүтээгдэхүүн: ${product}\nТоо хэмжээ: ${quantity} ${unit || ""}\nНэгж үнэ: ${unitPrice ? Number(unitPrice).toLocaleString("mn-MN") + "₮" : "-"}\nНийт дүн: ${totalAmount ? totalAmount.toLocaleString("mn-MN") + "₮" : "-"}\nХүргэлтийн хаяг: ${deliveryAddress || "-"}\nНэмэлт: ${note || "-"}`;
+      const [c] = await db.insert(schema.contacts).values({
+        name, email: email || "noemail@example.com", phone,
+        message, type: "Үнийн санал",
+      }).returning();
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+      res.json({
+        quoteId: c.id,
+        name, phone, email, company,
+        product, quantity, unit, unitPrice, totalAmount,
+        deliveryAddress, note,
+        validUntil: expiresAt.toISOString(),
+        contractUrl: `/contract-request?quoteId=${c.id}&product=${encodeURIComponent(product || "")}&qty=${quantity || 1}`,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // Seed company products
   seedCompanyProducts().catch(console.error);
 
@@ -3609,7 +3649,7 @@ ${cert.testResults ? `
             } else {
               // Кэш байхгүй → Gemini дуудана → кэшэд хадгална
               const genAI = new GoogleGenerativeAI(geminiKey);
-              const aiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+              const aiModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
               const prompt = `Та Монголын барилга, дэд бүтцийн мэргэжлийн инженер. БНбД болон MNS стандарт дээр тулгуурлан "${productName}" бүтээгдэхүүний 1 ${unit}-д хэрэгцэх материал болон хүний нөөцийн нормыг нарийн тооцоолж JSON форматаар өг.
 
 Формат:
@@ -3826,7 +3866,7 @@ ${cert.testResults ? `
       if (!geminiKey) return res.status(503).json({ message: "GEMINI_API_KEY тохируулагдаагүй" });
 
       const genAI = new GoogleGenerativeAI(geminiKey);
-      const aiModel = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const aiModel = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const u = unit ?? "м³";
       const prompt = `Та Монголын барилга, дэд бүтцийн мэргэжлийн инженер. БНбД болон MNS стандарт дээр тулгуурлан "${productName}" бүтээгдэхүүний 1 ${u}-д хэрэгцэх материал болон хүний нөөцийн нормыг нарийн тооцоолж JSON форматаар өг.
 
