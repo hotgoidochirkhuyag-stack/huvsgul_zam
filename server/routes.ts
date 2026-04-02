@@ -3439,14 +3439,23 @@ ${cert.testResults ? `
   seedProductionCostConfig().catch(console.error);
 
   // ======= ГЭРЭЭНИЙ ЗАГВАР (Contract Template) =======
-  app.get("/api/contract-template", requireAdmin, async (_req, res) => {
+  // Нийтийн (auth шаардлагагүй) — ContractPage-д ашиглана
+  app.get("/api/contract-template/public", async (_req, res) => {
     try {
       const rows = await db.select().from(schema.contractTemplateSections)
         .orderBy(schema.contractTemplateSections.sortOrder);
       res.json(rows);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
-  app.patch("/api/contract-template/:key", requireAdmin, async (req, res) => {
+  // Admin/Sales хандах
+  app.get("/api/contract-template", requireRole("ADMIN","SALES"), async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.contractTemplateSections)
+        .orderBy(schema.contractTemplateSections.sortOrder);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+  app.patch("/api/contract-template/:key", requireRole("ADMIN","SALES"), async (req, res) => {
     try {
       const { content, sectionTitle } = req.body;
       const [row] = await db.update(schema.contractTemplateSections)

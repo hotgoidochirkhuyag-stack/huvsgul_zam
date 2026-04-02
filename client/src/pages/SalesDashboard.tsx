@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import type { SalesOrder, ProductionCostConfig, CompanyProduct } from "@shared/schema";
+import type { SalesOrder, ProductionCostConfig, CompanyProduct, ContractTemplateSection } from "@shared/schema";
 
 const NAVY = "#0f172a";
 
@@ -1135,13 +1135,158 @@ function InquiriesAndContractsPanel() {
   );
 }
 
+// ── Гэрээний Загвар Засварлагч ────────────────────────────────────────────────
+const PLACEHOLDERS = [
+  { key: "{{clientOrg}}", desc: "Харилцагчийн байгууллага" },
+  { key: "{{clientName}}", desc: "Харилцагчийн нэр" },
+  { key: "{{product}}", desc: "Бүтээгдэхүүний нэр" },
+  { key: "{{quantity}}", desc: "Тоо хэмжээ" },
+  { key: "{{unit}}", desc: "Хэмжих нэгж" },
+  { key: "{{unitPrice}}", desc: "Нэгж үнэ" },
+  { key: "{{totalAmount}}", desc: "Нийт дүн" },
+  { key: "{{deliveryAddress}}", desc: "Хүргэлтийн хаяг" },
+  { key: "{{deliveryDate}}", desc: "Хүргэлтийн хугацаа" },
+  { key: "{{contractNo}}", desc: "Гэрээний дугаар" },
+];
+
+function ContractTemplateEditor() {
+  const { toast } = useToast();
+  const qc = useQueryClient();
+  const token = localStorage.getItem("adminToken") || "";
+
+  const { data: sections = [], isLoading } = useQuery<ContractTemplateSection[]>({
+    queryKey: ["/api/contract-template"],
+    queryFn: () => fetch("/api/contract-template", {
+      headers: { "x-admin-token": token }
+    }).then(r => r.json()),
+  });
+
+  const [drafts, setDrafts] = useState<Record<string, { title: string; content: string }>>({});
+  const [saving, setSaving] = useState<string | null>(null);
+
+  const getDraft = (s: ContractTemplateSection) => drafts[s.sectionKey] ?? { title: s.sectionTitle, content: s.content || "" };
+
+  const handleSave = async (sectionKey: string) => {
+    const draft = drafts[sectionKey];
+    if (!draft) return;
+    setSaving(sectionKey);
+    try {
+      const res = await fetch(`/api/contract-template/${sectionKey}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", "x-admin-token": token },
+        body: JSON.stringify({ sectionTitle: draft.title, content: draft.content }),
+      });
+      if (!res.ok) throw new Error("Алдаа гарлаа");
+      qc.invalidateQueries({ queryKey: ["/api/contract-template"] });
+      setDrafts(prev => { const n = { ...prev }; delete n[sectionKey]; return n; });
+      toast({ title: "✅ Хадгалагдлаа", description: "Загвар амжилттай шинэчлэгдлээ" });
+    } catch {
+      toast({ title: "Алдаа", description: "Хадгалах боломжгүй", variant: "destructive" });
+    } finally {
+      setSaving(null);
+    }
+  };
+
+  if (isLoading) return (
+    <div className="text-center py-20 text-slate-500">
+      <Loader2 size={28} className="animate-spin mx-auto mb-2" />
+      Уншиж байна...
+    </div>
+  );
+
+  return (
+    <div className="space-y-6">
+      {/* Тайлбар */}
+      <div className="bg-amber-950/30 border border-amber-700/40 rounded-xl px-5 py-4">
+        <h3 className="text-amber-400 font-bold text-sm mb-2">📋 Гэрээний загвар засварлах</h3>
+        <p className="text-slate-400 text-xs mb-3">
+          Доорх зүйлүүдийг хуульчдаар засварлуулж болно. Автоматаар орох утгуудыг дараах тэмдэглэгээгээр оруулна:
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {PLACEHOLDERS.map(p => (
+            <span key={p.key} className="bg-slate-800 text-amber-300 text-xs px-2 py-1 rounded font-mono" title={p.desc}>
+              {p.key}
+            </span>
+          ))}
+        </div>
+        <p className="text-slate-500 text-xs mt-2">
+          Жишээ: <span className="text-amber-300 font-mono">{"{{clientOrg}}"}</span> → <span className="text-slate-300">«Барилга Монгол» ХХК</span> гэж автоматаар орно
+        </p>
+      </div>
+
+      {/* Зүйл бүр */}
+      {sections.map((section) => {
+        const draft = getDraft(section);
+        const isChanged = !!drafts[section.sectionKey];
+
+        return (
+          <div key={section.sectionKey} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-slate-500 font-mono bg-slate-900 px-2 py-0.5 rounded">{section.sectionKey}</span>
+                <Input
+                  className="bg-slate-900 border-slate-600 text-white font-bold text-sm h-8 w-72"
+                  value={draft.title}
+                  onChange={e => setDrafts(prev => ({
+                    ...prev,
+                    [section.sectionKey]: { ...getDraft(section), title: e.target.value }
+                  }))}
+                  data-testid={`input-template-title-${section.sectionKey}`}
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                {section.updatedAt && (
+                  <span className="text-xs text-slate-600">
+                    {new Date(section.updatedAt).toLocaleDateString("mn-MN")}
+                  </span>
+                )}
+                {isChanged && (
+                  <Button
+                    size="sm"
+                    onClick={() => handleSave(section.sectionKey)}
+                    disabled={saving === section.sectionKey}
+                    className="bg-green-700 hover:bg-green-600 text-white text-xs h-8"
+                    data-testid={`btn-save-template-${section.sectionKey}`}
+                  >
+                    {saving === section.sectionKey
+                      ? <><Loader2 size={12} className="animate-spin mr-1" />Хадгалж байна...</>
+                      : <><CheckCircle2 size={12} className="mr-1" />Хадгалах</>
+                    }
+                  </Button>
+                )}
+                {!isChanged && (
+                  <span className="text-xs text-slate-600 flex items-center gap-1">
+                    <CheckCircle2 size={11} className="text-green-600" /> Хадгалагдсан
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <textarea
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg text-slate-200 text-sm p-3 resize-y font-mono leading-relaxed"
+              rows={section.sectionKey === "header" ? 6 : section.sectionKey === "signature" ? 4 : 8}
+              value={draft.content}
+              onChange={e => setDrafts(prev => ({
+                ...prev,
+                [section.sectionKey]: { ...getDraft(section), content: e.target.value }
+              }))}
+              placeholder="Гэрээний текст оруулна уу..."
+              data-testid={`textarea-template-${section.sectionKey}`}
+            />
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ── Үндсэн самбар ─────────────────────────────────────────────────────────────
 export default function SalesDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
   const { toast } = useToast();
 
-  const [tab, setTab] = useState<"orders" | "profit" | "products" | "contracts">("orders");
+  const [tab, setTab] = useState<"orders" | "profit" | "products" | "contracts" | "template">("orders");
   const [showNew, setShowNew] = useState(false);
   const [search, setSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
@@ -1289,6 +1434,11 @@ export default function SalesDashboard() {
             data-testid="tab-contracts">
             <FileText size={14} /> Гэрээ / Хүсэлт
           </button>
+          <button onClick={() => setTab("template")}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${tab === "template" ? "bg-amber-600 text-black" : "text-slate-400 hover:text-white bg-slate-800"}`}
+            data-testid="tab-template">
+            <Pencil size={14} /> Гэрээний загвар
+          </button>
         </div>
 
         {tab === "orders" && (
@@ -1352,6 +1502,8 @@ export default function SalesDashboard() {
         {tab === "products" && <ProductsPanel />}
 
         {tab === "contracts" && <InquiriesAndContractsPanel />}
+
+        {tab === "template" && <ContractTemplateEditor />}
       </div>
 
       {showNew && <NewOrderModal onClose={() => setShowNew(false)} configs={configs} />}

@@ -6,7 +6,7 @@ import {
   CheckCircle2, Download, Loader2, AlertCircle, FileText,
   Building2, Phone, Mail, MapPin, Calendar, Package, BadgeCheck
 } from "lucide-react";
-import type { Contract } from "@shared/schema";
+import type { Contract, ContractTemplateSection } from "@shared/schema";
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   draft:            { label: "Ноорог",             color: "bg-slate-500" },
@@ -23,6 +23,23 @@ function fmtMNT(n: number) {
   return `₮${n.toLocaleString("mn-MN")}`;
 }
 
+function replacePlaceholders(text: string, contract: Contract): string {
+  return text
+    .replace(/\{\{clientOrg\}\}/g, contract.clientOrg || contract.clientName || "")
+    .replace(/\{\{clientName\}\}/g, contract.clientName || "")
+    .replace(/\{\{clientPhone\}\}/g, contract.clientPhone || "")
+    .replace(/\{\{clientEmail\}\}/g, contract.clientEmail || "")
+    .replace(/\{\{product\}\}/g, contract.product || "")
+    .replace(/\{\{quantity\}\}/g, String(contract.quantity || ""))
+    .replace(/\{\{unit\}\}/g, contract.unit || "м³")
+    .replace(/\{\{unitPrice\}\}/g, fmtMNT(Number(contract.unitPrice || 0)))
+    .replace(/\{\{totalAmount\}\}/g, fmtMNT(Number(contract.totalAmount || 0)))
+    .replace(/\{\{deliveryAddress\}\}/g, contract.deliveryAddress || "—")
+    .replace(/\{\{deliveryDate\}\}/g, contract.deliveryDate || "—")
+    .replace(/\{\{contractNo\}\}/g, contract.contractNo || "")
+    .replace(/\{\{notes\}\}/g, contract.notes || "");
+}
+
 export default function ContractPage() {
   const params = useParams<{ token: string }>();
   const token = params.token;
@@ -37,6 +54,11 @@ export default function ContractPage() {
       return r.json();
     }),
     enabled: !!token,
+  });
+
+  const { data: templateSections = [] } = useQuery<ContractTemplateSection[]>({
+    queryKey: ["/api/contract-template/public"],
+    queryFn: () => fetch("/api/contract-template/public").then(r => r.json()),
   });
 
   const approveMut = useMutation({
@@ -82,6 +104,9 @@ export default function ContractPage() {
 
   const st = STATUS_LABELS[contract.status] ?? { label: contract.status, color: "bg-slate-500" };
 
+  // Signature хэсгийг тусад нь гаргаж, бусад зүйлүүдийг дунд нь харуулна
+  const bodySection = templateSections.filter(s => s.sectionKey !== "signature");
+
   return (
     <>
       {/* Print styles */}
@@ -90,11 +115,12 @@ export default function ContractPage() {
           body { background: white !important; }
           .no-print { display: none !important; }
           .print-area { box-shadow: none !important; border: 1px solid #ddd !important; }
+          .template-section { page-break-inside: avoid; }
         }
       `}</style>
 
       <div className="min-h-screen bg-slate-950 py-8 px-4">
-        {/* Action bar — print хийхэд нуугдана */}
+        {/* Action bar */}
         <div className="max-w-3xl mx-auto mb-4 no-print">
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2">
@@ -131,7 +157,7 @@ export default function ContractPage() {
             <div className="mt-3 bg-green-900/30 border border-green-500/30 rounded-lg px-4 py-2 flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-green-400 shrink-0" />
               <p className="text-green-300 text-sm">
-                {contract.status === "factory_ordered"
+                {contract.status === "factory_ordered" || contract.status === "completed"
                   ? "Гэрээ баталгаажсан — Үйлдвэрт ажлын захиалга үүссэн ✓"
                   : "Гэрээ зөвшөөрөгдсөн — Гэрээгээ татаж авснаар үйлдвэрт ажлын захиалга үүснэ"}
               </p>
@@ -139,8 +165,9 @@ export default function ContractPage() {
           )}
         </div>
 
-        {/* Гэрээний үндсэн хэсэг — print хийгдэх хэсэг */}
+        {/* Гэрээний үндсэн хэсэг */}
         <div ref={printRef} className="max-w-3xl mx-auto bg-white rounded-xl shadow-2xl print-area overflow-hidden">
+
           {/* Header */}
           <div className="bg-[#0f172a] px-8 py-6 flex items-start justify-between gap-6">
             <div>
@@ -154,7 +181,7 @@ export default function ContractPage() {
             </div>
             <div className="text-right shrink-0">
               <div className="text-white font-black text-2xl">{contract.contractNo}</div>
-              <div className="text-amber-500 text-xs font-bold tracking-widest uppercase mt-1">Үнийн санал / Гэрээ</div>
+              <div className="text-amber-500 text-xs font-bold tracking-widest uppercase mt-1">Худалдах / Худалдан авах Гэрээ</div>
               <div className="text-slate-400 text-xs mt-2">
                 {contract.createdAt ? new Date(contract.createdAt).toLocaleDateString("mn-MN") : ""}
               </div>
@@ -163,6 +190,7 @@ export default function ContractPage() {
           </div>
 
           <div className="p-8 space-y-6">
+
             {/* Харилцагчийн мэдээлэл */}
             <div className="grid grid-cols-2 gap-6">
               <div className="border border-slate-200 rounded-lg p-4">
@@ -172,6 +200,7 @@ export default function ContractPage() {
                 <div className="font-black text-slate-800 text-sm">Хөвсгөл зам ХХК</div>
                 <div className="text-slate-500 text-xs mt-1">УБ-12345678</div>
                 <div className="text-slate-500 text-xs">Мурэн, Хөвсгөл аймаг</div>
+                <div className="text-slate-500 text-xs">Утас: (+976) 9966-0017</div>
               </div>
               <div className="border border-slate-200 rounded-lg p-4">
                 <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
@@ -187,13 +216,18 @@ export default function ContractPage() {
                 <div className="text-slate-500 text-xs flex items-center gap-1">
                   <Mail className="w-3 h-3" /> {contract.clientEmail}
                 </div>
+                {contract.deliveryAddress && (
+                  <div className="text-slate-500 text-xs flex items-center gap-1 mt-1">
+                    <MapPin className="w-3 h-3" /> {contract.deliveryAddress}
+                  </div>
+                )}
               </div>
             </div>
 
-            {/* Захиалгын дэлгэрэнгүй */}
+            {/* Захиалгын хүснэгт */}
             <div>
               <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3 flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5" /> Захиалгын дэлгэрэнгүй
+                <Package className="w-3.5 h-3.5" /> Нийлүүлэх бүтээгдэхүүн
               </div>
               <table className="w-full text-sm border-collapse">
                 <thead>
@@ -221,7 +255,7 @@ export default function ContractPage() {
               </table>
             </div>
 
-            {/* Хүргэлт */}
+            {/* Хүргэлтийн мэдээлэл */}
             <div className="grid grid-cols-2 gap-4 text-sm">
               {contract.deliveryDate && (
                 <div className="flex items-start gap-2">
@@ -247,6 +281,27 @@ export default function ContractPage() {
               <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3">
                 <div className="text-xs font-bold text-amber-700 uppercase mb-1">Нэмэлт тайлбар</div>
                 <div className="text-slate-700 text-sm">{contract.notes}</div>
+              </div>
+            )}
+
+            {/* ── ГЭРЭЭНИЙ ЗАГВАРЫН ЗҮЙЛҮҮД ── */}
+            {bodySection.length > 0 && (
+              <div className="border-t border-slate-200 pt-6 space-y-5">
+                {bodySection.map((section) => (
+                  <div key={section.sectionKey} className="template-section">
+                    {/* Гарчиг (header) хэсгийг нуу — харилцагчийн мэдээлэл дээр дахин харуулсан */}
+                    {section.sectionKey !== "header" && (
+                      <>
+                        <h3 className="text-sm font-black text-slate-800 mb-2 uppercase tracking-wide">
+                          {section.sectionTitle}
+                        </h3>
+                        <div className="text-sm text-slate-700 whitespace-pre-wrap leading-relaxed">
+                          {replacePlaceholders(section.content || "", contract)}
+                        </div>
+                      </>
+                    )}
+                  </div>
+                ))}
               </div>
             )}
 
@@ -294,28 +349,34 @@ export default function ContractPage() {
             </div>
 
             {/* Гарын үсэг */}
-            {isApproved && (
-              <div className="grid grid-cols-2 gap-8 pt-4 border-t border-slate-200">
-                <div>
-                  <div className="text-xs text-slate-500 font-bold uppercase mb-6">Нийлүүлэгчийн гарын үсэг</div>
-                  <div className="border-b border-slate-300 mb-1" />
-                  <div className="text-xs text-slate-500">Хөвсгөл зам ХХК / Захирал</div>
-                </div>
-                <div>
-                  <div className="text-xs text-slate-500 font-bold uppercase mb-6">Худалдан авагчийн гарын үсэг</div>
-                  <div className="border-b border-slate-300 mb-1" />
-                  <div className="text-xs text-slate-500">{contract.clientOrg || contract.clientName}</div>
-                  {contract.approvedAt && (
-                    <div className="text-xs text-green-600 mt-1 font-bold">
-                      ✓ Онлайн зөвшөөрсөн: {new Date(contract.approvedAt).toLocaleDateString("mn-MN")}
-                    </div>
-                  )}
-                </div>
+            <div className="grid grid-cols-2 gap-8 pt-6 border-t-2 border-slate-800 mt-4">
+              <div>
+                <div className="text-xs text-slate-500 font-bold uppercase mb-2">Нийлүүлэгчийн гарын үсэг</div>
+                <div className="text-xs text-slate-700 mb-1 font-medium">Хөвсгөл зам ХХК</div>
+                <div className="text-xs text-slate-500 mb-8">Захирал: ..................................</div>
+                <div className="border-b-2 border-slate-400 mb-1" />
+                <div className="text-xs text-slate-500">Огноо: ............ / ............ / ............</div>
+                <div className="text-xs text-slate-500 mt-2">Тамга:</div>
               </div>
-            )}
+              <div>
+                <div className="text-xs text-slate-500 font-bold uppercase mb-2">Худалдан авагчийн гарын үсэг</div>
+                <div className="text-xs text-slate-700 mb-1 font-medium">{contract.clientOrg || contract.clientName}</div>
+                {contract.clientOrg && <div className="text-xs text-slate-500 mb-1">Захирал: ..................................</div>}
+                <div className="mb-8" />
+                <div className="border-b-2 border-slate-400 mb-1" />
+                <div className="text-xs text-slate-500">Огноо: ............ / ............ / ............</div>
+                {contract.approvedAt && (
+                  <div className="text-xs text-green-600 mt-2 font-bold flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    Онлайн зөвшөөрсөн: {new Date(contract.approvedAt).toLocaleDateString("mn-MN")}
+                  </div>
+                )}
+                <div className="text-xs text-slate-500 mt-2">Тамга:</div>
+              </div>
+            </div>
 
-            <div className="text-center text-[10px] text-slate-400 pt-2 border-t border-slate-100">
-              Энэхүү гэрээ нь цахим хэлбэрээр баталгаажсан бөгөөд хуулийн хүчин чадалтай болно. • {window.location.origin}
+            <div className="text-center text-[10px] text-slate-400 pt-3 border-t border-slate-100">
+              Энэхүү гэрээ нь цахим хэлбэрээр баталгаажсан бөгөөд хуулийн хүчин чадалтай болно. • {window.location.origin} • {contract.contractNo}
             </div>
           </div>
         </div>
