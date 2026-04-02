@@ -5,7 +5,7 @@ import {
   CheckCircle2, AlertTriangle, Calendar, Zap, FileText,
   Search, Edit2, X, Clock, ShieldCheck, History,
   Fuel, Timer, BarChart3, Save, Printer,
-  Wrench, Package, Bell,
+  Wrench, Package, Bell, ClipboardList, MapPin, ChevronUp,
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
@@ -62,7 +62,7 @@ export default function MechanicDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
 
-  const [tab, setTab] = useState<"vehicles" | "inspections" | "hours" | "fuel" | "maintenance" | "spareparts" | "alerts" | "report">("vehicles");
+  const [tab, setTab] = useState<"vehicles" | "inspections" | "hours" | "fuel" | "maintenance" | "spareparts" | "alerts" | "report" | "schedule">("vehicles");
   const [search, setSearch] = useState("");
   const [filterReady, setFilterReady] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -90,6 +90,58 @@ export default function MechanicDashboard() {
   const inspections: any[] = Array.isArray(_inspRaw) ? _inspRaw : [];
 
   const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
+
+  // Захиалгын хуваарь
+  const { data: _assignRaw, refetch: refetchAssign } = useQuery<any>({
+    queryKey: ["/api/equipment/assignments"],
+    queryFn: () => fetch("/api/equipment/assignments", { headers: getHeaders() }).then(r => r.json()),
+  });
+  const assignments: any[] = Array.isArray(_assignRaw) ? _assignRaw : [];
+  const { data: _ordersRaw } = useQuery<any>({
+    queryKey: ["/api/sales/orders"],
+    queryFn: () => fetch("/api/sales/orders", { headers: getHeaders() }).then(r => r.json()),
+  });
+  const salesOrders: any[] = Array.isArray(_ordersRaw) ? _ordersRaw : [];
+
+  const emptyAssign = { vehicleId: "", salesOrderId: "", assignedDate: TODAY, endDate: "", taskDescription: "", assignedBy: "", notes: "" };
+  const [assignForm, setAssignForm] = useState(emptyAssign);
+  const [showAssignForm, setShowAssignForm] = useState(false);
+
+  const createAssignment = useMutation({
+    mutationFn: (data: any) => fetch("/api/equipment/assignments", {
+      method: "POST", headers: getHeaders(), body: JSON.stringify(data),
+    }).then(r => r.json()),
+    onSuccess: (res) => {
+      if (res.error) { toast({ title: res.error, variant: "destructive" }); return; }
+      qc.invalidateQueries({ queryKey: ["/api/equipment/assignments"] });
+      qc.invalidateQueries({ queryKey: ["/api/erp/vehicles"] });
+      toast({ title: "Тоног хуваарилагдлаа ✓" });
+      setAssignForm(emptyAssign);
+      setShowAssignForm(false);
+    },
+  });
+
+  const patchAssignment = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: any }) => fetch(`/api/equipment/assignments/${id}`, {
+      method: "PATCH", headers: getHeaders(), body: JSON.stringify(data),
+    }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/equipment/assignments"] });
+      qc.invalidateQueries({ queryKey: ["/api/erp/vehicles"] });
+      toast({ title: "Шинэчлэгдлээ ✓" });
+    },
+  });
+
+  const deleteAssignment = useMutation({
+    mutationFn: (id: number) => fetch(`/api/equipment/assignments/${id}`, {
+      method: "DELETE", headers: getHeaders(),
+    }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/equipment/assignments"] });
+      qc.invalidateQueries({ queryKey: ["/api/erp/vehicles"] });
+      toast({ title: "Хуваарь устгагдлаа" });
+    },
+  });
 
   // ── Цагийн бүртгэл ──────────────────────────────────────────────────────
   const TODAY = new Date().toISOString().slice(0, 10);
@@ -327,18 +379,22 @@ export default function MechanicDashboard() {
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-5">
           {([
-            { key: "vehicles",     label: "Техникийн жагсаалт", icon: Truck     },
-            { key: "inspections",  label: "Өмнөх үзлэгүүд",   icon: History    },
-            { key: "hours",        label: "Цаг / Шатахуун",    icon: Timer      },
-            { key: "fuel",         label: "Шатахуун төсөв",    icon: Fuel       },
-            { key: "maintenance",  label: "ТО хуваарь",         icon: Wrench     },
-            { key: "spareparts",   label: "Сэлбэг",             icon: Package    },
-            { key: "alerts",       label: "Анхааруулга",        icon: Bell       },
-            { key: "report",       label: "Тайлан",             icon: BarChart3  },
-          ] as { key: typeof tab; label: string; icon: any }[]).map(t => (
+            { key: "vehicles",     label: "Техникийн жагсаалт", icon: Truck,          badge: 0 },
+            { key: "schedule",     label: "Захиалгын хуваарь",  icon: ClipboardList,  badge: assignments.filter(a => a.status === "active").length },
+            { key: "inspections",  label: "Өмнөх үзлэгүүд",   icon: History,         badge: 0 },
+            { key: "hours",        label: "Цаг / Шатахуун",    icon: Timer,           badge: 0 },
+            { key: "fuel",         label: "Шатахуун төсөв",    icon: Fuel,            badge: 0 },
+            { key: "maintenance",  label: "ТО хуваарь",         icon: Wrench,          badge: 0 },
+            { key: "spareparts",   label: "Сэлбэг",             icon: Package,         badge: 0 },
+            { key: "alerts",       label: "Анхааруулга",        icon: Bell,            badge: 0 },
+            { key: "report",       label: "Тайлан",             icon: BarChart3,       badge: 0 },
+          ] as { key: typeof tab; label: string; icon: any; badge: number }[]).map(t => (
             <button key={t.key} data-testid={`tab-${t.key}`} onClick={() => setTab(t.key)}
-              className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === t.key ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
+              className={`relative flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all ${tab === t.key ? "bg-orange-600 text-white" : "bg-slate-800 text-slate-400 hover:bg-slate-700"}`}>
               <t.icon className="w-4 h-4" /> {t.label}
+              {t.badge > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-bold flex items-center justify-center">{t.badge}</span>
+              )}
             </button>
           ))}
         </div>
@@ -1069,6 +1125,209 @@ export default function MechanicDashboard() {
 
         {/* ── АНХААРУУЛГА ── */}
         {tab === "alerts" && <AlertsTab vehicles={vehicles} qc={qc} toast={toast} />}
+
+        {/* ── ЗАХИАЛГЫН ХУВААРЬ ── */}
+        {tab === "schedule" && (
+          <div className="space-y-4">
+            {/* Header + Add button */}
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <h2 className="font-bold text-orange-300 flex items-center gap-2">
+                <ClipboardList className="w-5 h-5" />
+                Тоног төхөөрөмжийн захиалгын хуваарь
+              </h2>
+              <button onClick={() => setShowAssignForm(v => !v)}
+                data-testid="btn-add-assignment"
+                className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-all">
+                <Plus className="w-4 h-4" />
+                Тоног хуваарилах
+              </button>
+            </div>
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-3 gap-3">
+              {[
+                { label: "Идэвхтэй хуваарь", val: assignments.filter(a => a.status === "active").length, cls: "text-green-400", bg: "bg-green-500/10" },
+                { label: "Дууссан",           val: assignments.filter(a => a.status === "completed").length, cls: "text-blue-400", bg: "bg-blue-500/10" },
+                { label: "Цуцлагдсан",        val: assignments.filter(a => a.status === "cancelled").length, cls: "text-red-400", bg: "bg-red-500/10" },
+              ].map(s => (
+                <div key={s.label} className={`${s.bg} border border-white/10 rounded-2xl p-4 text-center`}>
+                  <div className={`text-2xl font-black ${s.cls}`}>{s.val}</div>
+                  <div className="text-xs text-slate-500 mt-0.5">{s.label}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* Add form */}
+            {showAssignForm && (
+              <div className="bg-slate-900/80 border border-orange-500/30 rounded-2xl p-5 space-y-4">
+                <h3 className="font-bold text-sm text-orange-300">Шинэ хуваарь</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Тоног төхөөрөмж *</label>
+                    <select data-testid="assign-vehicle"
+                      value={assignForm.vehicleId}
+                      onChange={e => setAssignForm(f => ({ ...f, vehicleId: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50">
+                      <option value="">— Сонгох —</option>
+                      {vehicles.map(v => (
+                        <option key={v.id} value={v.id}>{v.name} ({v.plateNumber})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Захиалга (Sales)</label>
+                    <select data-testid="assign-order"
+                      value={assignForm.salesOrderId}
+                      onChange={e => setAssignForm(f => ({ ...f, salesOrderId: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50">
+                      <option value="">— Захиалга сонгох —</option>
+                      {salesOrders.filter(o => ["confirmed","in_production"].includes(o.status)).map(o => (
+                        <option key={o.id} value={o.id}>#{o.id} — {o.customerName} ({o.product})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Эхлэх огноо</label>
+                    <input type="date" data-testid="assign-date"
+                      value={assignForm.assignedDate}
+                      onChange={e => setAssignForm(f => ({ ...f, assignedDate: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Дуусах огноо</label>
+                    <input type="date" data-testid="assign-enddate"
+                      value={assignForm.endDate}
+                      onChange={e => setAssignForm(f => ({ ...f, endDate: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="text-xs text-slate-400 block mb-1">Даалгавар</label>
+                    <input type="text" data-testid="assign-task"
+                      placeholder="ж: Бетон помп — Зурвас цутгалт"
+                      value={assignForm.taskDescription}
+                      onChange={e => setAssignForm(f => ({ ...f, taskDescription: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Хариуцсан</label>
+                    <input type="text" data-testid="assign-by"
+                      placeholder="Хуваарилсан хүн"
+                      value={assignForm.assignedBy}
+                      onChange={e => setAssignForm(f => ({ ...f, assignedBy: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 block mb-1">Тэмдэглэл</label>
+                    <input type="text" data-testid="assign-notes"
+                      value={assignForm.notes}
+                      onChange={e => setAssignForm(f => ({ ...f, notes: e.target.value }))}
+                      className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-orange-500/50"
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => createAssignment.mutate(assignForm)}
+                    disabled={!assignForm.vehicleId || createAssignment.isPending}
+                    data-testid="btn-save-assignment"
+                    className="flex items-center gap-2 px-5 py-2 text-sm font-bold bg-orange-600 hover:bg-orange-500 disabled:opacity-40 text-white rounded-xl transition-all">
+                    <Save className="w-4 h-4" />
+                    {createAssignment.isPending ? "Хадгалж байна..." : "Хадгалах"}
+                  </button>
+                  <button onClick={() => setShowAssignForm(false)}
+                    className="px-4 py-2 text-sm text-slate-400 hover:text-white bg-slate-800 rounded-xl">
+                    Болих
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Assignments table */}
+            <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase">
+                    <tr>
+                      <th className="px-4 py-3 text-left">Тоног төхөөрөмж</th>
+                      <th className="px-4 py-3 text-left">Захиалга / Харилцагч</th>
+                      <th className="px-4 py-3 text-left">Даалгавар</th>
+                      <th className="px-4 py-3 text-left">Огноо</th>
+                      <th className="px-4 py-3 text-left">Статус</th>
+                      <th className="px-4 py-3 text-left">Үйлдэл</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {assignments.map(a => {
+                      const statusCfg = {
+                        active:    { cls: "bg-green-500/15 text-green-400", label: "Идэвхтэй" },
+                        completed: { cls: "bg-blue-500/15 text-blue-400",   label: "Дууссан" },
+                        cancelled: { cls: "bg-red-500/15 text-red-400",     label: "Цуцлагдсан" },
+                      }[a.status as string] ?? { cls: "bg-white/10 text-white/40", label: a.status };
+                      return (
+                        <tr key={a.id} data-testid={`assignment-row-${a.id}`} className="hover:bg-white/3 transition-colors">
+                          <td className="px-4 py-3">
+                            <div className="font-semibold text-sm">{a.vehicleName ?? "—"}</div>
+                            <div className="text-xs text-slate-500">{a.vehiclePlate} · {a.vehicleType}</div>
+                          </td>
+                          <td className="px-4 py-3">
+                            {a.customerName ? (
+                              <>
+                                <div className="font-medium">{a.customerName}</div>
+                                <div className="text-xs text-slate-500">#{a.salesOrderId} · {a.product}</div>
+                              </>
+                            ) : (
+                              <span className="text-slate-500">—</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-3 text-slate-300 max-w-[200px] truncate">{a.taskDescription ?? "—"}</td>
+                          <td className="px-4 py-3">
+                            <div className="text-xs text-slate-400">{a.assignedDate}</div>
+                            {a.endDate && <div className="text-xs text-slate-500">→ {a.endDate}</div>}
+                          </td>
+                          <td className="px-4 py-3">
+                            <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusCfg.cls}`}>{statusCfg.label}</span>
+                          </td>
+                          <td className="px-4 py-3">
+                            {a.status === "active" && (
+                              <div className="flex gap-1">
+                                <button onClick={() => patchAssignment.mutate({ id: a.id, data: { status: "completed", endDate: new Date().toISOString().slice(0,10) } })}
+                                  data-testid={`btn-complete-${a.id}`}
+                                  className="px-2 py-1 text-xs font-bold text-blue-400 border border-blue-500/30 hover:bg-blue-500/10 rounded-lg transition-all">
+                                  Дуусгах
+                                </button>
+                                <button onClick={() => patchAssignment.mutate({ id: a.id, data: { status: "cancelled" } })}
+                                  data-testid={`btn-cancel-assign-${a.id}`}
+                                  className="px-2 py-1 text-xs font-bold text-red-400 border border-red-500/30 hover:bg-red-500/10 rounded-lg transition-all">
+                                  Цуцлах
+                                </button>
+                              </div>
+                            )}
+                            {a.status !== "active" && (
+                              <button onClick={() => deleteAssignment.mutate(a.id)}
+                                data-testid={`btn-delete-assign-${a.id}`}
+                                className="px-2 py-1 text-xs font-bold text-slate-500 hover:text-red-400 rounded-lg transition-all">
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                    {assignments.length === 0 && (
+                      <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                        <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                        Хуваарилалт байхгүй байна
+                      </td></tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>

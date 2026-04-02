@@ -1148,6 +1148,10 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
       return res.status(401).json({ message: "Зөвшөөрөлгүй" });
     next();
   };
+  const requireTokenOrAdmin = (req: any, res: any, next: any) => {
+    if (req.headers["x-admin-token"] === "authenticated") return next();
+    requireAdmin(req, res, next);
+  };
 
   app.get("/api/erp/vehicles", requireToken, async (_req, res) => {
     res.json(await db.select().from(schema.vehicles).orderBy(schema.vehicles.plateNumber));
@@ -1186,6 +1190,96 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
   app.delete("/api/erp/vehicles/:id", requireToken, async (req, res) => {
     await db.delete(schema.vehicles).where(eq(schema.vehicles.id, parseInt(req.params.id)));
     res.json({ success: true });
+  });
+
+  // ===================== ТОНОГ ТӨХӨӨРӨМЖИЙН ЗАХИАЛГЫН ХУВААРЬ =====================
+
+  // Бүх хуваарийн жагсаалт (тоног + захиалгын нэрийг JOIN хийж буцаана)
+  app.get("/api/equipment/assignments", requireTokenOrAdmin, async (req, res) => {
+    try {
+      const rows = await db.select({
+        id:              schema.equipmentAssignments.id,
+        vehicleId:       schema.equipmentAssignments.vehicleId,
+        salesOrderId:    schema.equipmentAssignments.salesOrderId,
+        assignedDate:    schema.equipmentAssignments.assignedDate,
+        endDate:         schema.equipmentAssignments.endDate,
+        status:          schema.equipmentAssignments.status,
+        taskDescription: schema.equipmentAssignments.taskDescription,
+        assignedBy:      schema.equipmentAssignments.assignedBy,
+        notes:           schema.equipmentAssignments.notes,
+        createdAt:       schema.equipmentAssignments.createdAt,
+        vehicleName:     schema.vehicles.name,
+        vehiclePlate:    schema.vehicles.plateNumber,
+        vehicleType:     schema.vehicles.type,
+        customerName:    schema.salesOrders.customerName,
+        product:         schema.salesOrders.product,
+        quantity:        schema.salesOrders.quantity,
+        unit:            schema.salesOrders.unit,
+        orderStatus:     schema.salesOrders.status,
+      })
+      .from(schema.equipmentAssignments)
+      .leftJoin(schema.vehicles, eq(schema.equipmentAssignments.vehicleId, schema.vehicles.id))
+      .leftJoin(schema.salesOrders, eq(schema.equipmentAssignments.salesOrderId, schema.salesOrders.id))
+      .orderBy(desc(schema.equipmentAssignments.createdAt));
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Шинэ хуваарь үүсгэх
+  app.post("/api/equipment/assignments", requireTokenOrAdmin, async (req, res) => {
+    try {
+      const { vehicleId, salesOrderId, assignedDate, endDate, taskDescription, assignedBy, notes } = req.body;
+      if (!vehicleId) return res.status(400).json({ error: "vehicleId шаардлагатай" });
+      const [row] = await db.insert(schema.equipmentAssignments).values({
+        vehicleId: parseInt(vehicleId),
+        salesOrderId: salesOrderId ? parseInt(salesOrderId) : null,
+        assignedDate: assignedDate || new Date().toISOString().slice(0, 10),
+        endDate: endDate || null,
+        taskDescription, assignedBy, notes,
+        status: "active",
+      }).returning();
+      // Тоногийн байршлыг шинэчлэх
+      if (salesOrderId) {
+        const [order] = await db.select().from(schema.salesOrders).where(eq(schema.salesOrders.id, parseInt(salesOrderId)));
+        if (order) {
+          await db.update(schema.vehicles).set({ location: `${order.customerName}-ийн захиалга #${salesOrderId}` })
+            .where(eq(schema.vehicles.id, parseInt(vehicleId)));
+        }
+      }
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Хуваарь шинэчлэх (дууссан болгох гэх мэт)
+  app.patch("/api/equipment/assignments/:id", requireTokenOrAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status, endDate, notes, taskDescription } = req.body;
+      const upd: any = {};
+      if (status          !== undefined) upd.status = status;
+      if (endDate         !== undefined) upd.endDate = endDate;
+      if (notes           !== undefined) upd.notes = notes;
+      if (taskDescription !== undefined) upd.taskDescription = taskDescription;
+      const [row] = await db.update(schema.equipmentAssignments).set(upd)
+        .where(eq(schema.equipmentAssignments.id, id)).returning();
+      // Тоног чөлөөтэй болбол байршлыг арилгах
+      if (status === "completed" || status === "cancelled") {
+        await db.update(schema.vehicles).set({ location: null })
+          .where(eq(schema.vehicles.id, row.vehicleId));
+      }
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Хуваарь устгах
+  app.delete("/api/equipment/assignments/:id", requireTokenOrAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [row] = await db.select().from(schema.equipmentAssignments).where(eq(schema.equipmentAssignments.id, id));
+      await db.delete(schema.equipmentAssignments).where(eq(schema.equipmentAssignments.id, id));
+      if (row) await db.update(schema.vehicles).set({ location: null }).where(eq(schema.vehicles.id, row.vehicleId));
+      res.json({ success: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
   // Улсын дугаараар хайх (нийтийн)

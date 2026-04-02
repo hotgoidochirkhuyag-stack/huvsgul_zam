@@ -933,6 +933,21 @@ export const labTestRequests = pgTable("lab_test_requests", {
 });
 export type LabTestRequest = typeof labTestRequests.$inferSelect;
 
+// ===================== ТОНОГ ТӨХӨӨРӨМЖИЙН ЗАХИАЛГЫН ХУВААРЬ =====================
+export const equipmentAssignments = pgTable("equipment_assignments", {
+  id:              serial("id").primaryKey(),
+  vehicleId:       integer("vehicle_id").notNull().references(() => vehicles.id, { onDelete: "cascade" }),
+  salesOrderId:    integer("sales_order_id").references(() => salesOrders.id, { onDelete: "set null" }),
+  assignedDate:    date("assigned_date").notNull().defaultNow(),
+  endDate:         date("end_date"),
+  status:          text("status").notNull().default("active"), // active | completed | cancelled
+  taskDescription: text("task_description"),
+  assignedBy:      text("assigned_by"),
+  notes:           text("notes"),
+  createdAt:       timestamp("created_at").defaultNow(),
+});
+export type EquipmentAssignment = typeof equipmentAssignments.$inferSelect;
+
 // ===================== ҮЙЛДВЭРИЙН ӨРТГИЙН ТОХИРГОО =====================
 export const productionCostConfig = pgTable("production_cost_config", {
   id:                  serial("id").primaryKey(),

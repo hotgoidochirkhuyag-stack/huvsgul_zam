@@ -5,7 +5,7 @@ import {
   TrendingUp, LogOut, Plus, Search, CheckCircle2,
   Clock, Truck, XCircle, Calculator, BarChart3,
   Loader2, AlertCircle, PackageCheck, Hammer, Send,
-  Package, Pencil, Trash2, ToggleLeft, ToggleRight, FileText, Sparkles
+  Package, Pencil, Trash2, ToggleLeft, ToggleRight, FileText, Sparkles, MapPin
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import ReportUploadButton from "@/components/ReportUploadButton";
@@ -530,6 +530,46 @@ function OrderRow({ order, onStatusChange, onContractConfirm }: {
           {showMaterials && <MaterialCheckPanel order={order} token={token} />}
         </div>
       )}
+
+      {/* Хуваарилагдсан тоног — in_production захиалгад */}
+      {order.status === "in_production" && (
+        <EquipmentPanel orderId={order.id} token={token} />
+      )}
+    </div>
+  );
+}
+
+function EquipmentPanel({ orderId, token }: { orderId: number; token: string }) {
+  const { data: _raw } = useQuery<any>({
+    queryKey: ["/api/equipment/assignments", orderId],
+    queryFn: () => fetch("/api/equipment/assignments", { headers: { "x-admin-token": token } }).then(r => r.json()),
+    refetchInterval: 30000,
+  });
+  const all: any[] = Array.isArray(_raw) ? _raw : [];
+  const assigned = all.filter(a => a.salesOrderId === orderId && a.status === "active");
+  if (assigned.length === 0) return (
+    <div className="pt-1 flex items-center gap-1.5 text-xs text-slate-600">
+      <Truck size={11} />
+      Тоног хуваарилагдаагүй байна — Механик самбараас хуваарилна
+    </div>
+  );
+  return (
+    <div className="pt-2 border-t border-slate-700/30">
+      <div className="text-xs text-slate-500 mb-1.5 flex items-center gap-1">
+        <Truck size={11} className="text-orange-400" />
+        Хуваарилагдсан тоног:
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {assigned.map((a: any) => (
+          <div key={a.id} data-testid={`equip-badge-${a.id}`}
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-orange-500/10 border border-orange-500/20 text-xs">
+            <MapPin size={10} className="text-orange-400" />
+            <span className="font-semibold text-orange-300">{a.vehicleName}</span>
+            <span className="text-slate-500">({a.vehiclePlate})</span>
+            {a.taskDescription && <span className="text-slate-400">— {a.taskDescription}</span>}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
