@@ -250,95 +250,50 @@ export default function Stats() {
                 <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Бетон зуурмагийн чанарын баталгаа — Тохирлын гэрчилгээ</p>
               </div>
 
-              {/* MNAS гэрчилгээний карт — зураг + QR */}
-              <div className="flex gap-4 flex-wrap w-full">
-                {COMPLIANCE_CERTS.map(cert => {
-                  const qrValue = `${window.location.origin}${cert.src}`;
-                  return (
-                    <div
-                      key={cert.number}
-                      className="flex gap-3 border border-border/50 rounded-sm bg-background/40 overflow-hidden flex-shrink-0"
-                      style={{ minWidth: 280 }}
-                    >
-                      {/* Зүүн — гэрчилгээний зураг */}
-                      <button
-                        onClick={() => setZoomCert(cert.src)}
-                        className="group relative flex-shrink-0"
-                      >
-                        <div className="relative overflow-hidden w-[100px] h-[155px]">
-                          <img
-                            src={cert.src}
-                            alt={`Тохирлын гэрчилгээ ${cert.number}`}
-                            className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                          />
-                          <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <ZoomIn className="w-5 h-5 text-white" />
-                          </div>
-                        </div>
-                      </button>
-
-                      {/* Баруун — QR код + мэдээлэл */}
-                      <div className="flex flex-col justify-between py-3 pr-3 flex-1">
-                        <div>
-                          <p className="text-[11px] font-black text-primary font-mono">{cert.number}</p>
-                          <p className="text-[10px] font-semibold text-foreground/80 mt-0.5 leading-tight">{cert.product}</p>
-                          <p className="text-[8.5px] text-muted-foreground mt-1 leading-snug">{cert.standard}</p>
-                          <div className="flex items-center gap-1 mt-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                            <p className="text-[8.5px] text-green-500 font-semibold">Хүчинтэй: {cert.expires}</p>
-                          </div>
-                        </div>
-
-                        {/* QR код */}
-                        <div className="flex flex-col items-start gap-1 mt-2">
-                          <div className="bg-white p-1.5 rounded-sm border border-border/30">
-                            <QRCodeSVG
-                              value={qrValue}
-                              size={64}
-                              bgColor="#ffffff"
-                              fgColor="#0f172a"
-                              level="M"
-                            />
-                          </div>
-                          <p className="text-[7.5px] text-muted-foreground leading-tight">QR скан → гэрчилгээ харах</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Чанарын гэрчилгээний QR кодууд (database-аас) */}
-                {recentCerts.length > 0 && recentCerts.map((cert: any) => (
-                  <a
-                    key={cert.id}
-                    href={`/api/public/quality-cert/${cert.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group flex flex-col items-center gap-1.5 flex-shrink-0"
+              {/* [ДБ149/25 зураг] [ДБ150/25 зураг] [QR код] — нэг мөрөнд */}
+              <div className="flex items-start gap-4 flex-wrap">
+                {/* 2 гэрчилгээний thumbnail */}
+                {COMPLIANCE_CERTS.map(cert => (
+                  <button
+                    key={cert.number}
+                    onClick={() => setZoomCert(cert.src)}
+                    className="group flex-shrink-0 text-left"
                   >
-                    <div className="bg-white p-2 rounded-sm border border-border/40 group-hover:border-primary transition-colors w-[110px] flex items-center justify-center" style={{ height: "155px" }}>
-                      <div className="flex flex-col items-center gap-2">
-                        <QRCodeSVG
-                          value={`${window.location.origin}/api/public/quality-cert/${cert.id}`}
-                          size={80}
-                          bgColor="#ffffff"
-                          fgColor="#0f172a"
-                          level="M"
-                        />
-                        <p className="text-[8px] text-gray-500 text-center leading-tight">Скан хийн харах</p>
+                    <div className="relative overflow-hidden rounded-sm border border-border/50 group-hover:border-primary transition-colors w-[105px]">
+                      <img
+                        src={cert.src}
+                        alt={`Тохирлын гэрчилгээ ${cert.number}`}
+                        className="w-full h-[150px] object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <ZoomIn className="w-5 h-5 text-white" />
                       </div>
                     </div>
-                    <div className="px-0.5">
-                      <p className="text-[10px] font-bold text-foreground/80 leading-tight">{cert.productName || cert.productType}</p>
-                      <p className="text-[9px] text-muted-foreground font-mono">{cert.batchNumber}</p>
+                    <div className="mt-1.5 px-0.5">
+                      <p className="text-[10px] font-black text-primary font-mono">{cert.number}</p>
+                      <p className="text-[9px] text-foreground/70 leading-tight">{cert.product}</p>
+                      <p className="text-[7.5px] text-muted-foreground mt-0.5">{cert.standard}</p>
                       <div className="flex items-center gap-1 mt-0.5">
                         <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                        <span className="text-[9px] text-green-500 font-bold">{cert.compliancePct}%</span>
-                        <ExternalLink size={8} className="text-muted-foreground" />
+                        <span className="text-[7.5px] text-green-500 font-semibold">{cert.expires}</span>
                       </div>
                     </div>
-                  </a>
+                  </button>
                 ))}
+
+                {/* QR код — гэрчилгээнүүдийн ард */}
+                <div className="flex flex-col items-center gap-1.5 flex-shrink-0 pt-0.5">
+                  <div className="bg-white p-2 rounded-sm border border-border/30">
+                    <QRCodeSVG
+                      value={`${window.location.origin}/cert-db149-25.jpg`}
+                      size={100}
+                      bgColor="#ffffff"
+                      fgColor="#0f172a"
+                      level="M"
+                    />
+                  </div>
+                  <p className="text-[8px] text-muted-foreground text-center leading-tight">QR скан →<br/>гэрчилгээ харах</p>
+                </div>
               </div>
 
               <p className="text-[9px] text-muted-foreground mt-3">
