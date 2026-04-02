@@ -144,7 +144,6 @@ export default function MechanicDashboard() {
   });
 
   // ── Цагийн бүртгэл ──────────────────────────────────────────────────────
-  const TODAY = new Date().toISOString().slice(0, 10);
   const emptyHourLog = { vehicleId: "", vehicleName: "", date: TODAY, hoursWorked: "", fuelUsed: "", fuelType: "diesel", workFront: "", engineHours: "", notes: "", recordedBy: "" };
   const [hourLog, setHourLog] = useState(emptyHourLog);
   const [showHourForm, setShowHourForm] = useState(false);
