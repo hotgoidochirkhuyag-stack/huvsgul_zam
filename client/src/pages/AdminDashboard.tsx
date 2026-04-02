@@ -21,7 +21,7 @@ import NotificationBell from "@/components/NotificationBell";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
 import { useToast } from "@/hooks/use-toast";
 
-type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "website" | "credentials" | "logs" | "lab";
+type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "lab";
 
 function hdrs() {
   return {
@@ -2413,9 +2413,6 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "lab",         label: "Гэрчилгээ & Тохирол",  icon: Award       },
   { key: "ai",          label: "AI Агент",              icon: Bot         },
   { key: "meeting",     label: "Онлайн хурал",          icon: Video       },
-  { key: "website",     label: "Вэбсайт",               icon: Globe       },
-  { key: "credentials", label: "Нэвтрэлт",              icon: KeyRound    },
-  { key: "logs",        label: "Бүртгэл",               icon: ScrollText  },
 ];
 
 export default function AdminDashboard() {
@@ -2490,9 +2487,6 @@ export default function AdminDashboard() {
         {tab === "lab"         && <LabTab />}
         {tab === "ai"          && <AiAgentTab />}
         {tab === "meeting"      && <MeetingTab />}
-        {tab === "website"      && <WebsiteTab />}
-        {tab === "credentials"  && <CredentialsTab />}
-        {tab === "logs"         && <ActivityLogsTab />}
       </main>
     </div>
   );
