@@ -5,6 +5,7 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import { storage } from "./storage.js";
 import { db } from "./db.js";
 import * as schema from "../shared/schema.js";
+import { notifyNewContact, notifyNewQuote, notifyNewSalesOrder, notifyNewContract } from "./mailer.js";
 import { eq, desc, and, gte, lte, sql, lt } from "drizzle-orm";
 import { z } from "zod";
 import { calculateEmployeeKpi, calculateTeamKpi, seedDefaultKpiConfigs } from "./kpiEngine.js";
@@ -771,6 +772,7 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         type: z.string().optional().default("Холбоо барих"),
       }).parse(req.body);
       const [c] = await db.insert(schema.contacts).values(data).returning();
+      notifyNewContact(c).catch(() => {});
       res.status(201).json(c);
     } catch { res.status(500).json({ error: "Хадгалахад алдаа" }); }
   });
@@ -2961,6 +2963,7 @@ ${cert.testResults ? `
   app.post("/api/sales/orders", requireSales, async (req, res) => {
     try {
       const [row] = await db.insert(schema.salesOrders).values(req.body).returning();
+      notifyNewSalesOrder(row).catch(() => {});
       res.status(201).json(row);
     } catch (e: any) { res.status(400).json({ error: e.message }); }
   });
@@ -3817,6 +3820,7 @@ ${cert.testResults ? `
       const contractNo = `ХЗ-${year}-${seq}`;
       const data = { ...req.body, approvalToken: token, contractNo };
       const [row] = await db.insert(schema.contracts).values(data).returning();
+      notifyNewContract({ contractNo: row.contractNo, clientName: row.clientName, clientEmail: row.clientEmail, clientPhone: row.clientPhone, product: row.product, quantity: row.quantity, unit: row.unit, totalAmount: row.totalAmount }).catch(() => {});
       res.json(row);
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
@@ -3940,6 +3944,7 @@ ${cert.testResults ? `
         name, email: email || "noemail@example.com", phone,
         message, type: "Үнийн санал",
       }).returning();
+      notifyNewQuote({ name, phone, email, company, product, quantity, unit, unitPrice, totalAmount, deliveryAddress, note }).catch(() => {});
       const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
       res.json({
         quoteId: c.id,
