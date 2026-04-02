@@ -353,74 +353,51 @@ export default function ContractPage() {
                 </div>
               </div>
 
-              {/* Тохирлын гэрчилгээнүүд (MNAS) */}
-              <div>
-                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1">
-                  <BadgeCheck className="w-3 h-3 text-green-600" /> Барилгын хөгжлийн үндэсний нэгдсэн төвийн гэрчилгээ
-                </div>
-                <div className="flex gap-3 flex-wrap">
-                  {[
-                    {
-                      src: "/cert-db149-25.jpg",
-                      number: "ДБ149/25",
-                      product: "Бетон зуурмаг",
-                      standard: "MNS 1185:1998 · MNS EN 206:2017",
-                      expires: "2027.12.04",
-                    },
-                    {
-                      src: "/cert-db150-25.jpg",
-                      number: "ДБ150/25",
-                      product: "Элс, Хайрга",
-                      standard: "MNS 0392:2014 · MNS 0346:2000",
-                      expires: "2027.12.04",
-                    },
-                  ].map(cert => (
-                    <button
-                      key={cert.number}
-                      onClick={() => setZoomCert(cert.src)}
-                      className="group flex gap-2 border border-slate-200 rounded-md overflow-hidden hover:border-green-400 transition-colors bg-white"
-                      style={{ width: 210 }}
-                    >
-                      {/* Зураг */}
-                      <div className="relative w-[70px] h-[105px] flex-shrink-0 overflow-hidden">
-                        <img
-                          src={cert.src}
-                          alt={cert.number}
-                          className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                        />
-                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                          <ZoomIn className="w-4 h-4 text-white" />
-                        </div>
+              {/* 2 тохирлын гэрчилгээний зураг + QR нэг мөрөнд */}
+              <div className="flex items-start gap-4 flex-wrap">
+                {[
+                  { src: "/cert-db149-25.jpg", number: "ДБ149/25", product: "Бетон зуурмаг", standard: "MNS 1185:1998 · MNS EN 206:2017", expires: "2027.12.04" },
+                  { src: "/cert-db150-25.jpg", number: "ДБ150/25", product: "Элс, Хайрга",   standard: "MNS 0392:2014 · MNS 0346:2000",  expires: "2027.12.04" },
+                ].map(cert => (
+                  <button
+                    key={cert.number}
+                    onClick={() => setZoomCert(cert.src)}
+                    className="group flex-shrink-0 text-left"
+                  >
+                    <div className="relative overflow-hidden rounded-sm border border-slate-200 group-hover:border-green-400 transition-colors w-[100px]">
+                      <img
+                        src={cert.src}
+                        alt={cert.number}
+                        className="w-full h-[145px] object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-black/35 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <ZoomIn className="w-5 h-5 text-white" />
                       </div>
-                      {/* Мэдээлэл */}
-                      <div className="flex flex-col justify-center gap-1 py-2 pr-2 text-left">
-                        <span className="text-[11px] font-black text-[#0f172a] font-mono">{cert.number}</span>
-                        <span className="text-[9.5px] font-semibold text-slate-700 leading-tight">{cert.product}</span>
-                        <span className="text-[8px] text-slate-400 leading-snug">{cert.standard}</span>
-                        <div className="flex items-center gap-1 mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                          <span className="text-[8px] text-green-600 font-semibold">{cert.expires}</span>
-                        </div>
+                    </div>
+                    <div className="mt-1.5 px-0.5">
+                      <p className="text-[10px] font-black text-[#0f172a] font-mono">{cert.number}</p>
+                      <p className="text-[8.5px] text-slate-600 leading-tight">{cert.product}</p>
+                      <p className="text-[7.5px] text-slate-400 mt-0.5">{cert.standard}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                        <span className="text-[7.5px] text-green-600 font-semibold">{cert.expires}</span>
                       </div>
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[8px] text-slate-400 mt-1.5">Зургийг дарж бүтэн хэмжээгээр үзнэ</p>
-              </div>
+                    </div>
+                  </button>
+                ))}
 
-              {/* QR код */}
-              <div className="flex items-center gap-4 pt-3 border-t border-slate-100">
-                <div className="flex flex-col items-center gap-1.5">
-                  <QRCodeSVG value={verifyUrl} size={90} bgColor="#ffffff" fgColor="#0f172a" level="M" />
+                {/* QR код — гэрчилгээнүүдийн ард */}
+                <div className="flex flex-col items-center justify-start gap-1.5 flex-shrink-0 pt-0.5">
+                  <div className="bg-white p-1.5 border border-slate-200 rounded-sm">
+                    <QRCodeSVG value={verifyUrl} size={98} bgColor="#ffffff" fgColor="#0f172a" level="M" />
+                  </div>
                   <div className="text-center">
                     <div className="text-[9px] font-bold text-slate-600">Гэрээ шалгах</div>
                     <div className="text-[8px] text-slate-400">{contract.contractNo}</div>
                   </div>
                 </div>
-                <div className="text-[9px] text-slate-400 leading-relaxed">
-                  QR кодыг скан хийснээр энэхүү гэрээ болон нийлүүлэгчийн тохирлын гэрчилгээг онлайнаар шалгах боломжтой.
-                </div>
               </div>
+              <p className="text-[7.5px] text-slate-400">Гэрчилгээг дарж бүтэн хэмжээгээр үзнэ · QR скан → гэрээ + гэрчилгээ онлайнаар шалгах</p>
             </div>
 
             {/* Гарын үсэг */}
