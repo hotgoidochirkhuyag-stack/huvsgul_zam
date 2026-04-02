@@ -1211,6 +1211,8 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
         vehicleName:     schema.vehicles.name,
         vehiclePlate:    schema.vehicles.plateNumber,
         vehicleType:     schema.vehicles.type,
+        hourlyRate:      schema.vehicles.hourlyRate,
+        hoursUsed:       schema.equipmentAssignments.hoursUsed,
         customerName:    schema.salesOrders.customerName,
         product:         schema.salesOrders.product,
         quantity:        schema.salesOrders.quantity,

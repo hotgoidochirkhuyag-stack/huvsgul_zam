@@ -5,7 +5,7 @@ import {
   CheckCircle2, AlertTriangle, Calendar, Zap, FileText,
   Search, Edit2, X, Clock, ShieldCheck, History,
   Fuel, Timer, BarChart3, Save, Printer,
-  Wrench, Package, Bell, ClipboardList, MapPin, ChevronUp,
+  Wrench, Package, Bell, ClipboardList, MapPin, ChevronUp, Edit3,
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
@@ -142,6 +142,21 @@ export default function MechanicDashboard() {
       toast({ title: "Хуваарь устгагдлаа" });
     },
   });
+
+  const updateHours = useMutation({
+    mutationFn: ({ id, hoursUsed }: { id: number; hoursUsed: number }) =>
+      fetch(`/api/equipment/assignments/${id}/hours`, {
+        method: "PATCH", headers: getHeaders(),
+        body: JSON.stringify({ hoursUsed }),
+      }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["/api/equipment/assignments"] });
+      toast({ title: "✅ Ажилласан цаг хадгалагдлаа — өртгийн тооцоонд орлоо" });
+      setHoursEdit(null);
+    },
+  });
+
+  const [hoursEdit, setHoursEdit] = useState<{ id: number; val: string } | null>(null);
 
   // ── Цагийн бүртгэл ──────────────────────────────────────────────────────
   const emptyHourLog = { vehicleId: "", vehicleName: "", date: TODAY, hoursWorked: "", fuelUsed: "", fuelType: "diesel", workFront: "", engineHours: "", notes: "", recordedBy: "" };
@@ -1132,13 +1147,13 @@ export default function MechanicDashboard() {
             <div className="flex items-center justify-between flex-wrap gap-3">
               <h2 className="font-bold text-orange-300 flex items-center gap-2">
                 <ClipboardList className="w-5 h-5" />
-                Тоног төхөөрөмжийн захиалгын хуваарь
+                Техникийн захиалгын хуваарь
               </h2>
               <button onClick={() => setShowAssignForm(v => !v)}
                 data-testid="btn-add-assignment"
                 className="flex items-center gap-2 px-4 py-2 text-sm font-bold bg-orange-600 hover:bg-orange-500 text-white rounded-xl transition-all">
                 <Plus className="w-4 h-4" />
-                Тоног хуваарилах
+                Техник хуваарилах
               </button>
             </div>
 
@@ -1162,7 +1177,7 @@ export default function MechanicDashboard() {
                 <h3 className="font-bold text-sm text-orange-300">Шинэ хуваарь</h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="text-xs text-slate-400 block mb-1">Тоног төхөөрөмж *</label>
+                    <label className="text-xs text-slate-400 block mb-1">Техник *</label>
                     <select data-testid="assign-vehicle"
                       value={assignForm.vehicleId}
                       onChange={e => setAssignForm(f => ({ ...f, vehicleId: e.target.value }))}
@@ -1250,10 +1265,11 @@ export default function MechanicDashboard() {
                 <table className="w-full text-sm">
                   <thead className="bg-slate-800/50 text-slate-400 text-xs uppercase">
                     <tr>
-                      <th className="px-4 py-3 text-left">Тоног төхөөрөмж</th>
+                      <th className="px-4 py-3 text-left">Техник</th>
                       <th className="px-4 py-3 text-left">Захиалга / Харилцагч</th>
                       <th className="px-4 py-3 text-left">Даалгавар</th>
                       <th className="px-4 py-3 text-left">Огноо</th>
+                      <th className="px-4 py-3 text-left">Ажилласан цаг</th>
                       <th className="px-4 py-3 text-left">Статус</th>
                       <th className="px-4 py-3 text-left">Үйлдэл</th>
                     </tr>
@@ -1265,6 +1281,7 @@ export default function MechanicDashboard() {
                         completed: { cls: "bg-blue-500/15 text-blue-400",   label: "Дууссан" },
                         cancelled: { cls: "bg-red-500/15 text-red-400",     label: "Цуцлагдсан" },
                       }[a.status as string] ?? { cls: "bg-white/10 text-white/40", label: a.status };
+                      const isEditingHours = hoursEdit?.id === a.id;
                       return (
                         <tr key={a.id} data-testid={`assignment-row-${a.id}`} className="hover:bg-white/3 transition-colors">
                           <td className="px-4 py-3">
@@ -1281,10 +1298,53 @@ export default function MechanicDashboard() {
                               <span className="text-slate-500">—</span>
                             )}
                           </td>
-                          <td className="px-4 py-3 text-slate-300 max-w-[200px] truncate">{a.taskDescription ?? "—"}</td>
+                          <td className="px-4 py-3 text-slate-300 max-w-[180px] truncate">{a.taskDescription ?? "—"}</td>
                           <td className="px-4 py-3">
                             <div className="text-xs text-slate-400">{a.assignedDate}</div>
                             {a.endDate && <div className="text-xs text-slate-500">→ {a.endDate}</div>}
+                          </td>
+                          {/* Ажилласан цаг */}
+                          <td className="px-4 py-3">
+                            {isEditingHours ? (
+                              <div className="flex items-center gap-1">
+                                <input
+                                  type="number" min="0" step="0.5"
+                                  value={hoursEdit.val}
+                                  onChange={e => setHoursEdit({ id: a.id, val: e.target.value })}
+                                  className="w-16 bg-slate-700 border border-orange-500/50 rounded px-2 py-1 text-xs text-white focus:outline-none"
+                                  autoFocus
+                                  data-testid={`input-hours-${a.id}`}
+                                />
+                                <span className="text-xs text-slate-500">ц</span>
+                                <button
+                                  onClick={() => updateHours.mutate({ id: a.id, hoursUsed: parseFloat(hoursEdit.val) || 0 })}
+                                  disabled={updateHours.isPending}
+                                  data-testid={`btn-save-hours-${a.id}`}
+                                  className="p-1 rounded bg-orange-600 hover:bg-orange-500 text-white transition-all">
+                                  <Save className="w-3 h-3" />
+                                </button>
+                                <button onClick={() => setHoursEdit(null)}
+                                  className="p-1 rounded text-slate-500 hover:text-white transition-all">
+                                  <X className="w-3 h-3" />
+                                </button>
+                              </div>
+                            ) : (
+                              <button
+                                data-testid={`btn-edit-hours-${a.id}`}
+                                onClick={() => setHoursEdit({ id: a.id, val: String(a.hoursUsed ?? 0) })}
+                                className="flex items-center gap-1.5 text-xs group"
+                              >
+                                <span className={`font-bold ${(a.hoursUsed ?? 0) > 0 ? "text-amber-400" : "text-slate-600"}`}>
+                                  {(a.hoursUsed ?? 0) > 0 ? `${a.hoursUsed}ц` : "—"}
+                                </span>
+                                {(a.hoursUsed ?? 0) > 0 && a.hourlyRate > 0 && (
+                                  <span className="text-[10px] text-slate-500">
+                                    ({((a.hoursUsed ?? 0) * a.hourlyRate).toLocaleString("mn-MN")}₮)
+                                  </span>
+                                )}
+                                <Edit3 className="w-3 h-3 text-slate-600 group-hover:text-orange-400 transition-colors" />
+                              </button>
+                            )}
                           </td>
                           <td className="px-4 py-3">
                             <span className={`px-2 py-0.5 rounded text-xs font-bold ${statusCfg.cls}`}>{statusCfg.label}</span>
@@ -1316,7 +1376,7 @@ export default function MechanicDashboard() {
                       );
                     })}
                     {assignments.length === 0 && (
-                      <tr><td colSpan={6} className="px-4 py-10 text-center text-slate-500">
+                      <tr><td colSpan={7} className="px-4 py-10 text-center text-slate-500">
                         <ClipboardList className="w-8 h-8 mx-auto mb-2 opacity-30" />
                         Хуваарилалт байхгүй байна
                       </td></tr>
