@@ -4,7 +4,8 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { QRCodeSVG } from "qrcode.react";
 import {
   CheckCircle2, Download, Loader2, AlertCircle, FileText,
-  Building2, Phone, Mail, MapPin, Calendar, Package, BadgeCheck
+  Building2, Phone, Mail, MapPin, Calendar, Package, BadgeCheck,
+  ZoomIn, X, Truck
 } from "lucide-react";
 import type { Contract, ContractTemplateSection } from "@shared/schema";
 
@@ -46,6 +47,7 @@ export default function ContractPage() {
   const printRef = useRef<HTMLDivElement>(null);
   const [approved, setApproved] = useState(false);
   const [activating, setActivating] = useState(false);
+  const [zoomCert, setZoomCert] = useState<string | null>(null);
 
   const { data: contract, isLoading, error, refetch } = useQuery<Contract>({
     queryKey: ["/api/contracts/public", token],
@@ -109,6 +111,24 @@ export default function ContractPage() {
 
   return (
     <>
+      {/* Гэрчилгээ томруулах modal */}
+      {zoomCert && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/90 flex items-center justify-center p-4 no-print"
+          onClick={() => setZoomCert(null)}
+        >
+          <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setZoomCert(null)}
+              className="absolute -top-10 right-0 text-white/70 hover:text-white flex items-center gap-1.5 text-sm"
+            >
+              <X size={16} /> Хаах
+            </button>
+            <img src={zoomCert} alt="Тохирлын гэрчилгээ" className="w-full rounded-lg shadow-2xl border border-white/20" />
+          </div>
+        </div>
+      )}
+
       {/* Print styles */}
       <style>{`
         @media print {
@@ -305,45 +325,100 @@ export default function ContractPage() {
               </div>
             )}
 
-            {/* Чанарын баталгаа + QR */}
-            <div className="border border-slate-200 rounded-lg p-5">
-              <div className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4 flex items-center gap-1.5">
-                <BadgeCheck className="w-3.5 h-3.5 text-green-600" /> Чанарын баталгаа & Тохирлын гэрчилгээ
+            {/* ── Тохирлын гэрчилгээ + Чанарын баталгаа + Нийлүүлэлт ── */}
+            <div className="border border-slate-200 rounded-lg p-5 space-y-5">
+              <div className="text-xs font-bold uppercase tracking-wider text-slate-500 flex items-center gap-1.5">
+                <BadgeCheck className="w-3.5 h-3.5 text-green-600" /> Тохирлын гэрчилгээ · Чанарын баталгаа · Нийлүүлэлт
               </div>
-              <div className="grid grid-cols-2 gap-6 items-start">
-                <div className="space-y-2">
+
+              {/* Нийлүүлэлтийн мэдээлэл */}
+              <div className="bg-slate-50 rounded-md px-4 py-3 border border-slate-200">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1">
+                  <Truck className="w-3 h-3" /> Нийлүүлэлт
+                </div>
+                <div className="grid grid-cols-2 gap-x-6 gap-y-1">
                   {[
-                    { label: "МNS 1030:2022", desc: "Бетон холимог — Техникийн шаардлага" },
-                    { label: "ISO 9001:2015", desc: "Чанарын менежментийн систем" },
-                    { label: "МNS 6055:2019", desc: "Цемент — Тодорхойлолт" },
-                    { label: "МNS ISO 4010", desc: "Слумп тест — БНбД 2.02.01" },
-                  ].map((c, i) => (
-                    <div key={i} className="flex items-start gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
-                      <div>
-                        <span className="font-bold text-slate-700 text-xs">{c.label}</span>
-                        <span className="text-slate-500 text-xs ml-1">— {c.desc}</span>
-                      </div>
+                    { k: "Бүтээгдэхүүн", v: contract.product },
+                    { k: "Тоо хэмжээ", v: `${contract.quantity.toLocaleString()} ${contract.unit}` },
+                    { k: "Нэгжийн үнэ", v: `₮${contract.unitPrice.toLocaleString()}/${contract.unit}` },
+                    { k: "Нийт дүн", v: `₮${contract.totalAmount.toLocaleString()}` },
+                    ...(contract.deliveryDate ? [{ k: "Хүргэх огноо", v: contract.deliveryDate }] : []),
+                    ...(contract.deliveryAddress ? [{ k: "Хүргэх хаяг", v: contract.deliveryAddress }] : []),
+                  ].map((row, i) => (
+                    <div key={i} className="flex flex-col">
+                      <span className="text-[9px] text-slate-400 font-bold uppercase">{row.k}</span>
+                      <span className="text-xs text-slate-800 font-semibold">{row.v}</span>
                     </div>
                   ))}
-                  {isApproved && (
-                    <div className="mt-3 pt-3 border-t border-slate-200">
-                      <div className="text-xs text-slate-500 font-bold uppercase mb-1">Гэрээний биелэлт</div>
-                      <div className="text-slate-800 font-black text-lg">
-                        {contract.status === "factory_ordered" || contract.status === "completed" ? "0" : "—"} / {contract.quantity.toLocaleString()} {contract.unit}
-                      </div>
-                      <div className="w-full bg-slate-200 rounded-full h-1.5 mt-1">
-                        <div className="bg-green-500 h-1.5 rounded-full" style={{ width: "0%" }} />
-                      </div>
-                    </div>
-                  )}
                 </div>
-                <div className="flex flex-col items-center gap-2">
-                  <QRCodeSVG value={verifyUrl} size={110} bgColor="#ffffff" fgColor="#0f172a" level="M" />
+              </div>
+
+              {/* Тохирлын гэрчилгээнүүд (MNAS) */}
+              <div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1">
+                  <BadgeCheck className="w-3 h-3 text-green-600" /> Барилгын хөгжлийн үндэсний нэгдсэн төвийн гэрчилгээ
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  {[
+                    {
+                      src: "/cert-db149-25.jpg",
+                      number: "ДБ149/25",
+                      product: "Бетон зуурмаг",
+                      standard: "MNS 1185:1998 · MNS EN 206:2017",
+                      expires: "2027.12.04",
+                    },
+                    {
+                      src: "/cert-db150-25.jpg",
+                      number: "ДБ150/25",
+                      product: "Элс, Хайрга",
+                      standard: "MNS 0392:2014 · MNS 0346:2000",
+                      expires: "2027.12.04",
+                    },
+                  ].map(cert => (
+                    <button
+                      key={cert.number}
+                      onClick={() => setZoomCert(cert.src)}
+                      className="group flex gap-2 border border-slate-200 rounded-md overflow-hidden hover:border-green-400 transition-colors bg-white"
+                      style={{ width: 210 }}
+                    >
+                      {/* Зураг */}
+                      <div className="relative w-[70px] h-[105px] flex-shrink-0 overflow-hidden">
+                        <img
+                          src={cert.src}
+                          alt={cert.number}
+                          className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <ZoomIn className="w-4 h-4 text-white" />
+                        </div>
+                      </div>
+                      {/* Мэдээлэл */}
+                      <div className="flex flex-col justify-center gap-1 py-2 pr-2 text-left">
+                        <span className="text-[11px] font-black text-[#0f172a] font-mono">{cert.number}</span>
+                        <span className="text-[9.5px] font-semibold text-slate-700 leading-tight">{cert.product}</span>
+                        <span className="text-[8px] text-slate-400 leading-snug">{cert.standard}</span>
+                        <div className="flex items-center gap-1 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                          <span className="text-[8px] text-green-600 font-semibold">{cert.expires}</span>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[8px] text-slate-400 mt-1.5">Зургийг дарж бүтэн хэмжээгээр үзнэ</p>
+              </div>
+
+              {/* QR код */}
+              <div className="flex items-center gap-4 pt-3 border-t border-slate-100">
+                <div className="flex flex-col items-center gap-1.5">
+                  <QRCodeSVG value={verifyUrl} size={90} bgColor="#ffffff" fgColor="#0f172a" level="M" />
                   <div className="text-center">
-                    <div className="text-xs font-bold text-slate-700">Гэрээ шалгах</div>
-                    <div className="text-[10px] text-slate-500 mt-0.5">{contract.contractNo}</div>
+                    <div className="text-[9px] font-bold text-slate-600">Гэрээ шалгах</div>
+                    <div className="text-[8px] text-slate-400">{contract.contractNo}</div>
                   </div>
+                </div>
+                <div className="text-[9px] text-slate-400 leading-relaxed">
+                  QR кодыг скан хийснээр энэхүү гэрээ болон нийлүүлэгчийн тохирлын гэрчилгээг онлайнаар шалгах боломжтой.
                 </div>
               </div>
             </div>
