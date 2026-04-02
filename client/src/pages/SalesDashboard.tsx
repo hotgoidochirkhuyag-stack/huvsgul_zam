@@ -1153,6 +1153,7 @@ function ContractTemplateEditor() {
   const { toast } = useToast();
   const qc = useQueryClient();
   const token = localStorage.getItem("adminToken") || "";
+  const [showHelp, setShowHelp] = useState(false);
 
   const { data: sections = [], isLoading } = useQuery<ContractTemplateSection[]>({
     queryKey: ["/api/contract-template"],
@@ -1164,7 +1165,8 @@ function ContractTemplateEditor() {
   const [drafts, setDrafts] = useState<Record<string, { title: string; content: string }>>({});
   const [saving, setSaving] = useState<string | null>(null);
 
-  const getDraft = (s: ContractTemplateSection) => drafts[s.sectionKey] ?? { title: s.sectionTitle, content: s.content || "" };
+  const getOriginal = (s: ContractTemplateSection) => ({ title: s.sectionTitle, content: s.content || "" });
+  const getDraft = (s: ContractTemplateSection) => drafts[s.sectionKey] ?? getOriginal(s);
 
   const handleSave = async (sectionKey: string) => {
     const draft = drafts[sectionKey];
@@ -1187,6 +1189,11 @@ function ContractTemplateEditor() {
     }
   };
 
+  const handleRevert = (section: ContractTemplateSection) => {
+    setDrafts(prev => { const n = { ...prev }; delete n[section.sectionKey]; return n; });
+    toast({ title: "↩ Буцаагдлаа", description: "Хадгалагдаагүй засвар устгагдлаа" });
+  };
+
   if (isLoading) return (
     <div className="text-center py-20 text-slate-500">
       <Loader2 size={28} className="animate-spin mx-auto mb-2" />
@@ -1195,24 +1202,43 @@ function ContractTemplateEditor() {
   );
 
   return (
-    <div className="space-y-6">
-      {/* Тайлбар */}
-      <div className="bg-amber-950/30 border border-amber-700/40 rounded-xl px-5 py-4">
-        <h3 className="text-amber-400 font-bold text-sm mb-2">📋 Гэрээний загвар засварлах</h3>
-        <p className="text-slate-400 text-xs mb-3">
-          Доорх зүйлүүдийг хуульчдаар засварлуулж болно. Автоматаар орох утгуудыг дараах тэмдэглэгээгээр оруулна:
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {PLACEHOLDERS.map(p => (
-            <span key={p.key} className="bg-slate-800 text-amber-300 text-xs px-2 py-1 rounded font-mono" title={p.desc}>
-              {p.key}
-            </span>
-          ))}
+    <div className="space-y-5">
+      {/* Дээдийн мөр — товч тусламж */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <FileText size={16} className="text-amber-500" />
+          <span className="text-white font-bold text-sm">Гэрээний загвар</span>
+          <span className="text-slate-500 text-xs">({sections.length} зүйл)</span>
         </div>
-        <p className="text-slate-500 text-xs mt-2">
-          Жишээ: <span className="text-amber-300 font-mono">{"{{clientOrg}}"}</span> → <span className="text-slate-300">«Барилга Монгол» ХХК</span> гэж автоматаар орно
-        </p>
+        <button
+          onClick={() => setShowHelp(v => !v)}
+          className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-400 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg transition-all border border-slate-700"
+          data-testid="btn-show-help"
+        >
+          <span className="font-bold text-amber-400">{"{ }"}</span>
+          Автомат тэмдэглэгээ {showHelp ? "нуух" : "харах"}
+        </button>
       </div>
+
+      {/* Тусламжийн самбар — нуугддаг */}
+      {showHelp && (
+        <div className="bg-slate-900 border border-slate-700 rounded-xl px-5 py-4 space-y-3">
+          <p className="text-slate-400 text-xs font-medium">
+            Гэрээнд автоматаар орох утгуудыг дараах тэмдэглэгээгээр бичнэ. Гэрээ үүсэх үед харилцагчийн мэдээллээр солигдоно:
+          </p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+            {PLACEHOLDERS.map(p => (
+              <div key={p.key} className="flex items-start gap-2 bg-slate-800 rounded-lg px-3 py-2">
+                <span className="text-amber-300 text-xs font-mono shrink-0">{p.key}</span>
+                <span className="text-slate-500 text-xs">→ {p.desc}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-slate-500 text-xs">
+            Жишээ: текстэд <span className="text-amber-300 font-mono">{"{{clientOrg}}"}</span> бичвэл гэрээнд <span className="text-slate-300">«Барилга Монгол» ХХК</span> гэж харагдана.
+          </p>
+        </div>
+      )}
 
       {/* Зүйл бүр */}
       {sections.map((section) => {
@@ -1220,51 +1246,68 @@ function ContractTemplateEditor() {
         const isChanged = !!drafts[section.sectionKey];
 
         return (
-          <div key={section.sectionKey} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 space-y-3">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-slate-500 font-mono bg-slate-900 px-2 py-0.5 rounded">{section.sectionKey}</span>
-                <Input
-                  className="bg-slate-900 border-slate-600 text-white font-bold text-sm h-8 w-72"
-                  value={draft.title}
-                  onChange={e => setDrafts(prev => ({
-                    ...prev,
-                    [section.sectionKey]: { ...getDraft(section), title: e.target.value }
-                  }))}
-                  data-testid={`input-template-title-${section.sectionKey}`}
-                />
-              </div>
-              <div className="flex items-center gap-2">
-                {section.updatedAt && (
-                  <span className="text-xs text-slate-600">
+          <div key={section.sectionKey}
+            className={`rounded-xl p-5 space-y-3 border transition-all ${
+              isChanged
+                ? "bg-amber-950/20 border-amber-700/50"
+                : "bg-slate-800/40 border-slate-700"
+            }`}
+          >
+            {/* Гарчгийн мөр */}
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <Input
+                className="bg-slate-900 border-slate-600 text-white font-bold text-sm h-9 flex-1 min-w-0 max-w-sm"
+                value={draft.title}
+                onChange={e => setDrafts(prev => ({
+                  ...prev,
+                  [section.sectionKey]: { ...getDraft(section), title: e.target.value }
+                }))}
+                data-testid={`input-template-title-${section.sectionKey}`}
+              />
+
+              <div className="flex items-center gap-2 shrink-0">
+                {!isChanged && section.updatedAt && (
+                  <span className="text-xs text-slate-600 flex items-center gap-1">
+                    <CheckCircle2 size={11} className="text-green-600" />
                     {new Date(section.updatedAt).toLocaleDateString("mn-MN")}
                   </span>
                 )}
                 {isChanged && (
-                  <Button
-                    size="sm"
-                    onClick={() => handleSave(section.sectionKey)}
-                    disabled={saving === section.sectionKey}
-                    className="bg-green-700 hover:bg-green-600 text-white text-xs h-8"
-                    data-testid={`btn-save-template-${section.sectionKey}`}
-                  >
-                    {saving === section.sectionKey
-                      ? <><Loader2 size={12} className="animate-spin mr-1" />Хадгалж байна...</>
-                      : <><CheckCircle2 size={12} className="mr-1" />Хадгалах</>
-                    }
-                  </Button>
-                )}
-                {!isChanged && (
-                  <span className="text-xs text-slate-600 flex items-center gap-1">
-                    <CheckCircle2 size={11} className="text-green-600" /> Хадгалагдсан
-                  </span>
+                  <>
+                    <button
+                      onClick={() => handleRevert(section)}
+                      className="flex items-center gap-1 text-xs text-slate-400 hover:text-red-400 bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-700 transition-all"
+                      data-testid={`btn-revert-template-${section.sectionKey}`}
+                    >
+                      <Trash2 size={11} /> Буцаах
+                    </button>
+                    <Button
+                      size="sm"
+                      onClick={() => handleSave(section.sectionKey)}
+                      disabled={saving === section.sectionKey}
+                      className="bg-green-700 hover:bg-green-600 text-white text-xs h-8"
+                      data-testid={`btn-save-template-${section.sectionKey}`}
+                    >
+                      {saving === section.sectionKey
+                        ? <><Loader2 size={12} className="animate-spin mr-1" />Хадгалж байна...</>
+                        : <><CheckCircle2 size={12} className="mr-1" />Хадгалах</>
+                      }
+                    </Button>
+                  </>
                 )}
               </div>
             </div>
 
+            {isChanged && (
+              <div className="text-xs text-amber-500/80 flex items-center gap-1">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block" />
+                Хадгалагдаагүй засвар байна — "Хадгалах" дарж баталгаажуулна уу
+              </div>
+            )}
+
             <textarea
-              className="w-full bg-slate-900 border border-slate-600 rounded-lg text-slate-200 text-sm p-3 resize-y font-mono leading-relaxed"
-              rows={section.sectionKey === "header" ? 6 : section.sectionKey === "signature" ? 4 : 8}
+              className="w-full bg-slate-900 border border-slate-600 rounded-lg text-slate-200 text-sm p-3 resize-y font-mono leading-relaxed focus:border-amber-600 focus:outline-none transition-colors"
+              rows={section.sectionKey === "header" ? 5 : section.sectionKey === "signature" ? 4 : 9}
               value={draft.content}
               onChange={e => setDrafts(prev => ({
                 ...prev,
