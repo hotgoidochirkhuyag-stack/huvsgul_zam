@@ -765,6 +765,8 @@ export const maintenanceSchedules = pgTable("maintenance_schedules", {
   description:   text("description"),             // Юу хийсэн
   technicianName: text("technician_name"),         // Хэн хийсэн
   cost:          real("cost"),                     // Зардал (₮)
+  fuelUsed:      real("fuel_used"),               // Шатахуун зарцуулалт (л)
+  fuelType:      text("fuel_type").default("diesel"), // diesel | petrol
   status:        text("status").notNull().default("scheduled"), // scheduled | done | overdue | cancelled
   notes:         text("notes"),
   createdAt:     timestamp("created_at").defaultNow(),

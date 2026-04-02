@@ -3,8 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Truck, Plus, Trash2, LogOut, RefreshCw, ChevronDown,
   CheckCircle2, AlertTriangle, Calendar, Zap, FileText,
-  Search, Edit2, X, Clock, ShieldCheck, History,
-  Fuel, Timer, BarChart3, Save, Printer,
+  Search, Edit2, X, Clock, ShieldCheck,
+  BarChart3, Save, Printer,
   Wrench, Package, Bell, ClipboardList, MapPin, ChevronUp, Edit3,
 } from "lucide-react";
 import { printReport } from "@/lib/printReport";
@@ -62,7 +62,7 @@ export default function MechanicDashboard() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
 
-  const [tab, setTab] = useState<"vehicles" | "inspections" | "hours" | "fuel" | "maintenance" | "spareparts" | "alerts" | "report" | "schedule">("vehicles");
+  const [tab, setTab] = useState<"vehicles" | "maintenance" | "spareparts" | "alerts" | "report" | "schedule">("vehicles");
   const [search, setSearch] = useState("");
   const [filterReady, setFilterReady] = useState("all");
   const [showAddForm, setShowAddForm] = useState(false);
@@ -81,13 +81,6 @@ export default function MechanicDashboard() {
     queryFn: () => fetch("/api/erp/vehicles", { headers: getHeaders() }).then(r => r.json()),
   });
   const vehicles: any[] = Array.isArray(_vehiclesRaw) ? _vehiclesRaw : [];
-
-  const { data: _inspRaw, isLoading: inspLoading } = useQuery<any>({
-    queryKey: ["/api/erp/vehicle-inspections"],
-    queryFn: () => fetch("/api/erp/vehicle-inspections", { headers: getHeaders() }).then(r => r.json()),
-    enabled: tab === "inspections",
-  });
-  const inspections: any[] = Array.isArray(_inspRaw) ? _inspRaw : [];
 
   const vehicleMap = new Map(vehicles.map(v => [v.id, v]));
 
@@ -158,136 +151,28 @@ export default function MechanicDashboard() {
 
   const [hoursEdit, setHoursEdit] = useState<{ id: number; val: string } | null>(null);
 
-  // ── Цагийн бүртгэл ──────────────────────────────────────────────────────
-  const emptyHourLog = { vehicleId: "", vehicleName: "", date: TODAY, hoursWorked: "", fuelUsed: "", fuelType: "diesel", workFront: "", engineHours: "", notes: "", recordedBy: "" };
-  const [hourLog, setHourLog] = useState(emptyHourLog);
-  const [showHourForm, setShowHourForm] = useState(false);
-  const [hourDate, setHourDate] = useState(TODAY);
-
-  const { data: _eqLogsRaw, refetch: refetchLogs } = useQuery<any>({
-    queryKey: ["/api/equipment-logs", hourDate],
-    queryFn: () => fetch(`/api/equipment-logs?date=${hourDate}`, { headers: getHeaders() }).then(r => r.json()),
-    enabled: tab === "hours",
-  });
-  const eqLogs: any[] = Array.isArray(_eqLogsRaw) ? _eqLogsRaw : [];
-
-  const createHourLog = useMutation({
-    mutationFn: (data: any) => fetch("/api/equipment-logs", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json()),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/equipment-logs"] });
-      setHourLog(emptyHourLog);
-      setShowHourForm(false);
-      toast({ title: "Цагийн бүртгэл хадгалагдлаа ✓" });
-    },
-    onError: (e: any) => toast({ title: e.message, variant: "destructive" }),
-  });
-
-  const deleteHourLog = useMutation({
-    mutationFn: (id: number) => fetch(`/api/equipment-logs/${id}`, { method: "DELETE", headers: getHeaders() }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/equipment-logs"] }),
-  });
-
-  // Нийт статистик
-  const totalHours = eqLogs.reduce((s: number, l: any) => s + (l.hoursWorked ?? 0), 0);
-  const totalFuel  = eqLogs.reduce((s: number, l: any) => s + (l.fuelUsed ?? 0), 0);
-
-  // ── Шатахуун төсөв ──────────────────────────────────────────────────────
-  const nowY = new Date().getFullYear();
-  const nowM = new Date().getMonth() + 1;
-  const [fuelYear, setFuelYear] = useState(nowY);
-  const [fuelMonth, setFuelMonth] = useState(nowM);
-  const [showBudgetForm, setShowBudgetForm] = useState(false);
-  const [editBudgetId, setEditBudgetId] = useState<number | null>(null);
-  const emptyBudget = { year: nowY, month: nowM, budgetAmount: "", dieselPrice: "3500", petrolPrice: "3800", approvedBy: "", notes: "" };
-  const [budgetForm, setBudgetForm] = useState<any>(emptyBudget);
-
-  const { data: currentBudget, refetch: refetchBudget } = useQuery<any>({
-    queryKey: ["/api/fuel-budgets/current"],
-    queryFn: () => fetch("/api/fuel-budgets/current", { headers: getHeaders() }).then(r => r.json()),
-    enabled: tab === "fuel",
-  });
-  const { data: fuelSummary } = useQuery<any>({
-    queryKey: ["/api/fuel-budgets/summary", fuelYear, fuelMonth],
-    queryFn: () => fetch(`/api/fuel-budgets/summary?year=${fuelYear}&month=${fuelMonth}`, { headers: getHeaders() }).then(r => r.json()),
-    enabled: tab === "fuel",
-  });
-  const { data: _allBudgetsRaw } = useQuery<any>({
-    queryKey: ["/api/fuel-budgets"],
-    queryFn: () => fetch("/api/fuel-budgets", { headers: getHeaders() }).then(r => r.json()),
-    enabled: tab === "fuel",
-  });
-  const allBudgets: any[] = Array.isArray(_allBudgetsRaw) ? _allBudgetsRaw : [];
-
-  const saveBudget = useMutation({
-    mutationFn: (data: any) => {
-      if (editBudgetId) {
-        return fetch(`/api/fuel-budgets/${editBudgetId}`, { method: "PATCH", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json());
-      }
-      return fetch("/api/fuel-budgets", { method: "POST", headers: getHeaders(), body: JSON.stringify(data) }).then(r => r.json());
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["/api/fuel-budgets"] });
-      setShowBudgetForm(false); setEditBudgetId(null); setBudgetForm(emptyBudget);
-      toast({ title: "Шатахуун төсөв хадгалагдлаа ✓" });
-    },
-  });
-
-  const MONTHS_MN = ["1-р сар","2-р сар","3-р сар","4-р сар","5-р сар","6-р сар","7-р сар","8-р сар","9-р сар","10-р сар","11-р сар","12-р сар"];
-
-  const { data: _allEqLogsRaw } = useQuery<any>({
-    queryKey: ["/api/equipment-logs/all"],
-    queryFn: () => fetch("/api/equipment-logs", { headers: getHeaders() }).then(r => r.json()),
-    enabled: tab === "report",
-  });
-  const allEqLogs: any[] = Array.isArray(_allEqLogsRaw) ? _allEqLogsRaw : [];
-  const { data: _allBudgetsRptRaw } = useQuery<any>({
-    queryKey: ["/api/fuel-budgets/report"],
-    queryFn: () => fetch("/api/fuel-budgets", { headers: getHeaders() }).then(r => r.json()),
-    enabled: tab === "report",
-  });
-  const allBudgetsReport: any[] = Array.isArray(_allBudgetsRptRaw) ? _allBudgetsRptRaw : [];
 
   function handleMechanicPrint() {
-    const readyCount   = vehicles.filter((v: any) => v.isReady).length;
-    const notReady     = vehicles.filter((v: any) => !v.isReady).length;
-    const totalH       = allEqLogs.reduce((s: number, l: any) => s + (l.hoursWorked ?? 0), 0);
-    const totalFuelAll = allEqLogs.reduce((s: number, l: any) => s + (l.fuelUsed ?? 0), 0);
-
+    const readyCount = vehicles.filter((v: any) => v.isReady).length;
+    const notReady   = vehicles.filter((v: any) => !v.isReady).length;
     const statRow = [
       "<div class='stat-row'>",
       "<div class='stat-box'><div class='stat-val'>" + vehicles.length + "</div><div class='stat-lbl'>Нийт техник</div></div>",
       "<div class='stat-box'><div class='stat-val' style='color:#065f46'>" + readyCount + "</div><div class='stat-lbl'>Ажлын бэлэн</div></div>",
       "<div class='stat-box'><div class='stat-val' style='color:#991b1b'>" + notReady + "</div><div class='stat-lbl'>Засварт / бэлэн биш</div></div>",
-      "<div class='stat-box'><div class='stat-val'>" + totalH.toFixed(1) + "ц</div><div class='stat-lbl'>Нийт ажлын цаг</div></div>",
-      "<div class='stat-box'><div class='stat-val'>" + totalFuelAll.toFixed(0) + "л</div><div class='stat-lbl'>Нийт шатахуун</div></div>",
       "</div>",
     ].join("");
-
     const vRows = vehicles.map((v: any) => {
       const badge = v.isReady ? "<span class='badge ok'>Бэлэн</span>" : "<span class='badge fail'>Бэлэн биш</span>";
       return "<tr><td>" + v.plateNumber + "</td><td>" + v.name + "</td><td>" + (v.type ?? "—") + "</td><td>" + badge + "</td><td>" + (v.lastInspectionDate ?? "—") + "</td><td>" + (v.nextInspectionDate ?? "—") + "</td></tr>";
     }).join("");
-
     const body = [
       statRow,
       "<div class='section-title'>Техникийн жагсаалт</div>",
       "<table><thead><tr><th>Дугаар</th><th>Нэр</th><th>Төрөл</th><th>Статус</th><th>Сүүлийн үзлэг</th><th>Дараагийн үзлэг</th></tr></thead><tbody>" + vRows + "</tbody></table>",
     ].join("");
-
     printReport("Механикийн техникийн тайлан", body);
   }
-
-  // Сарын зарцуулсан мөнгөн дүн тооцоолол
-  function calcSpent(summary: any, budget: any): number {
-    if (!summary || !budget) return 0;
-    return (summary.dieselLiters ?? 0) * (budget.dieselPrice ?? 0)
-         + (summary.petrolLiters ?? 0) * (budget.petrolPrice ?? 0);
-  }
-  const spentAmount = calcSpent(fuelSummary, currentBudget);
-  const budgetAmount = currentBudget?.budgetAmount ?? 0;
-  const remainingAmount = Math.max(0, budgetAmount - spentAmount);
-  const usedPct = budgetAmount > 0 ? Math.min(100, (spentAmount / budgetAmount) * 100) : 0;
-  const remainingDieselLiters = currentBudget ? Math.floor(remainingAmount / currentBudget.dieselPrice) : 0;
 
   const filtered = vehicles.filter(v => {
     const matchSearch = !search || v.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -395,9 +280,6 @@ export default function MechanicDashboard() {
           {([
             { key: "vehicles",     label: "Техникийн жагсаалт", icon: Truck,          badge: 0 },
             { key: "schedule",     label: "Захиалгын хуваарь",  icon: ClipboardList,  badge: assignments.filter(a => a.status === "active").length },
-            { key: "inspections",  label: "Өмнөх үзлэгүүд",   icon: History,         badge: 0 },
-            { key: "hours",        label: "Цаг / Шатахуун",    icon: Timer,           badge: 0 },
-            { key: "fuel",         label: "Шатахуун төсөв",    icon: Fuel,            badge: 0 },
             { key: "maintenance",  label: "ТО хуваарь",         icon: Wrench,          badge: 0 },
             { key: "spareparts",   label: "Сэлбэг",             icon: Package,         badge: 0 },
             { key: "alerts",       label: "Анхааруулга",        icon: Bell,            badge: 0 },
@@ -632,346 +514,6 @@ export default function MechanicDashboard() {
           </div>
         )}
 
-        {/* ── ЦАГ / ШАТАХУУН ── */}
-        {tab === "hours" && (
-          <div className="space-y-4">
-            {/* Summary + date filter */}
-            <div className="flex flex-wrap items-center gap-3 justify-between">
-              <div className="flex gap-3">
-                <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl px-4 py-3 text-center">
-                  <div className="text-2xl font-black text-orange-400">{totalHours.toFixed(1)}</div>
-                  <div className="text-xs text-white/40">Нийт цаг</div>
-                </div>
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl px-4 py-3 text-center">
-                  <div className="text-2xl font-black text-blue-400">{totalFuel.toFixed(0)}</div>
-                  <div className="text-xs text-white/40">Нийт шатахуун (л)</div>
-                </div>
-                <div className="bg-slate-700/30 border border-white/10 rounded-xl px-4 py-3 text-center">
-                  <div className="text-2xl font-black text-white">{eqLogs.length}</div>
-                  <div className="text-xs text-white/40">Техникийн тоо</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <input type="date" value={hourDate} onChange={e => setHourDate(e.target.value)}
-                  className="bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none" />
-                <button onClick={() => setShowHourForm(f => !f)} data-testid="btn-add-hourlog"
-                  className="flex items-center gap-2 px-4 py-2 bg-orange-700 hover:bg-orange-600 text-white rounded-xl text-sm font-bold transition-all">
-                  <Plus className="w-4 h-4" /> Бүртгэх
-                </button>
-              </div>
-            </div>
-
-            {/* Add form */}
-            {showHourForm && (
-              <div className="bg-slate-900/80 border border-orange-500/30 rounded-2xl p-5 space-y-4">
-                <h3 className="font-semibold text-orange-400 flex items-center gap-2">
-                  <Timer className="w-4 h-4" /> Техникийн цагийн бүртгэл
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="col-span-2 sm:col-span-1 space-y-1">
-                    <label className="text-xs text-white/40">Техник сонгох</label>
-                    <select value={hourLog.vehicleId}
-                      onChange={e => {
-                        const v = vehicles.find((x: any) => x.id === parseInt(e.target.value));
-                        setHourLog(p => ({ ...p, vehicleId: e.target.value, vehicleName: v ? `${v.plateNumber} ${v.name}` : "" }));
-                      }}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none">
-                      <option value="">-- Техник --</option>
-                      {vehicles.map((v: any) => (
-                        <option key={v.id} value={v.id}>{v.plateNumber} — {v.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  {[
-                    { key: "date",        label: "Огноо",              type: "date"   },
-                    { key: "hoursWorked", label: "Ажилсан цаг",        type: "number" },
-                    { key: "fuelUsed",    label: "Шатахуун (л)",        type: "number" },
-                    { key: "engineHours", label: "Хөдөлгүүрийн цаг (нийт)", type: "number" },
-                    { key: "workFront",   label: "Ажилсан фронт",      type: "text"   },
-                    { key: "recordedBy",  label: "Бүртгэсэн",          type: "text"   },
-                  ].map(f => (
-                    <div key={f.key} className="space-y-1">
-                      <label className="text-xs text-white/40">{f.label}</label>
-                      <input type={f.type} value={(hourLog as any)[f.key]}
-                        onChange={e => setHourLog(p => ({ ...p, [f.key]: e.target.value }))}
-                        className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-orange-500 transition-colors" />
-                    </div>
-                  ))}
-                  <div className="space-y-1">
-                    <label className="text-xs text-white/40">Түлшний төрөл</label>
-                    <select value={hourLog.fuelType} onChange={e => setHourLog(p => ({ ...p, fuelType: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none">
-                      <option value="diesel">Дизель</option>
-                      <option value="petrol">Бензин</option>
-                    </select>
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-xs text-white/40">Тэмдэглэл</label>
-                  <input type="text" value={hourLog.notes} onChange={e => setHourLog(p => ({ ...p, notes: e.target.value }))}
-                    placeholder="Нэмэлт мэдээлэл..."
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none" />
-                </div>
-                <div className="flex gap-2">
-                  <button data-testid="btn-save-hourlog" onClick={() => createHourLog.mutate({
-                    ...hourLog,
-                    vehicleId:   parseInt(hourLog.vehicleId),
-                    hoursWorked: parseFloat(hourLog.hoursWorked) || 0,
-                    fuelUsed:    parseFloat(hourLog.fuelUsed) || 0,
-                    engineHours: hourLog.engineHours ? parseFloat(hourLog.engineHours) : null,
-                  })} disabled={createHourLog.isPending || !hourLog.vehicleId}
-                    className="px-5 py-2 bg-orange-600 hover:bg-orange-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
-                    {createHourLog.isPending ? "..." : "Хадгалах"}
-                  </button>
-                  <button onClick={() => setShowHourForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
-                </div>
-              </div>
-            )}
-
-            {/* Log table */}
-            <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/10">
-                <h2 className="font-bold">{hourDate} — Техникийн ажилласан цаг</h2>
-              </div>
-              {eqLogs.length === 0 ? (
-                <div className="p-12 text-center text-slate-400">
-                  <Timer className="w-10 h-10 text-slate-700 mx-auto mb-2" />
-                  <p>Цагийн бүртгэл байхгүй байна</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-white/5">
-                  {/* Header */}
-                  <div className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-2 px-5 py-2 text-xs text-white/30">
-                    <span>Техник</span>
-                    <span className="text-right">Цаг</span>
-                    <span className="text-right">Шатахуун (л)</span>
-                    <span className="text-right">Хөдөлгүүр (ц)</span>
-                    <span>Фронт</span>
-                    <span />
-                  </div>
-                  {eqLogs.map((l: any) => (
-                    <div key={l.id} data-testid={`eq-log-${l.id}`}
-                      className="grid grid-cols-[2fr_1fr_1fr_1fr_1fr_auto] gap-2 px-5 py-3 items-center hover:bg-white/2 transition-colors">
-                      <div>
-                        <div className="font-semibold text-sm">{l.vehicleName || `ID:${l.vehicleId}`}</div>
-                        {l.recordedBy && <div className="text-xs text-white/30">{l.recordedBy}</div>}
-                      </div>
-                      <div className="text-right">
-                        <span className="font-bold text-orange-400">{l.hoursWorked}</span>
-                        <span className="text-xs text-white/30 ml-1">ц</span>
-                      </div>
-                      <div className="text-right">
-                        <span className="font-bold text-blue-400">{l.fuelUsed}</span>
-                        <span className="text-xs text-white/30 ml-1">л</span>
-                      </div>
-                      <div className="text-right text-xs text-white/40">{l.engineHours ?? "—"}</div>
-                      <div className="text-xs text-white/40">{l.workFront || "—"}</div>
-                      <button onClick={() => deleteHourLog.mutate(l.id)}
-                        className="p-1 text-white/20 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* ── ШАТАХУУН ТӨСӨВ ── */}
-        {tab === "fuel" && (
-          <div className="space-y-5">
-            {/* Одоогийн сарын хэсэг */}
-            <div className="bg-slate-900/60 border border-white/10 rounded-2xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-bold text-amber-300 flex items-center gap-2">
-                  <Fuel className="w-4 h-4" /> {MONTHS_MN[(nowM - 1)]} {nowY} — Шатахуун төсөв
-                </h2>
-                <button onClick={() => { setShowBudgetForm(true); setEditBudgetId(null); setBudgetForm({ ...emptyBudget, year: nowY, month: nowM }); }}
-                  className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-white font-bold rounded-xl text-sm transition-all">
-                  <Plus className="w-4 h-4" /> {currentBudget ? "Шинэчлэх" : "Төсөв батлах"}
-                </button>
-              </div>
-
-              {!currentBudget ? (
-                <div className="py-10 text-center">
-                  <Fuel className="w-10 h-10 text-slate-700 mx-auto mb-2" />
-                  <p className="text-slate-400 text-sm">Энэ сарын шатахуун төсөв батлагдаагүй байна</p>
-                  <p className="text-slate-600 text-xs mt-1">«Төсөв батлах» товчийг дарж шинэ төсөв оруулна уу</p>
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {/* Үнийн мэдээлэл */}
-                  <div className="grid grid-cols-3 gap-3">
-                    <div className="bg-slate-800/50 rounded-xl p-3 text-center">
-                      <p className="text-xs text-slate-500 mb-1">Батлагдсан төсөв</p>
-                      <p className="text-lg font-black text-amber-400">₮{currentBudget.budgetAmount.toLocaleString()}</p>
-                    </div>
-                    <div className="bg-blue-600/10 rounded-xl p-3 text-center">
-                      <p className="text-xs text-slate-500 mb-1">Дизель үнэ</p>
-                      <p className="text-lg font-black text-blue-400">₮{currentBudget.dieselPrice.toLocaleString()}<span className="text-xs font-normal text-slate-500">/л</span></p>
-                    </div>
-                    <div className="bg-purple-600/10 rounded-xl p-3 text-center">
-                      <p className="text-xs text-slate-500 mb-1">Бензин үнэ</p>
-                      <p className="text-lg font-black text-purple-400">₮{currentBudget.petrolPrice.toLocaleString()}<span className="text-xs font-normal text-slate-500">/л</span></p>
-                    </div>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div>
-                    <div className="flex justify-between text-xs mb-1.5">
-                      <span className="text-slate-400">Зарцуулсан: <span className={`font-bold ${usedPct > 90 ? "text-red-400" : usedPct > 70 ? "text-amber-400" : "text-green-400"}`}>₮{spentAmount.toLocaleString()}</span></span>
-                      <span className="text-slate-400">{usedPct.toFixed(1)}%</span>
-                    </div>
-                    <div className="h-3 bg-slate-800 rounded-full overflow-hidden">
-                      <div className={`h-full rounded-full transition-all ${usedPct > 90 ? "bg-red-500" : usedPct > 70 ? "bg-amber-500" : "bg-green-500"}`}
-                        style={{ width: `${usedPct}%` }} />
-                    </div>
-                    <div className="flex justify-between text-xs mt-1.5">
-                      <span className="text-slate-500">Үлдсэн: <span className="font-bold text-white">₮{remainingAmount.toLocaleString()}</span></span>
-                      <span className="text-slate-500">≈ <span className="font-bold text-blue-300">{remainingDieselLiters.toLocaleString()} л</span> дизель авч болно</span>
-                    </div>
-                  </div>
-
-                  {/* Зарцуулалтын задаргаа */}
-                  {fuelSummary && (
-                    <div className="grid grid-cols-2 gap-3 pt-2 border-t border-white/5">
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="w-2 h-2 bg-blue-400 rounded-full" />
-                        <span className="text-slate-400">Дизель:</span>
-                        <span className="font-bold text-white">{fuelSummary.dieselLiters?.toFixed(1) ?? 0} л</span>
-                        <span className="text-slate-600 text-xs">= ₮{((fuelSummary.dieselLiters ?? 0) * currentBudget.dieselPrice).toLocaleString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <span className="w-2 h-2 bg-purple-400 rounded-full" />
-                        <span className="text-slate-400">Бензин:</span>
-                        <span className="font-bold text-white">{fuelSummary.petrolLiters?.toFixed(1) ?? 0} л</span>
-                        <span className="text-slate-600 text-xs">= ₮{((fuelSummary.petrolLiters ?? 0) * currentBudget.petrolPrice).toLocaleString()}</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {currentBudget.approvedBy && (
-                    <p className="text-xs text-slate-600">Батлагдсан: {currentBudget.approvedBy} {currentBudget.notes ? `· ${currentBudget.notes}` : ""}</p>
-                  )}
-
-                  {usedPct > 90 && (
-                    <div className="flex items-start gap-2 bg-red-500/10 border border-red-500/30 rounded-xl p-3 text-sm text-red-400">
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
-                      <span>Анхааруулга: Сарын шатахуун төсвийн <strong>{usedPct.toFixed(0)}%</strong> ашиглагдсан байна!</span>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Төсөв батлах / засах маягт */}
-            {showBudgetForm && (
-              <div className="bg-amber-600/5 border border-amber-500/30 rounded-2xl p-5 space-y-4">
-                <h3 className="font-bold text-amber-400 flex items-center gap-2">
-                  <Save className="w-4 h-4" /> Шатахуун төсөв батлах
-                </h3>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-xs text-white/40">Он</label>
-                    <input type="number" value={budgetForm.year} onChange={e => setBudgetForm((f: any) => ({ ...f, year: parseInt(e.target.value) }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-white/40">Сар</label>
-                    <select value={budgetForm.month} onChange={e => setBudgetForm((f: any) => ({ ...f, month: parseInt(e.target.value) }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none">
-                      {MONTHS_MN.map((m, i) => <option key={i+1} value={i+1}>{m}</option>)}
-                    </select>
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-white/40">Батлагдсан төсөв (₮)</label>
-                    <input type="number" value={budgetForm.budgetAmount} placeholder="жишээ: 5000000"
-                      onChange={e => setBudgetForm((f: any) => ({ ...f, budgetAmount: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-white/40">Дизелийн үнэ (₮/л)</label>
-                    <input type="number" value={budgetForm.dieselPrice}
-                      onChange={e => setBudgetForm((f: any) => ({ ...f, dieselPrice: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-white/40">Бензины үнэ (₮/л)</label>
-                    <input type="number" value={budgetForm.petrolPrice}
-                      onChange={e => setBudgetForm((f: any) => ({ ...f, petrolPrice: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs text-white/40">Батлагч</label>
-                    <input type="text" value={budgetForm.approvedBy} placeholder="Нэр..."
-                      onChange={e => setBudgetForm((f: any) => ({ ...f, approvedBy: e.target.value }))}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-amber-500" />
-                  </div>
-                </div>
-                <input type="text" value={budgetForm.notes} placeholder="Тэмдэглэл..."
-                  onChange={e => setBudgetForm((f: any) => ({ ...f, notes: e.target.value }))}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2 text-sm focus:outline-none" />
-                {/* Тооцоолол preview */}
-                {budgetForm.budgetAmount && budgetForm.dieselPrice && (
-                  <div className="bg-slate-800/60 rounded-xl p-3 text-xs text-slate-400">
-                    ₮{parseFloat(budgetForm.budgetAmount || 0).toLocaleString()} төсвөөр
-                    → дизель <strong className="text-blue-300">{Math.floor(budgetForm.budgetAmount / budgetForm.dieselPrice).toLocaleString()} л</strong>
-                    / бензин <strong className="text-purple-300">{Math.floor(budgetForm.budgetAmount / budgetForm.petrolPrice).toLocaleString()} л</strong> авч болно
-                  </div>
-                )}
-                <div className="flex gap-2">
-                  <button data-testid="btn-save-budget" disabled={!budgetForm.budgetAmount || saveBudget.isPending}
-                    onClick={() => saveBudget.mutate({
-                      year: budgetForm.year, month: budgetForm.month,
-                      budgetAmount: parseFloat(budgetForm.budgetAmount),
-                      dieselPrice: parseFloat(budgetForm.dieselPrice),
-                      petrolPrice: parseFloat(budgetForm.petrolPrice),
-                      approvedBy: budgetForm.approvedBy || null,
-                      notes: budgetForm.notes || null,
-                    })}
-                    className="px-5 py-2 bg-amber-600 hover:bg-amber-500 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40">
-                    {saveBudget.isPending ? "..." : "Батлах"}
-                  </button>
-                  <button onClick={() => setShowBudgetForm(false)} className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-xl text-sm transition-all">Болих</button>
-                </div>
-              </div>
-            )}
-
-            {/* Түүх */}
-            <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
-              <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-                <h2 className="font-bold">Сарын төсвийн түүх</h2>
-              </div>
-              {allBudgets.length === 0 ? (
-                <div className="p-8 text-center text-slate-500 text-sm">Өмнөх төсвийн мэдээлэл байхгүй</div>
-              ) : (
-                <div className="divide-y divide-white/5">
-                  {allBudgets.map((b: any) => {
-                    return (
-                      <div key={b.id} className="px-5 py-3 flex items-center gap-4 hover:bg-white/2 transition-colors">
-                        <div className="w-20 shrink-0">
-                          <p className="font-bold text-sm text-amber-400">{MONTHS_MN[(b.month - 1)]}</p>
-                          <p className="text-xs text-slate-500">{b.year}</p>
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-semibold">₮{b.budgetAmount.toLocaleString()}</p>
-                          <p className="text-xs text-slate-500">Дизель: ₮{b.dieselPrice.toLocaleString()}/л · Бензин: ₮{b.petrolPrice.toLocaleString()}/л</p>
-                        </div>
-                        {b.approvedBy && <p className="text-xs text-slate-600">{b.approvedBy}</p>}
-                        <button onClick={() => { setEditBudgetId(b.id); setBudgetForm({ year: b.year, month: b.month, budgetAmount: b.budgetAmount, dieselPrice: b.dieselPrice, petrolPrice: b.petrolPrice, approvedBy: b.approvedBy ?? "", notes: b.notes ?? "" }); setShowBudgetForm(true); }}
-                          className="p-1.5 text-white/20 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-all">
-                          <Edit2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* ── ТАЙЛАН ── */}
         {tab === "report" && (
           <div className="space-y-4">
@@ -990,7 +532,7 @@ export default function MechanicDashboard() {
                 { label: "Нийт техник",     value: vehicles.length,                                          color: "text-white"   },
                 { label: "Ажлын бэлэн",     value: vehicles.filter((v: any) => v.isReady).length,            color: "text-green-400" },
                 { label: "Засварт / бэлэн биш", value: vehicles.filter((v: any) => !v.isReady).length,       color: "text-red-400" },
-                { label: "Нийт ажлын цаг",  value: allEqLogs.reduce((s: number, l: any) => s + (l.hoursWorked ?? 0), 0).toFixed(1) + " ц", color: "text-amber-400" },
+                { label: "Нийт ажлын цаг",  value: assignments.reduce((s: number, a: any) => s + (a.hoursUsed ?? 0), 0).toFixed(1) + " ц", color: "text-amber-400" },
               ].map(s => (
                 <div key={s.label} className="bg-slate-900/60 border border-white/10 rounded-2xl p-4">
                   <div className={`text-2xl font-bold ${s.color}`}>{s.value}</div>
@@ -1036,98 +578,6 @@ export default function MechanicDashboard() {
                 </table>
               </div>
             </div>
-            {allBudgetsReport.length > 0 && (
-              <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
-                <div className="px-5 py-3 border-b border-white/10">
-                  <h3 className="font-bold text-sm">Шатахуун төсвийн тайлан</h3>
-                </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead className="bg-white/5 text-white/50 text-xs uppercase">
-                      <tr>
-                        <th className="px-4 py-3 text-left">Он</th>
-                        <th className="px-4 py-3 text-left">Сар</th>
-                        <th className="px-4 py-3 text-right">Төсөв (₮)</th>
-                        <th className="px-4 py-3 text-right">Дизель үнэ</th>
-                        <th className="px-4 py-3 text-right">Бензин үнэ</th>
-                        <th className="px-4 py-3 text-left">Батлагч</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-white/5">
-                      {allBudgetsReport.map((b: any) => (
-                        <tr key={b.id} className="hover:bg-white/3">
-                          <td className="px-4 py-3">{b.year}</td>
-                          <td className="px-4 py-3">{MONTHS_MN[(b.month ?? 1) - 1]}</td>
-                          <td className="px-4 py-3 text-right font-bold text-amber-400">{Number(b.budgetAmount).toLocaleString()}₮</td>
-                          <td className="px-4 py-3 text-right text-white/50">{b.dieselPrice}₮/л</td>
-                          <td className="px-4 py-3 text-right text-white/50">{b.petrolPrice}₮/л</td>
-                          <td className="px-4 py-3 text-white/50">{b.approvedBy ?? "—"}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {tab === "inspections" && (
-          <div className="bg-slate-900/60 border border-white/10 rounded-2xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-white/10 flex items-center justify-between">
-              <h2 className="font-bold">Өдрийн өмнөх үзлэгүүд</h2>
-              <button onClick={() => qc.invalidateQueries({ queryKey: ["/api/erp/vehicle-inspections"] })}
-                className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition-all">
-                <RefreshCw className="w-4 h-4" />
-              </button>
-            </div>
-            {inspLoading ? (
-              <div className="p-12 text-center text-slate-400">Уншиж байна...</div>
-            ) : inspections.length === 0 ? (
-              <div className="p-12 text-center text-slate-400">
-                <FileText className="w-10 h-10 text-slate-700 mx-auto mb-2" />
-                <p>Үзлэг бүртгэгдээгүй байна</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/5">
-                {inspections.map((insp: any) => {
-                  const vehicle = vehicleMap.get(insp.vehicleId);
-                  let checks: any[] = [];
-                  try { checks = JSON.parse(insp.checks); } catch {}
-                  const failedItems = checks.filter(c => c.warn);
-                  return (
-                    <div key={insp.id} className="p-4 hover:bg-white/2 transition-colors">
-                      <div className="flex items-start gap-3">
-                        <div className={`p-2 rounded-xl ${insp.passed ? "bg-green-500/15" : "bg-red-500/15"}`}>
-                          {insp.passed
-                            ? <CheckCircle2 className="w-4 h-4 text-green-400" />
-                            : <AlertTriangle className="w-4 h-4 text-red-400" />}
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex flex-wrap items-center gap-2 mb-1">
-                            <span className="text-white font-semibold">{vehicle?.plateNumber ?? `ID:${insp.vehicleId}`}</span>
-                            <span className="text-slate-400 text-sm">{vehicle?.name}</span>
-                            <span className={`px-2 py-0.5 rounded text-xs font-medium ${insp.passed ? "bg-green-500/10 text-green-400" : "bg-red-500/10 text-red-400"}`}>
-                              {insp.passed ? "Тэнцсэн" : "Асуудалтай"}
-                            </span>
-                          </div>
-                          <p className="text-xs text-slate-500 mb-1">Хийсэн: {insp.employeeName} · {insp.date}</p>
-                          {failedItems.length > 0 && (
-                            <div className="text-xs text-red-400">
-                              Асуудалтай: {failedItems.map((c: any) => c.item).join(", ")}
-                            </div>
-                          )}
-                          {insp.notes && <p className="text-xs text-slate-500 mt-0.5 italic">{insp.notes}</p>}
-                        </div>
-                        <span className="text-xs text-slate-600">
-                          {new Date(insp.createdAt).toLocaleTimeString("mn-MN", { hour: "2-digit", minute: "2-digit" })}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
           </div>
         )}
 
@@ -1416,7 +866,8 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
   const [filterV, setFilterV] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");
   const today = new Date().toISOString().slice(0, 10);
-  const [form, setForm] = useState({ vehicleId: "", toType: "TO1", scheduledDate: today, description: "", technicianName: "", hoursAtService: "", cost: "", notes: "" });
+  const [form, setForm] = useState({ vehicleId: "", toType: "TO1", scheduledDate: today, description: "", technicianName: "", hoursAtService: "", cost: "", notes: "", fuelUsed: "", fuelType: "diesel" });
+  const [doneForm, setDoneForm] = useState<{ id: number; fuelUsed: string; fuelType: string } | null>(null);
 
   const { data: _schedsRaw } = useQuery<any>({
     queryKey: ["/api/maintenance-schedules"],
@@ -1428,8 +879,8 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/maintenance-schedules"] }); setShowForm(false); toast({ title: "ТО хуваарь нэмэгдлээ" }); },
   });
   const doneMut = useMutation({
-    mutationFn: ({ id, completedDate }: any) => fetch(`/api/maintenance-schedules/${id}`, { method: "PATCH", headers: hdrs(), body: JSON.stringify({ status: "done", completedDate }) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/maintenance-schedules"] }); toast({ title: "Гүйцэтгэл тэмдэглэгдлээ" }); },
+    mutationFn: ({ id, completedDate, fuelUsed, fuelType }: any) => fetch(`/api/maintenance-schedules/${id}`, { method: "PATCH", headers: hdrs(), body: JSON.stringify({ status: "done", completedDate, fuelUsed: fuelUsed ? parseFloat(fuelUsed) : null, fuelType }) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/maintenance-schedules"] }); setDoneForm(null); toast({ title: "Гүйцэтгэл тэмдэглэгдлээ" }); },
   });
   const delMut = useMutation({
     mutationFn: (id: number) => fetch(`/api/maintenance-schedules/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
@@ -1446,9 +897,10 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
   // Auto-mark overdue
   const overdueIds = schedules.filter((s: any) => s.status === "scheduled" && s.scheduledDate < today).map((s: any) => s.id);
 
-  const upcoming = schedules.filter((s: any) => s.status === "scheduled" && s.scheduledDate >= today).length;
-  const done     = schedules.filter((s: any) => s.status === "done").length;
-  const overdue  = schedules.filter((s: any) => s.status === "scheduled" && s.scheduledDate < today).length;
+  const upcoming  = schedules.filter((s: any) => s.status === "scheduled" && s.scheduledDate >= today).length;
+  const done      = schedules.filter((s: any) => s.status === "done").length;
+  const overdue   = schedules.filter((s: any) => s.status === "scheduled" && s.scheduledDate < today).length;
+  const totalFuel = schedules.filter((s: any) => s.status === "done").reduce((sum: number, s: any) => sum + (s.fuelUsed ?? 0), 0);
 
   return (
     <div className="space-y-4">
@@ -1476,7 +928,7 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3 text-center">
           <div className="text-2xl font-black text-blue-300">{upcoming}</div>
           <div className="text-xs text-blue-400/70 mt-0.5">Товлосон</div>
@@ -1489,7 +941,31 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
           <div className="text-2xl font-black text-red-300">{overdue}</div>
           <div className="text-xs text-red-400/70 mt-0.5">Хоцорсон</div>
         </div>
+        <div className="bg-orange-500/10 border border-orange-500/20 rounded-xl p-3 text-center">
+          <div className="text-2xl font-black text-orange-300">{totalFuel.toFixed(0)}л</div>
+          <div className="text-xs text-orange-400/70 mt-0.5">Нийт шатахуун</div>
+        </div>
       </div>
+
+      {/* Гүйцэтгэл бичих мини форм */}
+      {doneForm && (
+        <div className="bg-slate-900/80 border border-green-500/30 rounded-xl p-4 flex flex-wrap items-center gap-3">
+          <span className="text-sm text-green-300 font-semibold">Гүйцэтгэл бичих — шатахуун (сонгоц):</span>
+          <input type="number" value={doneForm.fuelUsed} onChange={e => setDoneForm(p => p ? { ...p, fuelUsed: e.target.value } : p)}
+            placeholder="Шатахуун (л)" className="w-32 bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none" />
+          <select value={doneForm.fuelType} onChange={e => setDoneForm(p => p ? { ...p, fuelType: e.target.value } : p)}
+            className="bg-slate-800 border border-white/10 rounded-xl px-3 py-1.5 text-sm text-white focus:outline-none">
+            <option value="diesel">Дизель</option>
+            <option value="petrol">Бензин</option>
+          </select>
+          <button onClick={() => doneMut.mutate({ id: doneForm.id, completedDate: today, fuelUsed: doneForm.fuelUsed, fuelType: doneForm.fuelType })}
+            disabled={doneMut.isPending}
+            className="px-4 py-1.5 bg-green-600 hover:bg-green-500 text-white text-sm font-bold rounded-xl transition-all">
+            Хадгалах ✓
+          </button>
+          <button onClick={() => setDoneForm(null)} className="px-3 py-1.5 bg-slate-700 text-slate-300 text-sm rounded-xl">Цуцлах</button>
+        </div>
+      )}
 
       {showForm && (
         <div className="bg-slate-900/80 border border-orange-500/30 rounded-2xl p-5 grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1514,12 +990,21 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
             placeholder="Мото/цаг (үед хийх)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
           <input type="number" value={form.cost} onChange={e => setForm(p => ({ ...p, cost: e.target.value }))}
             placeholder="Зардал (₮)" className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+          <div className="flex gap-2">
+            <input type="number" value={form.fuelUsed} onChange={e => setForm(p => ({ ...p, fuelUsed: e.target.value }))}
+              placeholder="Шатахуун (литр)" className="flex-1 bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none" />
+            <select value={form.fuelType} onChange={e => setForm(p => ({ ...p, fuelType: e.target.value }))}
+              className="bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none">
+              <option value="diesel">Дизель</option>
+              <option value="petrol">Бензин</option>
+            </select>
+          </div>
           <textarea value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))}
             placeholder="Хийх ажлын тайлбар" rows={2}
             className="md:col-span-2 bg-slate-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none resize-none" />
           <div className="md:col-span-2 flex gap-2 justify-end">
             <button onClick={() => setShowForm(false)} className="px-4 py-2 bg-slate-700 text-slate-300 text-sm rounded-xl">Цуцлах</button>
-            <button onClick={() => { if (!form.vehicleId) return; addMut.mutate({ ...form, vehicleId: parseInt(form.vehicleId), hoursAtService: form.hoursAtService ? parseFloat(form.hoursAtService) : null, cost: form.cost ? parseFloat(form.cost) : null, status: "scheduled" }); }}
+            <button onClick={() => { if (!form.vehicleId) return; addMut.mutate({ ...form, vehicleId: parseInt(form.vehicleId), hoursAtService: form.hoursAtService ? parseFloat(form.hoursAtService) : null, cost: form.cost ? parseFloat(form.cost) : null, fuelUsed: form.fuelUsed ? parseFloat(form.fuelUsed) : null, status: "scheduled" }); }}
               disabled={addMut.isPending}
               className="px-5 py-2 bg-orange-600 hover:bg-orange-500 text-white text-sm font-bold rounded-xl transition-all">
               Хадгалах
@@ -1548,13 +1033,14 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
               <th className="px-4 py-3">Товлосон огноо</th>
               <th className="px-4 py-3">Техникч</th>
               <th className="px-4 py-3">Зардал</th>
+              <th className="px-4 py-3">Шатахуун</th>
               <th className="px-4 py-3">Статус</th>
               <th className="px-4 py-3">Үйлдэл</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
-              <tr><td colSpan={7} className="text-center py-8 text-white/30">ТО хуваарь байхгүй байна</td></tr>
+              <tr><td colSpan={8} className="text-center py-8 text-white/30">ТО хуваарь байхгүй байна</td></tr>
             )}
             {filtered.map((s: any) => {
               const isOverdue = s.status === "scheduled" && s.scheduledDate < today;
@@ -1566,10 +1052,11 @@ function MaintenanceTab({ vehicles, qc, toast }: { vehicles: any[]; qc: any; toa
                   <td className="px-4 py-3 text-white/70">{s.scheduledDate}</td>
                   <td className="px-4 py-3 text-white/50">{s.technicianName ?? "—"}</td>
                   <td className="px-4 py-3 text-white/50">{s.cost ? `₮${(s.cost as number).toLocaleString()}` : "—"}</td>
+                  <td className="px-4 py-3 text-white/50">{s.fuelUsed ? `${s.fuelUsed}л ${s.fuelType === "petrol" ? "🟡" : "⚫"}` : "—"}</td>
                   <td className="px-4 py-3"><span className={`px-2 py-0.5 rounded-lg text-xs font-bold ${STATUS_COLORS[displayStatus]}`}>{STATUS_LABELS[displayStatus]}</span></td>
                   <td className="px-4 py-3 flex items-center gap-2">
                     {s.status === "scheduled" && (
-                      <button onClick={() => doneMut.mutate({ id: s.id, completedDate: today })}
+                      <button onClick={() => setDoneForm({ id: s.id, fuelUsed: "", fuelType: "diesel" })}
                         className="px-2 py-1 bg-green-600/30 hover:bg-green-600/50 text-green-300 text-xs rounded-lg transition-colors">
                         Гүйцэтгэлд ✓
                       </button>
