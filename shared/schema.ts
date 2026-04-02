@@ -200,6 +200,7 @@ export const vehicles = pgTable("vehicles", {
   nextInspectionDate: text("next_inspection_date"), // Дараагийн үзлэгийн огноо
   isReady: boolean("is_ready").default(true),       // Ажилд бэлэн эсэх
   readyNote: text("ready_note"),             // Бэлэн бус бол шалтгаан
+  hourlyRate: real("hourly_rate").default(0), // Цагийн тариф ₮/цаг
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow(),
 });
@@ -233,6 +234,7 @@ export const warehouseItems = pgTable("warehouse_items", {
   currentStock: real("current_stock").default(0), // Одоогийн нөөц
   minStock: real("min_stock").default(0),         // Хоногийн хэрэгцээ (норм)
   criticalStock: real("critical_stock").default(0), // Критик (2 хоногийн)
+  unitCost: real("unit_cost").default(0),         // Нэгжийн өртөг ₮
   normBasis: text("norm_basis"),                  // Норм тооцооны үндэс
   notes: text("notes"),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -893,6 +895,7 @@ export const salesOrders = pgTable("sales_orders", {
   confirmedBy:           text("confirmed_by"),
   warehouseDeducted:     boolean("warehouse_deducted").default(false),
   warehouseDeductedAt:   timestamp("warehouse_deducted_at"),
+  linkedProposalId:      integer("linked_proposal_id"),    // Холбосон үнийн санал
   createdAt:             timestamp("created_at").defaultNow(),
 });
 export const insertSalesOrderSchema = createInsertSchema(salesOrders).omit({ id: true, createdAt: true });
@@ -946,6 +949,7 @@ export const equipmentAssignments = pgTable("equipment_assignments", {
   status:          text("status").notNull().default("active"), // active | completed | cancelled
   taskDescription: text("task_description"),
   assignedBy:      text("assigned_by"),
+  hoursUsed:       real("hours_used").default(0), // Ажилласан цаг
   notes:           text("notes"),
   createdAt:       timestamp("created_at").defaultNow(),
 });

@@ -2,10 +2,11 @@ import { useState } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
-  TrendingUp, LogOut, Plus, Search, CheckCircle2,
+  TrendingUp, TrendingDown, LogOut, Plus, Search, CheckCircle2,
   Clock, Truck, XCircle, Calculator, BarChart3,
   Loader2, AlertCircle, PackageCheck, Hammer, Send,
-  Package, Pencil, Trash2, ToggleLeft, ToggleRight, FileText, Sparkles, MapPin
+  Package, Pencil, Trash2, ToggleLeft, ToggleRight, FileText, Sparkles, MapPin,
+  ChevronDown, ChevronUp, DollarSign, Layers, Link2
 } from "lucide-react";
 import NotificationBell from "@/components/NotificationBell";
 import ReportUploadButton from "@/components/ReportUploadButton";
@@ -535,6 +536,11 @@ function OrderRow({ order, onStatusChange, onContractConfirm }: {
       {order.status === "in_production" && (
         <EquipmentPanel orderId={order.id} token={token} />
       )}
+
+      {/* Өртгийн тооцоо — confirmed эсвэл in_production захиалгад */}
+      {(order.status === "confirmed" || order.status === "in_production" || order.status === "delivered") && (
+        <CostBreakdownPanel order={order} token={token} />
+      )}
     </div>
   );
 }
@@ -574,7 +580,238 @@ function EquipmentPanel({ orderId, token }: { orderId: number; token: string }) 
   );
 }
 
-// ── Ашигт ажиллагааны самбар ──────────────────────────────────────────────────
+// ── Өртгийн тооцооны самбар ─────────────────────────────────────────────────
+type CostAnalysis = {
+  orderId: number; customerName: string; product: string;
+  quantity: number; unit: string; pricePerUnit: number; costPerUnit: number;
+  materialCost: { total: number; lines: { name: string; qty: number; unit: string; unitCost: number; total: number }[] };
+  equipmentCost: { total: number; lines: { name: string; hours: number; rate: number; total: number }[] };
+  laborCost: { total: number };
+  overheadCost: { total: number };
+  totalCost: number; revenue: number; profit: number; marginPct: number; isProfit: boolean;
+  linkedProposal: { id: number; productName: string; finalUnitCost: number; suggestedPrice: number; markupPct: number } | null;
+};
+
+function CostBreakdownPanel({ order, token }: { order: SalesOrder; token: string }) {
+  const [open, setOpen] = useState(false);
+  const [, setLocation] = useLocation();
+  const { toast } = useToast();
+  const qc = useQueryClient();
+
+  const { data: analysis, isLoading, refetch } = useQuery<CostAnalysis>({
+    queryKey: ["/api/sales/orders", order.id, "cost-analysis"],
+    queryFn: () => fetch(`/api/sales/orders/${order.id}/cost-analysis`, { headers: { "x-admin-token": token } }).then(r => r.json()),
+    enabled: open,
+  });
+
+  const [proposals, setProposals] = useState<any[]>([]);
+  const [showLink, setShowLink] = useState(false);
+
+  async function loadProposals() {
+    const r = await fetch("/api/price-proposals", { headers: { "x-admin-token": token } });
+    const data = await r.json();
+    setProposals(Array.isArray(data) ? data : []);
+    setShowLink(true);
+  }
+
+  async function linkProposal(proposalId: number | null) {
+    await fetch(`/api/sales/orders/${order.id}/link-proposal`, {
+      method: "PATCH", headers: { "x-admin-token": token, "Content-Type": "application/json" },
+      body: JSON.stringify({ proposalId }),
+    });
+    qc.invalidateQueries({ queryKey: ["/api/sales/orders", order.id, "cost-analysis"] });
+    refetch();
+    setShowLink(false);
+    toast({ title: proposalId ? "✅ Үнийн санал холбогдлоо" : "Холболт устгагдлаа" });
+  }
+
+  const fmt = (n: number) => n.toLocaleString("mn-MN") + " ₮";
+  const pct = (n: number, total: number) => total > 0 ? Math.round(n / total * 100) : 0;
+
+  return (
+    <div className="mt-2">
+      <button
+        data-testid={`btn-cost-breakdown-${order.id}`}
+        onClick={() => setOpen(v => !v)}
+        className="flex items-center gap-1.5 text-xs text-slate-400 hover:text-amber-300 transition-colors"
+      >
+        <BarChart3 size={11} className="text-amber-400" />
+        {open ? "Өртгийн тооцоо нуух" : "Өртгийн тооцоо харах"}
+        {open ? <ChevronUp size={10} /> : <ChevronDown size={10} />}
+      </button>
+
+      {open && (
+        <div className="mt-2 rounded-xl border border-slate-700/40 bg-slate-800/30 p-4 space-y-4">
+          {isLoading ? (
+            <div className="text-center py-4 text-slate-500 text-xs"><Loader2 className="w-4 h-4 animate-spin inline mr-1" />Тооцоолж байна…</div>
+          ) : analysis ? (
+            <>
+              {/* Summary cards */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-lg bg-slate-700/30 p-2.5 text-center">
+                  <div className="text-[11px] text-slate-500 mb-0.5">Борлуулалтын дүн</div>
+                  <div className="font-bold text-sm text-white">{fmt(analysis.revenue)}</div>
+                </div>
+                <div className="rounded-lg bg-slate-700/30 p-2.5 text-center">
+                  <div className="text-[11px] text-slate-500 mb-0.5">Нийт өртөг</div>
+                  <div className="font-bold text-sm text-orange-300">{fmt(analysis.totalCost)}</div>
+                </div>
+                <div className={`rounded-lg p-2.5 text-center ${analysis.isProfit ? "bg-emerald-500/10" : "bg-red-500/10"}`}>
+                  <div className="text-[11px] text-slate-500 mb-0.5">
+                    {analysis.isProfit ? "Ашиг" : "Алдагдал"}
+                  </div>
+                  <div className={`font-bold text-sm flex items-center justify-center gap-1 ${analysis.isProfit ? "text-emerald-400" : "text-red-400"}`}>
+                    {analysis.isProfit ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                    {fmt(Math.abs(analysis.profit))}
+                    <span className="text-xs font-normal opacity-70">({analysis.marginPct}%)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Cost breakdown bars */}
+              <div className="space-y-2">
+                <div className="text-[11px] text-slate-500 font-medium">Өртгийн задаргаа</div>
+
+                {/* Material */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="flex items-center gap-1 text-slate-400"><Package size={10} /> Материал</span>
+                    <span className="font-semibold text-white">{fmt(analysis.materialCost.total)}</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-blue-500 rounded-full" style={{ width: `${pct(analysis.materialCost.total, analysis.totalCost)}%` }} />
+                  </div>
+                  {analysis.materialCost.lines.length > 0 && (
+                    <div className="pl-2 space-y-0.5">
+                      {analysis.materialCost.lines.map((l, i) => (
+                        <div key={i} className="flex justify-between text-[10px] text-slate-500">
+                          <span>{l.name} ({l.qty}{l.unit} × {l.unitCost.toLocaleString("mn-MN")}₮)</span>
+                          <span>{l.total.toLocaleString("mn-MN")}₮</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Equipment */}
+                <div className="space-y-1">
+                  <div className="flex justify-between text-xs">
+                    <span className="flex items-center gap-1 text-slate-400"><Truck size={10} /> Тоног</span>
+                    <span className="font-semibold text-white">{fmt(analysis.equipmentCost.total)}</span>
+                  </div>
+                  <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                    <div className="h-full bg-orange-500 rounded-full" style={{ width: `${pct(analysis.equipmentCost.total, analysis.totalCost)}%` }} />
+                  </div>
+                  {analysis.equipmentCost.lines.filter(l => l.hours > 0).map((l, i) => (
+                    <div key={i} className="flex justify-between text-[10px] text-slate-500 pl-2">
+                      <span>{l.name} ({l.hours}ц × {l.rate.toLocaleString("mn-MN")}₮/ц)</span>
+                      <span>{l.total.toLocaleString("mn-MN")}₮</span>
+                    </div>
+                  ))}
+                  {analysis.equipmentCost.lines.length > 0 && analysis.equipmentCost.total === 0 && (
+                    <div className="text-[10px] text-slate-600 pl-2">Ажилласан цаг бүртгэгдээгүй (Механик самбараас оруулна)</div>
+                  )}
+                </div>
+
+                {/* Labor */}
+                {analysis.laborCost.total > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="flex items-center gap-1 text-slate-400"><Hammer size={10} /> Хөдөлмөр</span>
+                      <span className="font-semibold text-white">{fmt(analysis.laborCost.total)}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-full bg-purple-500 rounded-full" style={{ width: `${pct(analysis.laborCost.total, analysis.totalCost)}%` }} />
+                    </div>
+                  </div>
+                )}
+
+                {/* Overhead */}
+                {analysis.overheadCost.total > 0 && (
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-xs">
+                      <span className="flex items-center gap-1 text-slate-400"><Layers size={10} /> Нэмэлт зардал</span>
+                      <span className="font-semibold text-white">{fmt(analysis.overheadCost.total)}</span>
+                    </div>
+                    <div className="h-1.5 bg-slate-700 rounded-full overflow-hidden">
+                      <div className="h-full bg-slate-400 rounded-full" style={{ width: `${pct(analysis.overheadCost.total, analysis.totalCost)}%` }} />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Per unit */}
+              {analysis.totalCost > 0 && (
+                <div className="flex justify-between items-center text-xs border-t border-slate-700/30 pt-2">
+                  <span className="text-slate-400">Нэгжийн өртөг ({order.unit})</span>
+                  <div className="flex items-center gap-3">
+                    <span className="text-orange-300 font-semibold">{fmt(analysis.costPerUnit)}</span>
+                    {analysis.pricePerUnit > 0 && (
+                      <span className={analysis.pricePerUnit > analysis.costPerUnit ? "text-emerald-400" : "text-red-400"}>
+                        → Үнэ: {fmt(analysis.pricePerUnit)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Linked proposal */}
+              <div className="border-t border-slate-700/30 pt-2 flex items-center justify-between">
+                <div className="text-[11px] text-slate-500 flex items-center gap-1">
+                  <Link2 size={10} />
+                  {analysis.linkedProposal
+                    ? <span>Үнийн санал: <span className="text-amber-400">{analysis.linkedProposal.productName}</span> (ашиг +{analysis.linkedProposal.markupPct}%)</span>
+                    : "Үнийн санал холбогдоогүй"}
+                </div>
+                <div className="flex gap-1.5">
+                  {analysis.linkedProposal && (
+                    <button onClick={() => setLocation("/price-proposals")}
+                      className="text-[11px] text-amber-400 hover:text-amber-300 underline">
+                      Харах
+                    </button>
+                  )}
+                  <button onClick={() => showLink ? setShowLink(false) : loadProposals()}
+                    className="text-[11px] text-slate-500 hover:text-white border border-slate-700 rounded px-2 py-0.5">
+                    {analysis.linkedProposal ? "Солих" : "+ Холбох"}
+                  </button>
+                </div>
+              </div>
+
+              {showLink && (
+                <div className="space-y-1.5">
+                  <div className="text-[11px] text-slate-500">Үнийн санал сонгох:</div>
+                  <div className="max-h-40 overflow-y-auto space-y-1">
+                    {proposals.length === 0 && <div className="text-xs text-slate-600">Санал байхгүй</div>}
+                    {proposals.map((p: any) => (
+                      <button key={p.id} onClick={() => linkProposal(p.id)}
+                        className="w-full text-left flex justify-between items-center px-3 py-2 rounded-lg border border-slate-700/50 hover:bg-slate-700/30 transition-all">
+                        <span className="text-xs text-white">{p.productName}</span>
+                        <span className="text-[11px] text-amber-400">
+                          {p.finalUnitCost ? p.finalUnitCost.toLocaleString("mn-MN") + "₮/" + p.unit : "—"}
+                        </span>
+                      </button>
+                    ))}
+                    {analysis.linkedProposal && (
+                      <button onClick={() => linkProposal(null)}
+                        className="w-full text-xs text-red-400 hover:text-red-300 border border-red-500/20 rounded-lg px-3 py-1.5 transition-all">
+                        Холболт арилгах
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="text-center py-4 text-slate-600 text-xs">
+              {analysis && (analysis as any).error ? `Алдаа: ${(analysis as any).error}` : "Агуулахын хасалт бүртгэгдсэний дараа өртгийн тооцоо харагдана"}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProfitPanel() {
   const { data, isLoading } = useQuery<any>({
     queryKey: ["/api/sales/profitability-summary"],

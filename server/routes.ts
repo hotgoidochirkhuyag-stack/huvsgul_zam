@@ -3220,6 +3220,143 @@ ${cert.testResults ? `
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // ── Захиалгын өртгийн дүн шинжилгээ ──────────────────────────────────────────
+  app.get("/api/sales/orders/:id/cost-analysis", requireSalesOrAdmin, async (req, res) => {
+    try {
+      const orderId = parseInt(req.params.id);
+      const [order] = await db.select().from(schema.salesOrders).where(eq(schema.salesOrders.id, orderId));
+      if (!order) return res.status(404).json({ error: "Захиалга олдсонгүй" });
+
+      // 1. Материалын өртөг — агуулахын хасалтын лог × нэгжийн өртөг
+      const deductLogs = await db.select().from(schema.warehouseDeductionLogs)
+        .where(eq(schema.warehouseDeductionLogs.salesOrderId, orderId));
+      const materialLines: { name: string; qty: number; unit: string; unitCost: number; total: number }[] = [];
+      let materialCostTotal = 0;
+
+      for (const dl of deductLogs) {
+        const [item] = await db.select().from(schema.warehouseItems)
+          .where(eq(schema.warehouseItems.id, dl.warehouseItemId));
+        const unitCost = item?.unitCost ?? 0;
+        const total = (dl.amountDeducted ?? 0) * unitCost;
+        materialLines.push({
+          name: dl.itemName,
+          qty: dl.amountDeducted ?? 0,
+          unit: dl.unit,
+          unitCost,
+          total,
+        });
+        materialCostTotal += total;
+      }
+
+      // 2. Тоногийн өртөг — equipment_assignments × цагийн тариф × ажилласан цаг
+      const assignments = await db.select({
+        id: schema.equipmentAssignments.id,
+        vehicleId: schema.equipmentAssignments.vehicleId,
+        hoursUsed: schema.equipmentAssignments.hoursUsed,
+        taskDescription: schema.equipmentAssignments.taskDescription,
+        vehicleName: schema.vehicles.name,
+        hourlyRate: schema.vehicles.hourlyRate,
+      })
+        .from(schema.equipmentAssignments)
+        .leftJoin(schema.vehicles, eq(schema.equipmentAssignments.vehicleId, schema.vehicles.id))
+        .where(eq(schema.equipmentAssignments.salesOrderId, orderId));
+
+      const equipmentLines: { name: string; hours: number; rate: number; total: number }[] = [];
+      let equipmentCostTotal = 0;
+      for (const a of assignments) {
+        const hours = a.hoursUsed ?? 0;
+        const rate  = a.hourlyRate ?? 0;
+        const total = hours * rate;
+        equipmentLines.push({ name: a.vehicleName ?? "Тоног", hours, rate, total });
+        equipmentCostTotal += total;
+      }
+
+      // 3. Холбосон үнийн санал (labor + overhead)
+      let laborCostTotal = 0;
+      let overheadCostTotal = 0;
+      let proposalSummary = null;
+      if (order.linkedProposalId) {
+        const [proposal] = await db.select().from(schema.priceProposals)
+          .where(eq(schema.priceProposals.id, order.linkedProposalId));
+        if (proposal) {
+          const items = await db.select().from(schema.priceProposalItems)
+            .where(eq(schema.priceProposalItems.proposalId, order.linkedProposalId));
+          const laborItems = items.filter(i => i.category === "labor");
+          const overheadItems = items.filter(i => i.category === "overhead");
+          laborCostTotal    = laborItems.reduce((s, i)    => s + (i.totalPerUnit ?? 0), 0) * (order.quantity ?? 1);
+          overheadCostTotal = overheadItems.reduce((s, i) => s + (i.totalPerUnit ?? 0), 0) * (order.quantity ?? 1);
+          proposalSummary = {
+            id: proposal.id,
+            productName: proposal.productName,
+            finalUnitCost: proposal.finalUnitCost,
+            suggestedPrice: proposal.suggestedPrice,
+            markupPct: proposal.markupPct,
+          };
+        }
+      }
+
+      // 4. Нийт тооцоо
+      const totalCost    = materialCostTotal + equipmentCostTotal + laborCostTotal + overheadCostTotal;
+      const revenue      = (order.pricePerUnit ?? 0) * (order.quantity ?? 0);
+      const profit       = revenue - totalCost;
+      const marginPct    = revenue > 0 ? Math.round((profit / revenue) * 1000) / 10 : 0;
+      const costPerUnit  = order.quantity ? Math.round(totalCost / order.quantity) : 0;
+
+      // costPerUnit-ийг захиалгад шинэчлэх
+      if (order.quantity && totalCost > 0) {
+        await db.update(schema.salesOrders)
+          .set({ costPerUnit })
+          .where(eq(schema.salesOrders.id, orderId));
+      }
+
+      res.json({
+        orderId,
+        customerName: order.customerName,
+        product: order.product,
+        quantity: order.quantity,
+        unit: order.unit,
+        pricePerUnit: order.pricePerUnit ?? 0,
+        costPerUnit,
+        materialCost: { total: materialCostTotal, lines: materialLines },
+        equipmentCost: { total: equipmentCostTotal, lines: equipmentLines },
+        laborCost: { total: laborCostTotal },
+        overheadCost: { total: overheadCostTotal },
+        totalCost,
+        revenue,
+        profit,
+        marginPct,
+        isProfit: profit >= 0,
+        linkedProposal: proposalSummary,
+      });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  // Захиалгад үнийн санал холбох
+  app.patch("/api/sales/orders/:id/link-proposal", requireSalesOrAdmin, async (req, res) => {
+    try {
+      const orderId    = parseInt(req.params.id);
+      const { proposalId } = req.body;
+      const [updated] = await db.update(schema.salesOrders)
+        .set({ linkedProposalId: proposalId ?? null })
+        .where(eq(schema.salesOrders.id, orderId))
+        .returning();
+      res.json(updated);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
+  // Тоногийн хуваарийн ажилласан цаг бүртгэх
+  app.patch("/api/equipment/assignments/:id/hours", requireTokenOrAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { hoursUsed } = req.body;
+      const [updated] = await db.update(schema.equipmentAssignments)
+        .set({ hoursUsed: parseFloat(hoursUsed) ?? 0 })
+        .where(eq(schema.equipmentAssignments.id, id))
+        .returning();
+      res.json(updated);
+    } catch (e: any) { res.status(400).json({ error: e.message }); }
+  });
+
   // Өртгийн тохиргоо
   app.get("/api/sales/cost-config", requireSales, async (_req, res) => {
     try {
