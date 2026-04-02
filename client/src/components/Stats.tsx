@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Forklift, Factory, ShieldCheck, MapPin, Loader2, ExternalLink } from "lucide-react";
+import { Forklift, Factory, ShieldCheck, MapPin, Loader2, ExternalLink, X, ZoomIn } from "lucide-react";
 import { useGallery } from "@/hooks/use-gallery";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -84,6 +84,25 @@ export default function Stats() {
   const [qualityRate, setQualityRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
   const [recentCerts, setRecentCerts] = useState<any[]>([]);
+  const [zoomCert, setZoomCert] = useState<string | null>(null);
+
+  // Байгаа тохирлын гэрчилгээнүүд (MNAS ДБ149/25 + ДБ150/25)
+  const COMPLIANCE_CERTS = [
+    {
+      src: "/cert-db149-25.jpg",
+      number: "ДБ149/25",
+      product: "Бетон зуурмаг",
+      standard: "MNS 1185:1998 · MNS EN 206:2017",
+      expires: "2027.12.04",
+    },
+    {
+      src: "/cert-db150-25.jpg",
+      number: "ДБ150/25",
+      product: "Элс, Хайрга",
+      standard: "MNS 0392:2014 · MNS 0346:2000",
+      expires: "2027.12.04",
+    },
+  ];
 
   const fetchStats = async () => {
     try {
@@ -153,6 +172,28 @@ export default function Stats() {
 
   return (
     <section id="about" className="py-24 bg-card relative border-y border-border overflow-hidden group/section">
+      {/* ── Гэрчилгээ дүрс томруулах Modal ── */}
+      {zoomCert && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/85 flex items-center justify-center p-4"
+          onClick={() => setZoomCert(null)}
+        >
+          <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
+            <button
+              onClick={() => setZoomCert(null)}
+              className="absolute -top-10 right-0 text-white/70 hover:text-white flex items-center gap-1.5 text-sm"
+            >
+              <X size={16} /> Хаах
+            </button>
+            <img
+              src={zoomCert}
+              alt="Тохирлын гэрчилгээ"
+              className="w-full rounded-lg shadow-2xl border border-white/20"
+            />
+          </div>
+        </div>
+      )}
+
       <div className="absolute inset-0 industrial-pattern opacity-5 pointer-events-none" />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
@@ -196,55 +237,83 @@ export default function Stats() {
               ))}
             </div>
 
-            {/* ─── Чанарын гэрчилгээний QR кодууд ─────────────────── */}
-            {recentCerts.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.5, delay: 0.5 }}
-                className="mt-8 border border-border/60 rounded-sm bg-background/30 p-5"
-              >
-                <div className="flex items-center gap-2 mb-4">
-                  <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Бетон зуурмагийн чанарын баталгаа — QR</p>
-                </div>
-                <div className="flex flex-wrap gap-4">
-                  {recentCerts.map((cert: any) => (
-                    <a
-                      key={cert.id}
-                      href={`/api/public/quality-cert/${cert.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="group flex flex-col items-center gap-2 hover:opacity-90 transition-opacity"
-                      title={`${cert.productName || cert.productType} — ${cert.compliancePct}% тохирол`}
-                    >
-                      <div className="bg-white p-2 rounded-sm border border-border/40 group-hover:border-primary transition-colors">
+            {/* ─── Тохирлын гэрчилгээнүүд (MNAS) ──────────────────── */}
+            <motion.div
+              initial={{ opacity: 0, y: 16 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.5, delay: 0.5 }}
+              className="mt-8 border border-border/60 rounded-sm bg-background/30 p-5"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Бетон зуурмагийн чанарын баталгаа — Тохирлын гэрчилгээ</p>
+              </div>
+
+              {/* MNAS гэрчилгээний thumbnail-ууд */}
+              <div className="flex gap-4 flex-wrap">
+                {COMPLIANCE_CERTS.map(cert => (
+                  <button
+                    key={cert.number}
+                    onClick={() => setZoomCert(cert.src)}
+                    className="group relative flex-shrink-0 text-left"
+                  >
+                    <div className="relative overflow-hidden rounded-sm border border-border/50 group-hover:border-primary transition-colors duration-300 w-[110px]">
+                      <img
+                        src={cert.src}
+                        alt={`Тохирлын гэрчилгээ ${cert.number}`}
+                        className="w-full h-[155px] object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center">
+                        <ZoomIn className="w-6 h-6 text-white" />
+                      </div>
+                    </div>
+                    <div className="mt-2 px-0.5">
+                      <p className="text-[10px] font-bold text-primary font-mono">{cert.number}</p>
+                      <p className="text-[9px] text-foreground/70 leading-tight">{cert.product}</p>
+                      <p className="text-[8px] text-muted-foreground mt-0.5">Хүчинтэй: {cert.expires}</p>
+                    </div>
+                  </button>
+                ))}
+
+                {/* Чанарын гэрчилгээний QR кодууд (database-аас) */}
+                {recentCerts.length > 0 && recentCerts.map((cert: any) => (
+                  <a
+                    key={cert.id}
+                    href={`/api/public/quality-cert/${cert.id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="group flex flex-col items-center gap-1.5 flex-shrink-0"
+                  >
+                    <div className="bg-white p-2 rounded-sm border border-border/40 group-hover:border-primary transition-colors w-[110px] flex items-center justify-center" style={{ height: "155px" }}>
+                      <div className="flex flex-col items-center gap-2">
                         <QRCodeSVG
                           value={`${window.location.origin}/api/public/quality-cert/${cert.id}`}
-                          size={72}
+                          size={80}
                           bgColor="#ffffff"
                           fgColor="#0f172a"
                           level="M"
                         />
+                        <p className="text-[8px] text-gray-500 text-center leading-tight">Скан хийн харах</p>
                       </div>
-                      <div className="text-center">
-                        <p className="text-[10px] font-bold text-foreground/80 leading-tight">{cert.productName || cert.productType}</p>
-                        <p className="text-[9px] text-muted-foreground font-mono">{cert.batchNumber}</p>
-                        <div className="flex items-center justify-center gap-1 mt-0.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                          <span className="text-[9px] text-green-500 font-bold">{cert.compliancePct}%</span>
-                          <ExternalLink size={8} className="text-muted-foreground" />
-                        </div>
+                    </div>
+                    <div className="px-0.5">
+                      <p className="text-[10px] font-bold text-foreground/80 leading-tight">{cert.productName || cert.productType}</p>
+                      <p className="text-[9px] text-muted-foreground font-mono">{cert.batchNumber}</p>
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                        <span className="text-[9px] text-green-500 font-bold">{cert.compliancePct}%</span>
+                        <ExternalLink size={8} className="text-muted-foreground" />
                       </div>
-                    </a>
-                  ))}
-                </div>
-                <p className="text-[9px] text-muted-foreground mt-3">
-                  QR кодыг скан хийснээр гэрчилгээний дэлгэрэнгүй мэдээлэл болон стандартыг шалгах боломжтой
-                </p>
-              </motion.div>
-            )}
+                    </div>
+                  </a>
+                ))}
+              </div>
+
+              <p className="text-[9px] text-muted-foreground mt-3">
+                MNAS итгэмжлэгдсэн лабораторийн дүнд үндэслэн Барилгын хөгжлийн үндэсний нэгдсэн төвөөс олгосон · Гэрчилгээг дарж бүтэн хэмжээгээр үзнэ
+              </p>
+            </motion.div>
           </div>
 
           {/* Баруун — AutoRotatingSlot */}
