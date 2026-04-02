@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Forklift, Factory, ShieldCheck, MapPin, Loader2 } from "lucide-react";
+import { Forklift, Factory, ShieldCheck, MapPin, Loader2, ExternalLink } from "lucide-react";
 import { useGallery } from "@/hooks/use-gallery";
+import { QRCodeSVG } from "qrcode.react";
 
 /* ─── AutoRotatingSlot — ProjectsCloudinary-тай ижил ─────── */
 function AutoRotatingSlot({ images }: { images: { id: string; imageUrl: string; description: string }[] }) {
@@ -82,6 +83,7 @@ export default function Stats() {
   const [concreteSaleable, setConcreteSaleable] = useState<number | null>(null);
   const [qualityRate, setQualityRate] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
+  const [recentCerts, setRecentCerts] = useState<any[]>([]);
 
   const fetchStats = async () => {
     try {
@@ -99,8 +101,18 @@ export default function Stats() {
     }
   };
 
+  const fetchQualityCerts = async () => {
+    try {
+      const resp = await fetch("/api/public/recent-quality-certs");
+      if (!resp.ok) return;
+      const data = await resp.json();
+      setRecentCerts(Array.isArray(data) ? data : []);
+    } catch (_) {}
+  };
+
   useEffect(() => {
     fetchStats();
+    fetchQualityCerts();
     const interval = setInterval(fetchStats, 30000);
     return () => clearInterval(interval);
   }, []);
@@ -183,6 +195,56 @@ export default function Stats() {
                 </motion.div>
               ))}
             </div>
+
+            {/* ─── Чанарын гэрчилгээний QR кодууд ─────────────────── */}
+            {recentCerts.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.5, delay: 0.5 }}
+                className="mt-8 border border-border/60 rounded-sm bg-background/30 p-5"
+              >
+                <div className="flex items-center gap-2 mb-4">
+                  <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Бетон зуурмагийн чанарын баталгаа — QR</p>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  {recentCerts.map((cert: any) => (
+                    <a
+                      key={cert.id}
+                      href={`/api/public/quality-cert/${cert.id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group flex flex-col items-center gap-2 hover:opacity-90 transition-opacity"
+                      title={`${cert.productName || cert.productType} — ${cert.compliancePct}% тохирол`}
+                    >
+                      <div className="bg-white p-2 rounded-sm border border-border/40 group-hover:border-primary transition-colors">
+                        <QRCodeSVG
+                          value={`${window.location.origin}/api/public/quality-cert/${cert.id}`}
+                          size={72}
+                          bgColor="#ffffff"
+                          fgColor="#0f172a"
+                          level="M"
+                        />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-[10px] font-bold text-foreground/80 leading-tight">{cert.productName || cert.productType}</p>
+                        <p className="text-[9px] text-muted-foreground font-mono">{cert.batchNumber}</p>
+                        <div className="flex items-center justify-center gap-1 mt-0.5">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
+                          <span className="text-[9px] text-green-500 font-bold">{cert.compliancePct}%</span>
+                          <ExternalLink size={8} className="text-muted-foreground" />
+                        </div>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+                <p className="text-[9px] text-muted-foreground mt-3">
+                  QR кодыг скан хийснээр гэрчилгээний дэлгэрэнгүй мэдээлэл болон стандартыг шалгах боломжтой
+                </p>
+              </motion.div>
+            )}
           </div>
 
           {/* Баруун — AutoRotatingSlot */}

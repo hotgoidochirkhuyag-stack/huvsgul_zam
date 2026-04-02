@@ -1043,7 +1043,7 @@ export default function LabQCDashboard() {
               {([
                 { key: "certs",   label: "Тохирлын гэрчилгээ", icon: Award },
                 { key: "quality", label: "Чанарын гэрчилгээ",  icon: FlaskConical },
-                { key: "report",  label: "ТУЗ тайлан",          icon: FileBarChart2 },
+                { key: "report",  label: "Чанарын тохирлын тайлан", icon: FileBarChart2 },
               ] as const).map(({ key, label, icon: Icon }) => (
                 <button key={key} onClick={() => setCertSubTab(key)}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all ${
@@ -1311,7 +1311,7 @@ export default function LabQCDashboard() {
             {certSubTab === "report" && (
               <div className="space-y-6">
                 <div>
-                  <h3 className="text-white font-bold">ТУЗ-ын тайлан — Чанарын тохирлын хяналт</h3>
+                  <h3 className="text-white font-bold">Чанарын тохирлын тайлан</h3>
                   <p className="text-slate-400 text-xs mt-0.5">Нийт үйлдвэрлэсэн бүтээгдэхүүний хэдэн хувь нь "Тохирлын гэрчилгээ"-ний шаардлагад 100% нийцсэн</p>
                 </div>
                 {lreport ? <div className="text-center py-10 text-slate-500">Уншиж байна...</div> : !complianceReport ? null : (

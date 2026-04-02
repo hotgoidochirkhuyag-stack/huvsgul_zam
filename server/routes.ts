@@ -2864,6 +2864,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // Нийтийн: сүүлийн чанарын гэрчилгээнүүд (нүүр хуудас QR харуулах)
+  app.get("/api/public/recent-quality-certs", async (_req, res) => {
+    try {
+      const rows = await db.select({
+        id: schema.qualityCertificates.id,
+        batchNumber: schema.qualityCertificates.batchNumber,
+        productType: schema.qualityCertificates.productType,
+        productName: schema.qualityCertificates.productName,
+        compliancePct: schema.qualityCertificates.compliancePct,
+        isCompliant: schema.qualityCertificates.isCompliant,
+        issuedDate: schema.qualityCertificates.issuedDate,
+        customerName: schema.qualityCertificates.customerName,
+        standardRef: schema.qualityCertificates.standardRef,
+      }).from(schema.qualityCertificates)
+        .where(eq(schema.qualityCertificates.isCompliant, true))
+        .orderBy(desc(schema.qualityCertificates.createdAt))
+        .limit(4);
+      res.json(rows);
+    } catch (e) {
+      res.json([]);
+    }
+  });
+
   // Нийтийн QR хуудас — гэрчилгээний стандарт үзүүлэлтүүд
   app.get("/api/public/quality-cert/:id", async (req, res) => {
     try {
