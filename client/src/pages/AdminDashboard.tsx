@@ -992,7 +992,7 @@ function MeetingTab() {
 }
 
 /* ══════════════════════ 8. ВЭБСАЙТ — Онцлох төслүүд ══════════════════════ */
-function WebsiteTab() {
+export function WebsiteTab() {
   const [editId, setEditId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
@@ -1621,7 +1621,7 @@ const ACTION_COLOR: Record<string, string> = {
   "ГАРСАН":               "bg-slate-500/15 text-slate-400",
 };
 
-function ActivityLogsTab() {
+export function ActivityLogsTab() {
   const hdrsLocal = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
   const [roleFilter, setRoleFilter] = useState("ALL");
 
@@ -1736,7 +1736,7 @@ const ROLE_LABELS: Record<string, string> = {
   MECHANIC: "Механик", WAREHOUSE: "Агуулах", LAB: "Лаборатори", SALES: "Борлуулалтын алба",
 };
 
-function CredentialsTab() {
+export function CredentialsTab() {
   const { toast } = useToast();
   const hdrsLocal = () => ({ "Content-Type": "application/json", "x-admin-token": localStorage.getItem("adminToken") ?? "" });
 

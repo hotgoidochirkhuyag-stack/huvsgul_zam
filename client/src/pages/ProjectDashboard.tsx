@@ -7,7 +7,9 @@ import {
   ShoppingCart, FileText, BarChart3, Plus, X, Edit2,
   CheckCircle2, Clock, AlertTriangle, TrendingUp, Banknote,
   Package, FileSignature, Printer, Download, ExternalLink,
+  Globe, KeyRound, ScrollText,
 } from "lucide-react";
+import { WebsiteTab, CredentialsTab, ActivityLogsTab } from "@/pages/AdminDashboard";
 import { printReport } from "@/lib/printReport";
 import { useToast } from "@/hooks/use-toast";
 import LogoutButton from "@/components/LogoutButton";
@@ -66,7 +68,11 @@ const TABS = [
   { key: "requests",  label: "Хүсэлт",                  icon: MessageSquare },
   { key: "orders",    label: "Үйлдвэрийн захиалга",      icon: ShoppingCart  },
   { key: "contracts", label: "Гэрээ",                    icon: FileSignature },
-  { key: "partners",  label: "Хамтрагч & Холбогдох",     icon: Users         },
+  { key: "tenders",   label: "Хамтарч ажиллах төслүүд", icon: FileText      },
+  { key: "contacts",  label: "Холбогдох хүмүүс",         icon: Users         },
+  { key: "website",   label: "Вэбсайт",                  icon: Globe         },
+  { key: "credentials", label: "Нэвтрэлт",               icon: KeyRound      },
+  { key: "logs",      label: "Бүртгэл",                  icon: ScrollText    },
   { key: "report",    label: "Тайлан",                   icon: BarChart3     },
 ];
 
@@ -1182,15 +1188,12 @@ export default function ProjectDashboard() {
       {tab === "requests"  && <RequestsTab />}
       {tab === "orders"    && <OrdersTab />}
       {tab === "contracts" && <ContractsTab />}
-      {tab === "partners"  && (
-        <div className="space-y-10">
-          <TendersTab />
-          <div className="border-t border-border/40 pt-8">
-            <ContactsTab />
-          </div>
-        </div>
-      )}
-      {tab === "report"    && <ReportTab />}
+      {tab === "tenders"     && <TendersTab />}
+      {tab === "contacts"    && <ContactsTab />}
+      {tab === "website"     && <WebsiteTab />}
+      {tab === "credentials" && <CredentialsTab />}
+      {tab === "logs"        && <ActivityLogsTab />}
+      {tab === "report"      && <ReportTab />}
     </div>
   );
 }
