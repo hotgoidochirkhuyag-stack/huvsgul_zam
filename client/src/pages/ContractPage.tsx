@@ -219,7 +219,7 @@ export default function ContractPage() {
                 </div>
                 <div className="font-black text-slate-800 text-sm">Хөвсгөл зам ХХК</div>
                 <div className="text-slate-500 text-xs mt-1">УБ-12345678</div>
-                <div className="text-slate-500 text-xs">Мурэн, Хөвсгөл аймаг</div>
+                <div className="text-slate-500 text-xs">Мөрөн, Хөвсгөл аймаг</div>
                 <div className="text-slate-500 text-xs">Утас: (+976) 9966-0017</div>
               </div>
               <div className="border border-slate-200 rounded-lg p-4">
