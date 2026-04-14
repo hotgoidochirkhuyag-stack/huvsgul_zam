@@ -1,312 +1,196 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Forklift, Factory, ShieldCheck, MapPin, Loader2, ExternalLink, X, ZoomIn } from "lucide-react";
+import { Forklift, Factory, ShieldCheck, ZoomIn, FileCheck, Loader2 } from "lucide-react";
 import { useGallery } from "@/hooks/use-gallery";
 import { QRCodeSVG } from "qrcode.react";
 
-/* ─── AutoRotatingSlot — ProjectsCloudinary-тай ижил ─────── */
-function AutoRotatingSlot({ images }: { images: { id: string; imageUrl: string; description: string }[] }) {
+/* ─── ЗҮҮН ТАЛ: ТОМ ЗУРГИЙН КОМПОНЕНТ ─── */
+function AutoRotatingSlot({ images }: { images: any[] }) {
   const [index, setIndex] = useState(0);
 
   useEffect(() => {
-    if (images.length <= 1) return;
-    const timer = setInterval(() => setIndex(p => (p + 1) % images.length), 9000);
+    if (!images || images.length <= 1) return;
+    const timer = setInterval(() => setIndex((p) => (p + 1) % images.length), 8000);
     return () => clearInterval(timer);
   }, [images]);
+
+  if (!images || images.length === 0) {
+    return (
+      <div className="h-full min-h-[600px] bg-slate-900/50 flex items-center justify-center rounded-sm border border-border">
+        <Loader2 className="animate-spin text-primary" />
+      </div>
+    );
+  }
 
   const current = images[index];
 
   return (
-    <div className="relative">
-      <div className="group relative h-[500px] w-full overflow-hidden rounded-sm border border-border shadow-lg hover:border-amber-500/50 transition-all duration-500">
-        {images.length > 0 ? (
-          <AnimatePresence mode="wait">
-            <motion.img
-              key={current.id}
+    <div className="flex flex-col h-full min-h-[600px] w-full overflow-hidden rounded-sm border border-border bg-[#0a0a0a] shadow-2xl select-none">
+      {/* Зураг хэсэг */}
+      <div className="relative flex-1 flex items-center justify-center overflow-hidden bg-black cursor-default">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={index}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.8 }}
+            className="relative w-full h-full flex items-center justify-center"
+          >
+            <img
               src={current.imageUrl}
-              initial={{ opacity: 0, scale: 1.08 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.8, ease: "easeInOut" }}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-              alt={current.description}
+              className="absolute inset-0 w-full h-full object-cover blur-3xl opacity-20 pointer-events-none"
+              alt=""
+              onContextMenu={(e) => e.preventDefault()}
             />
-          </AnimatePresence>
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-card">
-            <Loader2 className="w-8 h-8 animate-spin text-primary/40" />
-          </div>
-        )}
-
-        {/* Gradient */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent opacity-70 group-hover:opacity-90 transition-opacity duration-300" />
-
-        {/* Ангилал тэмдэглэгэ */}
-        <div className="absolute top-4 left-4 z-20">
-          <span className="inline-flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-white px-3 py-1">
-            <MapPin size={10} /> ХӨВСГӨЛ ЗАМ ХХК
-          </span>
-        </div>
-
-        {/* Hover info */}
-        {images.length > 0 && current.description && (
-          <div className="absolute bottom-0 left-0 right-0 z-20 p-6 translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
-            <h4 className="text-white text-base font-black uppercase tracking-wide leading-tight">
-              {current.description}
-            </h4>
-          </div>
-        )}
+            <img
+              src={current.imageUrl}
+              className="relative z-10 max-w-full max-h-full object-contain p-2 pointer-events-none"
+              alt={current.description}
+              onContextMenu={(e) => e.preventDefault()} // Хулганы баруун товч хаах
+            />
+          </motion.div>
+        </AnimatePresence>
       </div>
 
-      {/* Цэгэн навигац */}
-      {images.length > 1 && (
-        <div className="flex justify-center gap-1.5 mt-3">
-          {images.map((_, i) => (
-            <button
-              key={i}
-              onClick={() => setIndex(i)}
-              className={`rounded-full transition-all ${i === index ? "w-5 h-1.5 bg-amber-500" : "w-1.5 h-1.5 bg-white/20 hover:bg-white/40"}`}
-            />
-          ))}
-        </div>
-      )}
+      {/* Тайлбар */}
+      <div className="bg-background/40 border-t border-border p-6 min-h-[100px] flex items-center">
+        <motion.p
+          key={`text-${index}`}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-white font-bold uppercase text-lg italic tracking-tight leading-tight"
+        >
+          {current.description}
+        </motion.p>
+      </div>
     </div>
   );
 }
 
-/* ─── Үндсэн Stats компонент ─────────────────────────────── */
 export default function Stats() {
   const { data: gallery = [] } = useGallery("/api/stats");
-
-  const [techReadiness, setTechReadiness] = useState<number | null>(null);
-  const [inventoryReadiness, setInventoryReadiness] = useState<number | null>(null);
-  const [concreteSaleable, setConcreteSaleable] = useState<number | null>(null);
-  const [qualityRate, setQualityRate] = useState<number | null>(null);
+  const [activeStat, setActiveStat] = useState(0);
   const [loading, setLoading] = useState(true);
-  const [recentCerts, setRecentCerts] = useState<any[]>([]);
   const [zoomCert, setZoomCert] = useState<string | null>(null);
+  const [vals, setVals] = useState({ tech: 0, inv: 0, conc: 0, qual: 0 });
 
-  // Байгаа тохирлын гэрчилгээнүүд (MNAS ДБ149/25 + ДБ150/25)
-  const COMPLIANCE_CERTS = [
-    {
-      src: "/cert-db149-25.jpg",
-      number: "ДБ149/25",
-      product: "Бетон зуурмаг",
-      standard: "MNS 1185:1998 · MNS EN 206:2017",
-      expires: "2027.12.04",
-    },
-    {
-      src: "/cert-db150-25.jpg",
-      number: "ДБ150/25",
-      product: "Элс, Хайрга",
-      standard: "MNS 0392:2014 · MNS 0346:2000",
-      expires: "2027.12.04",
-    },
+  const CERTS = [
+    { src: "https://res.cloudinary.com/dfmhppwwu/image/upload/cert/2.jpg", number: "ДБ149/25", label: "Бетон зуурмаг" },
+    { src: "https://res.cloudinary.com/dfmhppwwu/image/upload/cert/2.jpg", number: "ДБ150/25", label: "Дүүргэгч материал" },
+    { src: "https://res.cloudinary.com/dfmhppwwu/image/upload/cert/3.png", number: "МЖ 085827", label: "Авто пүү (150тн)" },
   ];
-
-  const fetchStats = async () => {
-    try {
-      const resp = await fetch("/api/public/stats");
-      if (!resp.ok) return;
-      const data = await resp.json();
-      setTechReadiness(data.techReadiness);
-      setInventoryReadiness(data.inventoryReadiness);
-      setConcreteSaleable(data.concreteSaleable);
-      setQualityRate(data.qualityRate);
-    } catch (e) {
-      console.error("Stats fetch error:", e);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const fetchQualityCerts = async () => {
-    try {
-      const resp = await fetch("/api/public/recent-quality-certs");
-      if (!resp.ok) return;
-      const data = await resp.json();
-      setRecentCerts(Array.isArray(data) ? data : []);
-    } catch (_) {}
-  };
 
   useEffect(() => {
+    async function fetchStats() {
+      try {
+        const resp = await fetch("/api/public/stats");
+        if (resp.ok) {
+          const data = await resp.json();
+          setVals({ tech: data.techReadiness || 0, inv: data.inventoryReadiness || 0, conc: data.concreteSaleable || 0, qual: data.qualityRate || 0 });
+        }
+      } catch (e) { console.error(e); } finally { setLoading(false); }
+    }
     fetchStats();
-    fetchQualityCerts();
-    const interval = setInterval(fetchStats, 30000);
-    return () => clearInterval(interval);
+    const t = setInterval(() => setActiveStat((p) => (p + 1) % 4), 6000);
+    return () => clearInterval(t);
   }, []);
 
-  const fmt = (val: number | null, suffix: string) =>
-    loading || val === null ? "..." : `${val}${suffix}`;
-
   const stats = [
-    {
-      id: 1, icon: Forklift,
-      label: "Техникийн бэлэн байдал",
-      display: fmt(techReadiness, "%"),
-      color: techReadiness !== null && techReadiness >= 80 ? "text-green-400" : techReadiness !== null && techReadiness >= 50 ? "text-amber-400" : "text-red-400",
-      delay: 0.1,
-    },
-    {
-      id: 2, icon: Factory,
-      label: "Үйлдвэрлэлд бэлэн байгаа нөөц",
-      display: fmt(inventoryReadiness, "%"),
-      color: inventoryReadiness !== null && inventoryReadiness >= 80 ? "text-green-400" : inventoryReadiness !== null && inventoryReadiness >= 50 ? "text-amber-400" : "text-red-400",
-      delay: 0.2,
-    },
-    {
-      id: 3, icon: Factory,
-      label: "Борлуулах боломжтой бетон зуурмаг",
-      display: fmt(concreteSaleable, " м³"),
-      color: "text-foreground",
-      delay: 0.3,
-    },
-    {
-      id: 4, icon: ShieldCheck,
-      label: "Бетон зуурмагийн чанарын баталгаа",
-      display: fmt(qualityRate, "%"),
-      color: qualityRate !== null && qualityRate >= 90 ? "text-green-400" : qualityRate !== null && qualityRate >= 70 ? "text-amber-400" : "text-red-400",
-      delay: 0.4,
-    },
+    { icon: Forklift, label: "Техникийн бэлэн байдал", val: vals.tech, unit: "%", color: "text-amber-400" },
+    { icon: Factory, label: "Үйлдвэрлэлд бэлэн нөөц", val: vals.inv, unit: "%", color: "text-blue-400" },
+    { icon: Factory, label: "Борлуулах бетон", val: vals.conc, unit: " м³", color: "text-white" },
+    { icon: ShieldCheck, label: "Чанарын баталгаа", val: vals.qual, unit: "%", color: "text-green-400" },
   ];
 
+  const cur = stats[activeStat];
+
   return (
-    <section id="about" className="py-24 bg-card relative border-y border-border overflow-hidden group/section">
-      {/* ── Гэрчилгээ дүрс томруулах Modal ── */}
+    <section id="about" className="py-24 bg-card relative overflow-hidden select-none">
+      <style>{`.border-text { -webkit-text-stroke: 1px hsl(var(--foreground)); color: transparent; }`}</style>
+
+      {/* Zoom Modal (Энд мөн татаж авахыг хаасан) */}
       {zoomCert && (
-        <div
-          className="fixed inset-0 z-[9999] bg-black/85 flex items-center justify-center p-4"
+        <div 
+          className="fixed inset-0 z-[100] bg-black/95 flex items-center justify-center p-4 cursor-pointer" 
           onClick={() => setZoomCert(null)}
+          onContextMenu={(e) => e.preventDefault()}
         >
-          <div className="relative max-w-2xl w-full" onClick={e => e.stopPropagation()}>
-            <button
-              onClick={() => setZoomCert(null)}
-              className="absolute -top-10 right-0 text-white/70 hover:text-white flex items-center gap-1.5 text-sm"
-            >
-              <X size={16} /> Хаах
-            </button>
-            <img
-              src={zoomCert}
-              alt="Тохирлын гэрчилгээ"
-              className="w-full rounded-lg shadow-2xl border border-white/20"
-            />
-          </div>
+          <img 
+            src={zoomCert} 
+            className="max-w-4xl max-h-[90vh] rounded-sm shadow-2xl border border-white/10 pointer-events-none" 
+            alt="Full" 
+          />
         </div>
       )}
 
-      <div className="absolute inset-0 industrial-pattern opacity-5 pointer-events-none" />
+      <div className="max-w-7xl mx-auto px-6 relative z-10">
+        <div className="border-l-4 border-primary pl-8 mb-12">
+          <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-[10px] mb-2">Live Status</h2>
+          <h3 className="text-4xl md:text-5xl font-black text-foreground uppercase leading-tight">
+             МАНАЙ КОМПАНИ <br /> <span className="border-text">өнөөдөр</span>
+          </h3>
+        </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-stretch">
-
-          {/* Зүүн — гарчиг + 4 stat */}
-          <div className="flex flex-col justify-between py-2">
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              whileInView={{ opacity: 1, x: 0 }}
-              viewport={{ once: true }}
-              className="border-l-4 border-primary pl-8 mb-12"
-            >
-              <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-xs mb-3">Манай боломжууд</h2>
-              <h3 className="text-3xl md:text-4xl font-display font-black text-foreground uppercase leading-tight">
-                Манай компани <br /> <span className="text-transparent border-text">өнөөдөр</span>
-              </h3>
-              <style>{`.border-text { -webkit-text-stroke: 1px hsl(var(--foreground)); }`}</style>
-            </motion.div>
-
-            <div className="grid grid-cols-2 gap-6 md:gap-8">
-              {stats.map(stat => (
-                <motion.div
-                  key={stat.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true }}
-                  transition={{ duration: 0.5, delay: stat.delay }}
-                  whileHover={{ y: -5, scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  className="bg-background/40 border border-border/50 hover:border-primary p-6 rounded-sm relative overflow-hidden flex flex-col justify-between min-h-[140px] cursor-pointer transition-colors duration-300"
-                >
-                  <stat.icon className="w-6 h-6 text-primary mb-4" />
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-2">{stat.label}</p>
-                  {loading ? (
-                    <Loader2 className="w-6 h-6 animate-spin text-primary/50" />
-                  ) : (
-                    <h3 className={`text-2xl md:text-3xl font-black leading-tight ${stat.color}`}>{stat.display}</h3>
-                  )}
-                </motion.div>
-              ))}
-            </div>
-
-            {/* ─── Тохирлын гэрчилгээнүүд (MNAS) ──────────────────── */}
-            <motion.div
-              initial={{ opacity: 0, y: 16 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, delay: 0.5 }}
-              className="mt-8 border border-border/60 rounded-sm bg-background/30 p-5"
-            >
-              <div className="flex items-center gap-2 mb-4">
-                <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
-                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Бетон зуурмагийн чанарын баталгаа — Тохирлын гэрчилгээ</p>
-              </div>
-
-              {/* [ДБ149/25 зураг] [ДБ150/25 зураг] [QR код] — нэг мөрөнд */}
-              <div className="flex items-start gap-4 flex-wrap">
-                {/* 2 гэрчилгээний thumbnail */}
-                {COMPLIANCE_CERTS.map(cert => (
-                  <button
-                    key={cert.number}
-                    onClick={() => setZoomCert(cert.src)}
-                    className="group flex-shrink-0 text-left"
-                  >
-                    <div className="relative overflow-hidden rounded-sm border border-border/50 group-hover:border-primary transition-colors w-[105px]">
-                      <img
-                        src={cert.src}
-                        alt={`Тохирлын гэрчилгээ ${cert.number}`}
-                        className="w-full h-[150px] object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                      />
-                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <ZoomIn className="w-5 h-5 text-white" />
-                      </div>
-                    </div>
-                    <div className="mt-1.5 px-0.5">
-                      <p className="text-[10px] font-black text-primary font-mono">{cert.number}</p>
-                      <p className="text-[9px] text-foreground/70 leading-tight">{cert.product}</p>
-                      <p className="text-[7.5px] text-muted-foreground mt-0.5">{cert.standard}</p>
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-green-500 inline-block" />
-                        <span className="text-[7.5px] text-green-500 font-semibold">{cert.expires}</span>
-                      </div>
-                    </div>
-                  </button>
-                ))}
-
-                {/* QR код — гэрчилгээнүүдийн ард */}
-                <div className="flex flex-col items-center gap-1.5 flex-shrink-0 pt-0.5">
-                  <div className="bg-white p-2 rounded-sm border border-border/30">
-                    <QRCodeSVG
-                      value={`${window.location.origin}/cert-db149-25.jpg`}
-                      size={100}
-                      bgColor="#ffffff"
-                      fgColor="#0f172a"
-                      level="M"
-                    />
-                  </div>
-                  <p className="text-[8px] text-muted-foreground text-center leading-tight">QR скан →<br/>гэрчилгээ харах</p>
-                </div>
-              </div>
-
-              <p className="text-[9px] text-muted-foreground mt-3">
-                MNAS итгэмжлэгдсэн лабораторийн дүнд үндэслэн Барилгын хөгжлийн үндэсний нэгдсэн төвөөс олгосон · Гэрчилгээг дарж бүтэн хэмжээгээр үзнэ
-              </p>
-            </motion.div>
-          </div>
-
-          {/* Баруун — AutoRotatingSlot */}
-          <div className="flex flex-col justify-center">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 items-stretch">
+          {/* ЗҮҮН ТАЛ */}
+          <div className="h-full">
             <AutoRotatingSlot images={gallery} />
           </div>
 
+          {/* БАРУУН ТАЛ */}
+          <div className="flex flex-col gap-8">
+            <div className="grid grid-cols-2 gap-6">
+              <div className="bg-background/40 border border-border p-6 rounded-sm min-h-[250px] flex flex-col justify-center relative shadow-lg">
+                <AnimatePresence mode="wait">
+                  <motion.div key={activeStat} initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }}>
+                    <cur.icon size={28} className="text-primary mb-4" />
+                    <p className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mb-1">{cur.label}</p>
+                    <div className="flex items-baseline gap-2">
+                      <h2 className={`text-6xl font-black tracking-tighter ${cur.color}`}>{loading ? "..." : cur.val}</h2>
+                      <span className="text-lg font-bold text-muted-foreground uppercase italic">{cur.unit}</span>
+                    </div>
+                  </motion.div>
+                </AnimatePresence>
+                <div className="flex gap-2 mt-8">
+                  {stats.map((_, i) => ( <div key={i} className={`h-1 transition-all duration-500 ${i === activeStat ? "w-10 bg-primary" : "w-3 bg-border"}`} /> ))}
+                </div>
+              </div>
+
+              <div className="bg-background/40 border border-border p-6 rounded-sm flex flex-col items-center justify-center min-h-[250px] text-center shadow-lg">
+                <div className="bg-white p-3 rounded-sm mb-4">
+                  <QRCodeSVG value="https://khuvsgulzam.mn/quality" size={110} level="H" fgColor="#0f172a" />
+                </div>
+                <p className="text-[10px] font-black uppercase tracking-widest text-foreground leading-tight">Бүтээгдэхүүний түүх,<br/>Чанарын баталгаа</p>
+              </div>
+            </div>
+
+            <div className="flex-1 bg-background/30 border border-border/60 rounded-sm p-8 flex flex-col justify-between shadow-inner">
+              <div className="flex items-center gap-2 mb-8">
+                <FileCheck className="w-5 h-5 text-primary" />
+                <p className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">Тохирлын гэрчилгээнүүд & Баталгаажуулалт</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6">
+                {CERTS.map((c, i) => (
+                  <div key={i} className="group cursor-pointer" onClick={() => setZoomCert(c.src)}>
+                    <div className="aspect-[3/4.5] rounded-sm overflow-hidden border border-border bg-black/20 mb-3 relative">
+                      <img 
+                        src={c.src} 
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110 pointer-events-none" 
+                        alt={c.label}
+                        onContextMenu={(e) => e.preventDefault()}
+                      />
+                    </div>
+                    <div className="text-left">
+                       <p className="text-[9px] font-black text-foreground uppercase truncate">{c.label}</p>
+                       <p className="text-primary font-mono text-[8px] font-bold tracking-tight">{c.number}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>
