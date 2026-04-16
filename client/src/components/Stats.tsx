@@ -126,7 +126,7 @@ export default function Stats() {
 
       <div className="max-w-7xl mx-auto px-6 relative z-10">
         <div className="border-l-4 border-primary pl-8 mb-12">
-          <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-[10px] mb-2">Live Status</h2>
+          <h2 className="text-primary font-bold tracking-[0.2em] uppercase text-[10px] mb-2">Бидний тухай</h2>
           <h3 className="text-4xl md:text-5xl font-black text-foreground uppercase leading-tight">
              МАНАЙ КОМПАНИ <br /> <span className="border-text">өнөөдөр</span>
           </h3>
