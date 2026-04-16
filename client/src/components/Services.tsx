@@ -1,6 +1,34 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, FileText, Wrench, Plus, Pencil, Trash2, MapPin, Calendar } from "lucide-react";
+import { Construction, Truck, Warehouse, PencilRuler, X, CheckCircle2, ChevronDown, Phone, User, FileText, Wrench, Plus, Pencil, Trash2, MapPin, Calendar, Info, HelpCircle } from "lucide-react";
+
+// ─── Бетоны маркийн тайлбар ──────────────────────────────────────
+const CONCRETE_INFO: Record<string, { use: string; strength: string; examples: string; color: string }> = {
+  M100:  { use: "Суурийн угтвар, нягтруулга",   strength: "В7.5 · 7.5 МПа",  examples: "Шат, засварын угтвар давхарга",                    color: "blue"   },
+  M150:  { use: "Жижиг байгууламжийн суурь",    strength: "В10 · 10 МПа",   examples: "Гараж, саравч, хашаа, 1 давхар байшин",            color: "blue"   },
+  M200:  { use: "Орон сууцны суурь",             strength: "В15 · 15 МПа",   examples: "1–2 давхар хувийн байшин, подвал, тавцан",          color: "green"  },
+  M250:  { use: "Дунд давхар барилгын суурь",    strength: "В20 · 20 МПа",   examples: "3–5 давхар байшин, тавцан, давааны хучилт",         color: "green"  },
+  M300:  { use: "Өндөр барилга, дам нуруу",      strength: "В22.5 · 22.5 МПа", examples: "6+ давхар барилга, дам нуруу, хучилт, чийгтэй орчин", color: "amber"  },
+  M350:  { use: "Инженерийн байгууламж",         strength: "В25 · 25 МПа",   examples: "Авто замын хавтан, гүүрийн хэсэг, тулгуур",        color: "amber"  },
+  M400:  { use: "Тусгай өндөр ачаалал",          strength: "В30 · 30 МПа",   examples: "Гүүр, том инженерийн байгууламж, хэт ачаалал",      color: "red"    },
+  M450:  { use: "Гүүр, суваг, тусгай",           strength: "В35 · 35 МПа",   examples: "Гидротехникийн байгууламж, том гүүр",               color: "red"    },
+  M500:  { use: "Маш хатуу байгууламж",          strength: "В40 · 40 МПа",   examples: "Цөмийн байгууламж, тусгай инженерийн объект",       color: "red"    },
+  M550:  { use: "Тусгай зориулалт",              strength: "В45 · 45 МПа",   examples: "Стратегийн инженерийн байгууламж",                  color: "red"    },
+  B15:   { use: "Орон сууцны суурь",             strength: "В15 · 15 МПа",   examples: "1–2 давхар байшин, подвал, хашааны суурь",          color: "green"  },
+  B20:   { use: "Барилгын суурь, тавцан",        strength: "В20 · 20 МПа",   examples: "3–5 давхар барилга, хучилт, шат",                  color: "green"  },
+  B25:   { use: "Дам нуруу, хавтан",             strength: "В25 · 25 МПа",   examples: "Монолит хучилт, хавтан, тулгуур",                  color: "amber"  },
+  B30:   { use: "Инженерийн байгууламж",         strength: "В30 · 30 МПа",   examples: "Гүүр, өндөр ачаалалтай байгууламж",                color: "amber"  },
+};
+
+// Зориулалтаар санал болгох маркийн загвар
+const USE_CASES = [
+  { icon: "🏠", label: "Гараж / Саравч",           desc: "1 давхар, жижиг байгууламж",      recommend: ["M150", "M200"] },
+  { icon: "🏡", label: "Хувийн байшины суурь",     desc: "1–2 давхар орон сууц",            recommend: ["M200", "M250"] },
+  { icon: "🏢", label: "Олон давхар барилгын суурь", desc: "3+ давхар барилга",              recommend: ["M250", "M300"] },
+  { icon: "🛣", label: "Зам / Хашааны хучилт",     desc: "Авто зам, явган хүний зам",       recommend: ["M300", "M350"] },
+  { icon: "🌉", label: "Гүүр / Инженерийн объект", desc: "Тусгай байгууламж",               recommend: ["M350", "M400"] },
+  { icon: "🧱", label: "Тавцан / Шат",             desc: "Барилгын дотоод хэсэг",           recommend: ["M200", "M250"] },
+];
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -196,6 +224,8 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
   const [orderNum, setOrderNum] = useState("");
   const [loading, setLoading] = useState(false);
   const [selectedId, setSelectedId] = useState<number>(0);
+  const [showUseCases, setShowUseCases] = useState(false);
+  const [pickedUseCase, setPickedUseCase] = useState<string | null>(null);
   const [form, setForm] = useState({
     clientName:       "",
     clientPhone:      "",
@@ -217,6 +247,25 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
   const selected = activeProducts.find((p: any) => p.id === selectedId)
     || activeProducts.find((p: any) => initialProduct && p.name.includes(initialProduct))
     || activeProducts[0];
+
+  // Сонгогдсон бетон маркийн тайлбар олох
+  const getConcreteInfo = (name: string) => {
+    if (!name) return null;
+    const match = Object.keys(CONCRETE_INFO).find(k => name.includes(k));
+    return match ? CONCRETE_INFO[match] : null;
+  };
+  const concreteInfo = selected?.category === "concrete" ? getConcreteInfo(selected.name) : null;
+
+  // Зориулалтаар бүтээгдэхүүн санал болгох
+  const applyUseCase = (uc: typeof USE_CASES[0]) => {
+    const concretes = activeProducts.filter((p: any) => p.category === "concrete");
+    for (const recommend of uc.recommend) {
+      const found = concretes.find((p: any) => p.name.includes(recommend));
+      if (found) { setSelectedId(found.id); break; }
+    }
+    setPickedUseCase(uc.label);
+    setShowUseCases(false);
+  };
 
   const f = (k: string) => (e: any) => setForm(p => ({ ...p, [k]: e.target.value }));
 
@@ -288,12 +337,60 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
 
             <div className="p-5 space-y-4">
               {/* Product selector */}
-              <div>
-                <label className="text-slate-300 text-xs font-bold uppercase tracking-wider mb-2 block">Бүтээгдэхүүн сонгох</label>
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 text-xs font-bold uppercase tracking-wider">Бүтээгдэхүүн сонгох</label>
+                  <button
+                    type="button"
+                    onClick={() => setShowUseCases(v => !v)}
+                    data-testid="button-usecase-helper"
+                    className="flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors font-semibold"
+                  >
+                    <HelpCircle className="w-3.5 h-3.5" />
+                    Ямар зориулалттай вэ?
+                  </button>
+                </div>
+
+                {/* Use-case wizard */}
+                <AnimatePresence>
+                  {showUseCases && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      <div className="bg-slate-900/60 border border-amber-500/20 rounded-xl p-3">
+                        <p className="text-slate-400 text-xs mb-2.5 font-medium">Зориулалтаа сонгоход тохирох марк санал болгоно:</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          {USE_CASES.map(uc => (
+                            <button
+                              key={uc.label}
+                              type="button"
+                              onClick={() => applyUseCase(uc)}
+                              data-testid={`button-usecase-${uc.label}`}
+                              className={`text-left p-2.5 rounded-lg border transition-all hover:border-amber-500/50 hover:bg-amber-500/5 ${
+                                pickedUseCase === uc.label ? "border-amber-500/60 bg-amber-500/10" : "border-white/10 bg-slate-800/60"
+                              }`}
+                            >
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-base">{uc.icon}</span>
+                                <span className="text-white text-xs font-bold leading-tight">{uc.label}</span>
+                              </div>
+                              <p className="text-slate-400 text-[10px] leading-tight">{uc.desc}</p>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+
+                {/* Dropdown */}
                 <div className="relative">
                   <select
                     value={selected?.id ?? 0}
-                    onChange={e => setSelectedId(parseInt(e.target.value))}
+                    onChange={e => { setSelectedId(parseInt(e.target.value)); setPickedUseCase(null); setShowUseCases(false); }}
                     data-testid="select-product-type"
                     className="w-full bg-slate-800 border border-white/10 rounded-xl px-3 py-3 text-white text-sm focus:outline-none focus:border-amber-500/50 appearance-none pr-10"
                   >
@@ -320,6 +417,38 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
                   </select>
                   <ChevronDown className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 </div>
+
+                {/* Concrete grade description card */}
+                <AnimatePresence>
+                  {concreteInfo && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      className={`rounded-xl p-3 border flex gap-2.5 ${
+                        concreteInfo.color === "green" ? "bg-green-500/8 border-green-500/25" :
+                        concreteInfo.color === "amber" ? "bg-amber-500/8 border-amber-500/25" :
+                        concreteInfo.color === "red"   ? "bg-red-500/8   border-red-500/25" :
+                                                         "bg-blue-500/8  border-blue-500/25"
+                      }`}
+                    >
+                      <Info className={`w-4 h-4 mt-0.5 shrink-0 ${
+                        concreteInfo.color === "green" ? "text-green-400" :
+                        concreteInfo.color === "amber" ? "text-amber-400" :
+                        concreteInfo.color === "red"   ? "text-red-400"   : "text-blue-400"
+                      }`} />
+                      <div className="min-w-0">
+                        <p className="text-white text-xs font-bold">{concreteInfo.use}</p>
+                        <p className={`text-[11px] font-semibold mt-0.5 ${
+                          concreteInfo.color === "green" ? "text-green-400" :
+                          concreteInfo.color === "amber" ? "text-amber-400" :
+                          concreteInfo.color === "red"   ? "text-red-400"   : "text-blue-400"
+                        }`}>{concreteInfo.strength}</p>
+                        <p className="text-slate-400 text-[11px] mt-0.5 leading-snug">{concreteInfo.examples}</p>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
 
               {/* Quantity */}
