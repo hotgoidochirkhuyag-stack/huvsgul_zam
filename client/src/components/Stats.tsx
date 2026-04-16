@@ -159,7 +159,7 @@ export default function Stats() {
 
               <div className="bg-background/40 border border-border p-6 rounded-sm flex flex-col items-center justify-center min-h-[250px] text-center shadow-lg">
                 <div className="bg-white p-3 rounded-sm mb-4">
-                  <QRCodeSVG value="https://khuvsgulzam.mn/quality" size={110} level="H" fgColor="#0f172a" />
+                  <QRCodeSVG value={`${window.location.origin}/quality-verify`} size={110} level="H" fgColor="#0f172a" />
                 </div>
                 <p className="text-[10px] font-black uppercase tracking-widest text-foreground leading-tight">Бүтээгдэхүүний түүх,<br/>Чанарын баталгаа</p>
               </div>

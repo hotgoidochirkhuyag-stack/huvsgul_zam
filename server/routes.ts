@@ -2864,6 +2864,29 @@ export async function registerRoutes(httpServer: Server, app: Express): Promise<
     } catch (e: any) { res.status(500).json({ error: e.message }); }
   });
 
+  // Нийтийн: чанарын тохирлын тайлан (QR хуудас)
+  app.get("/api/public/compliance-report", async (_req, res) => {
+    try {
+      const batches = await db.select().from(schema.qualityCertificates)
+        .orderBy(desc(schema.qualityCertificates.createdAt));
+      const total     = batches.length;
+      const compliant = batches.filter(b => b.isCompliant).length;
+      const pct       = total > 0 ? Math.round((compliant / total) * 100) : 0;
+      const byProduct: Record<string, { total: number; compliant: number }> = {};
+      for (const b of batches) {
+        if (!byProduct[b.productType]) byProduct[b.productType] = { total: 0, compliant: 0 };
+        byProduct[b.productType].total++;
+        if (b.isCompliant) byProduct[b.productType].compliant++;
+      }
+      const recent = batches.slice(0, 8).map(b => ({
+        id: b.id, batchNumber: b.batchNumber, productType: b.productType,
+        productName: b.productName, compliancePct: b.compliancePct,
+        isCompliant: b.isCompliant, issuedDate: b.issuedDate, standardRef: b.standardRef,
+      }));
+      res.json({ total, compliant, nonCompliant: total - compliant, compliancePct: pct, byProduct, recent });
+    } catch { res.json({ total: 0, compliant: 0, nonCompliant: 0, compliancePct: 0, byProduct: {}, recent: [] }); }
+  });
+
   // Нийтийн: сүүлийн чанарын гэрчилгээнүүд (нүүр хуудас QR харуулах)
   app.get("/api/public/recent-quality-certs", async (_req, res) => {
     try {

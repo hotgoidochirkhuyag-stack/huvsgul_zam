@@ -28,6 +28,7 @@ import ConcretePlantERP from "@/pages/ConcretePlantERP";
 import ContractPage from "@/pages/ContractPage";
 import PriceProposalPage from "@/pages/PriceProposalPage";
 import QuotePreviewPage from "@/pages/QuotePreviewPage";
+import QualityVerifyPage from "@/pages/QualityVerifyPage";
 
 const ProtectedRoute = ({ component: Component, role }: { component: React.ComponentType; role: string }) => {
   const userRole = localStorage.getItem("userRole");
@@ -71,6 +72,7 @@ function Router() {
       <Route path="/vehicle-inspection" component={EquipmentInspection} />
       <Route path="/manual" component={UserManual} />
       <Route path="/contract/:token" component={ContractPage} />
+      <Route path="/quality-verify" component={QualityVerifyPage} />
       <Route path="/quote-preview" component={QuotePreviewPage} />
 
       {/* Удирдлагын самбарууд */}
