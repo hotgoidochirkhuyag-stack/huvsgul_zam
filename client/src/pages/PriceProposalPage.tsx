@@ -97,7 +97,10 @@ function ProposalCard({ proposal }: { proposal: any }) {
           <span className="text-white font-semibold text-sm">{proposal.productName}</span>
           <span className="text-slate-500 text-xs">/ {proposal.unit}</span>
           {proposal.suggestedPrice && (
-            <span className="text-amber-400 font-black text-sm">₮{proposal.suggestedPrice.toLocaleString()}/{proposal.unit}</span>
+            <span className="text-green-400 font-black text-sm">₮{proposal.suggestedPrice.toLocaleString()}/{proposal.unit}</span>
+          )}
+          {proposal.barterPrice && (
+            <span className="text-blue-400 text-xs font-semibold">бартер: ₮{proposal.barterPrice.toLocaleString()}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
@@ -197,7 +200,7 @@ function ProposalCard({ proposal }: { proposal: any }) {
               <p className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                 <TrendingUp size={12} className="text-amber-400" /> Үнийн дүгнэлт
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div>
                   <p className="text-slate-500 text-xs">Нийт өртөг / {proposal.unit}</p>
                   <p className="text-white font-black text-lg">₮{(proposal.finalUnitCost ?? 0).toLocaleString()}</p>
@@ -207,9 +210,15 @@ function ProposalCard({ proposal }: { proposal: any }) {
                   <p className="text-amber-400 font-black text-lg">₮{((proposal.suggestedPrice ?? 0) - (proposal.finalUnitCost ?? 0)).toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-slate-500 text-xs">Санал болгох үнэ / {proposal.unit}</p>
+                  <p className="text-slate-500 text-xs">Бэлэн мөнгөний үнэ / {proposal.unit}</p>
                   <p className="text-green-400 font-black text-xl">₮{(proposal.suggestedPrice ?? 0).toLocaleString()}</p>
                 </div>
+                {proposal.barterPrice && (
+                  <div className="border-l border-slate-700 pl-4">
+                    <p className="text-slate-500 text-xs">Бартерийн үнэ / {proposal.unit}</p>
+                    <p className="text-blue-400 font-black text-xl">₮{(proposal.barterPrice).toLocaleString()}</p>
+                  </div>
+                )}
               </div>
               {canEditPrices && (
                 <div className="mt-3 flex items-center gap-3">
@@ -245,6 +254,7 @@ function ProposalCard({ proposal }: { proposal: any }) {
 function CompletedEditPanel({ proposal, patchProposal, recalc }: { proposal: any; patchProposal: any; recalc: any }) {
   const [markupPct, setMarkupPct] = useState(String(proposal.markupPct ?? 15));
   const [suggestedPrice, setSuggestedPrice] = useState(String(proposal.suggestedPrice ?? ""));
+  const [barterPrice, setBarterPrice] = useState(String(proposal.barterPrice ?? ""));
   const [finalUnitCost, setFinalUnitCost] = useState(String(proposal.finalUnitCost ?? ""));
   const [productName, setProductName] = useState(proposal.productName ?? "");
   const [unit, setUnit] = useState(proposal.unit ?? "м³");
@@ -253,6 +263,7 @@ function CompletedEditPanel({ proposal, patchProposal, recalc }: { proposal: any
     patchProposal.mutate({
       markupPct: parseFloat(markupPct) || 15,
       suggestedPrice: parseFloat(suggestedPrice) || undefined,
+      barterPrice: parseFloat(barterPrice) || undefined,
       finalUnitCost: parseFloat(finalUnitCost) || undefined,
       productName,
       unit,
@@ -308,7 +319,7 @@ function CompletedEditPanel({ proposal, patchProposal, recalc }: { proposal: any
           />
         </div>
         <div>
-          <label className="text-[11px] text-slate-400 mb-1 block">Санал болгох үнэ ₮</label>
+          <label className="text-[11px] text-slate-400 mb-1 block">Бэлэн мөнгөний үнэ ₮</label>
           <input
             type="number" value={suggestedPrice}
             onChange={e => setSuggestedPrice(e.target.value)}
@@ -318,7 +329,18 @@ function CompletedEditPanel({ proposal, patchProposal, recalc }: { proposal: any
             className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-1.5 text-xs"
           />
         </div>
-        <div className="flex items-end">
+        <div>
+          <label className="text-[11px] text-slate-400 mb-1 block">Бартерийн үнэ ₮</label>
+          <input
+            type="number" value={barterPrice}
+            onChange={e => setBarterPrice(e.target.value)}
+            onBlur={save}
+            placeholder="0"
+            data-testid="input-completed-barter-price"
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-1.5 text-xs"
+          />
+        </div>
+        <div className="flex items-end col-span-2 sm:col-span-1">
           <button
             onClick={() => recalc.mutate()}
             disabled={recalc.isPending}

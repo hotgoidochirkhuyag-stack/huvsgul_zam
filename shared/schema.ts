@@ -1109,6 +1109,7 @@ export const priceProposals = pgTable("price_proposals", {
   finalUnitCost:  real("final_unit_cost"),
   markupPct:      real("markup_pct").default(15),
   suggestedPrice: real("suggested_price"),
+  barterPrice:    real("barter_price"),
   hrNotes:        text("hr_notes"),
   salesNotes:     text("sales_notes"),
   recommendedQty: real("recommended_qty"),
