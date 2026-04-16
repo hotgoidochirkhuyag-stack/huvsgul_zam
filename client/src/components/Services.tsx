@@ -20,14 +20,14 @@ const CONCRETE_INFO: Record<string, { use: string; strength: string; examples: s
   B30:   { use: "Инженерийн байгууламж",         strength: "В30 · 30 МПа",   examples: "Гүүр, өндөр ачаалалтай байгууламж",                color: "amber"  },
 };
 
-// Зориулалтаар санал болгох маркийн загвар
+// Зориулалтаар санал болгох маркийн загвар (DB-д Монгол М үсэг ашигласан)
 const USE_CASES = [
-  { icon: "🏠", label: "Гараж / Саравч",           desc: "1 давхар, жижиг байгууламж",      recommend: ["M150", "M200"] },
-  { icon: "🏡", label: "Хувийн байшины суурь",     desc: "1–2 давхар орон сууц",            recommend: ["M200", "M250"] },
-  { icon: "🏢", label: "Олон давхар барилгын суурь", desc: "3+ давхар барилга",              recommend: ["M250", "M300"] },
-  { icon: "🛣", label: "Зам / Хашааны хучилт",     desc: "Авто зам, явган хүний зам",       recommend: ["M300", "M350"] },
-  { icon: "🌉", label: "Гүүр / Инженерийн объект", desc: "Тусгай байгууламж",               recommend: ["M350", "M400"] },
-  { icon: "🧱", label: "Тавцан / Шат",             desc: "Барилгын дотоод хэсэг",           recommend: ["M200", "M250"] },
+  { icon: "🏠", label: "Гараж / Саравч",             desc: "1 давхар, жижиг байгууламж",    recommend: ["М150", "М200", "M150", "M200"] },
+  { icon: "🏡", label: "Хувийн байшины суурь",       desc: "1–2 давхар орон сууц",          recommend: ["М200", "М250", "M200", "M250", "B15", "B20"] },
+  { icon: "🏢", label: "Олон давхар барилгын суурь", desc: "3+ давхар барилга",             recommend: ["М250", "М300", "M250", "M300", "B20", "B25"] },
+  { icon: "🛣", label: "Зам / Хашааны хучилт",       desc: "Авто зам, явган хүний зам",     recommend: ["М300", "М350", "M300", "M350", "B25", "B30"] },
+  { icon: "🌉", label: "Гүүр / Инженерийн объект",   desc: "Тусгай байгууламж",             recommend: ["М350", "М400", "M350", "M400", "B30"] },
+  { icon: "🧱", label: "Тавцан / Шат",               desc: "Барилгын дотоод хэсэг",         recommend: ["М200", "М250", "M200", "M250", "B15", "B20"] },
 ];
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -249,9 +249,11 @@ function FactoryOrderModal({ onClose, initialProduct }: { onClose: () => void; i
     || activeProducts[0];
 
   // Сонгогдсон бетон маркийн тайлбар олох
+  // DB-д "М200 Бетон зуурмаг" гэж Монгол М-ээр бичигдсэн тул normalize хийнэ
   const getConcreteInfo = (name: string) => {
     if (!name) return null;
-    const match = Object.keys(CONCRETE_INFO).find(k => name.includes(k));
+    const normalized = name.replace(/М/g, "M"); // Монгол М → Латин M
+    const match = Object.keys(CONCRETE_INFO).find(k => normalized.includes(k));
     return match ? CONCRETE_INFO[match] : null;
   };
   const concreteInfo = selected?.category === "concrete" ? getConcreteInfo(selected.name) : null;
