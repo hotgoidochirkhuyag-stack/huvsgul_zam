@@ -3,7 +3,7 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import {
   Sparkles, ChevronDown, ChevronUp, Plus, Loader2, Check,
-  ArrowRight, FlaskConical, DollarSign, Users, TrendingUp,
+  ArrowRight, FlaskConical, DollarSign, TrendingUp,
   Trash2, RefreshCw, Send, AlertCircle, LogOut, FileText
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -15,11 +15,10 @@ const api   = (url: string, opts?: RequestInit) =>
 
 // ── Статус тодорхойлогч ──────────────────────────────────────────────────────
 const STATUS: Record<string, { label: string; color: string; next?: string; nextLabel?: string }> = {
-  draft:           { label: "Ноорог",               color: "bg-slate-600",  next: "lab_review",      nextLabel: "Lab-т илгээх" },
-  lab_review:      { label: "Lab шалгаж байна",      color: "bg-blue-600",   next: "lab_approved",    nextLabel: "Батлах (Lab)" },
-  lab_approved:    { label: "Lab баталсан",          color: "bg-teal-600",   next: "finance_pricing",  nextLabel: "Санхүү үнэ бөглөх" },
-  finance_pricing: { label: "Санхүүгийн судалгаа",  color: "bg-amber-600",  next: "hr_review",        nextLabel: "HR-т илгээх" },
-  hr_review:       { label: "HR шалгаж байна",       color: "bg-purple-600", next: "completed",        nextLabel: "Дуусгах" },
+  draft:           { label: "Ноорог",               color: "bg-slate-600",  next: "lab_review",     nextLabel: "Lab-т илгээх" },
+  lab_review:      { label: "Lab шалгаж байна",      color: "bg-blue-600",   next: "lab_approved",   nextLabel: "Батлах (Lab)" },
+  lab_approved:    { label: "Lab баталсан",          color: "bg-teal-600",   next: "finance_pricing", nextLabel: "Санхүү үнэ бөглөх" },
+  finance_pricing: { label: "Санхүүгийн судалгаа",  color: "bg-amber-600",  next: "completed",       nextLabel: "Дуусгах" },
   completed:       { label: "Дууссан",               color: "bg-green-600" },
 };
 
@@ -59,25 +58,6 @@ function ProposalCard({ proposal }: { proposal: any }) {
     mutationFn: (id: number) => api(`/api/price-proposal-items/${id}`, { method: "DELETE" }).then(r => r.json()),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); },
   });
-  const patchLabor = useMutation({
-    mutationFn: ({ id, body }: any) => api(`/api/price-proposal-labor/${id}`, { method: "PATCH", body: JSON.stringify(body) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); },
-  });
-  const addLabor = useMutation({
-    mutationFn: () => api("/api/price-proposal-labor", { method: "POST", body: JSON.stringify({ proposalId: proposal.id, roleName: "Шинэ мэргэжил", count: 1, hoursPerUnit: 0.5 }) }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); toast({ title: "Мэргэжил нэмэгдлээ" }); },
-  });
-  const deleteLabor = useMutation({
-    mutationFn: (id: number) => api(`/api/price-proposal-labor/${id}`, { method: "DELETE" }).then(r => r.json()),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] }); },
-  });
-  const autoLabor = useMutation({
-    mutationFn: () => api(`/api/price-proposals/${proposal.id}/auto-labor`, { method: "POST" }).then(r => r.json()),
-    onSuccess: (data) => {
-      qc.invalidateQueries({ queryKey: ["/api/price-proposals", proposal.id] });
-      toast({ title: data.message ?? "Авто норм тохируулагдлаа" });
-    },
-  });
   const recalc = useMutation({
     mutationFn: () => api(`/api/price-proposals/${proposal.id}/recalculate`, { method: "POST" }).then(r => r.json()),
     onSuccess: (data) => {
@@ -93,7 +73,6 @@ function ProposalCard({ proposal }: { proposal: any }) {
 
   const st = STATUS[proposal.status] ?? { label: proposal.status, color: "bg-slate-600" };
   const items: any[] = full?.items ?? [];
-  const labor: any[] = full?.labor ?? [];
   const materials = items.filter(i => i.category === "material" || i.category === "equipment" || i.category === "overhead");
 
   // Дараагийн алхам руу шилжих эрхийг шалгана
@@ -101,13 +80,11 @@ function ProposalCard({ proposal }: { proposal: any }) {
     (proposal.status === "draft" && ["SALES", "ADMIN"].includes(r)) ||
     (proposal.status === "lab_review" && ["LAB", "ADMIN"].includes(r)) ||
     (proposal.status === "lab_approved" && ["ADMIN", "SALES", "WAREHOUSE"].includes(r)) ||
-    (proposal.status === "finance_pricing" && ["ADMIN", "SALES", "WAREHOUSE"].includes(r)) ||
-    (proposal.status === "hr_review" && ["HR", "ADMIN"].includes(r));
+    (proposal.status === "finance_pricing" && ["ADMIN", "SALES", "WAREHOUSE"].includes(r));
 
   const isCompleted = proposal.status === "completed";
   const canEditNorms = ["LAB", "ADMIN"].includes(r) && ["lab_review", "lab_approved"].includes(proposal.status);
   const canEditPrices = ["ADMIN", "SALES", "WAREHOUSE"].includes(r) && ["lab_approved", "finance_pricing"].includes(proposal.status);
-  const canEditLabor = ["HR", "ADMIN"].includes(r) && ["hr_review", "finance_pricing"].includes(proposal.status);
   // Admin бол completed саналын үнэ, тоог засах боломжтой
   const canEditCompleted = r === "ADMIN" && isCompleted;
 
@@ -214,68 +191,6 @@ function ProposalCard({ proposal }: { proposal: any }) {
             </div>
           )}
 
-          {/* Хүний нөөц */}
-          {(labor.length > 0 || canEditLabor) && (
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                  <Users size={12} className="text-purple-400" /> Хүний нөөцийн норм
-                </p>
-                {canEditLabor && (
-                  <button onClick={() => autoLabor.mutate()} disabled={autoLabor.isPending}
-                    className="flex items-center gap-1.5 px-3 py-1 text-xs font-bold bg-purple-600/20 text-purple-300 hover:bg-purple-600/30 border border-purple-600/30 rounded-lg transition-all">
-                    {autoLabor.isPending ? "⏳ Тооцоолж байна..." : "⚡ Авто норм"}
-                  </button>
-                )}
-              </div>
-              {/* Захиалгын тоо тооцоолол */}
-              {canEditLabor && labor.length > 0 && (
-                <WorkerCalculator labor={labor} unit={proposal.unit} />
-              )}
-              <div className="overflow-x-auto rounded-xl border border-slate-700">
-                <table className="w-full text-xs">
-                  <thead className="bg-slate-700/50">
-                    <tr>
-                      <th className="text-left px-3 py-2 text-slate-400">Мэргэжил</th>
-                      <th className="text-center px-3 py-2 text-slate-400">Тоо</th>
-                      <th className="text-center px-3 py-2 text-slate-400">Цаг/нэгж</th>
-                      <th className="text-center px-3 py-2 text-slate-400">Цагийн тариф ₮</th>
-                      <th className="text-right px-3 py-2 text-slate-400">Нийт/нэгж ₮</th>
-                      {canEditLabor && <th className="w-8" />}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-700/50">
-                    {labor.map((l: any) => (
-                      <LaborRow key={l.id} labor={l} canEdit={canEditLabor}
-                        canDelete={canEditLabor}
-                        onSave={(body) => patchLabor.mutate({ id: l.id, body })}
-                        onDelete={() => deleteLabor.mutate(l.id)} />
-                    ))}
-                  </tbody>
-                  <tfoot className="bg-slate-700/30">
-                    <tr>
-                      <td colSpan={4} className="px-3 py-2 text-slate-400 font-bold">Хөдөлмөрийн нийт өртөг</td>
-                      <td className="px-3 py-2 text-right text-purple-400 font-black">
-                        ₮{labor.reduce((s, l) => s + ((l.count ?? 1) * (l.hoursPerUnit ?? 1) * (l.hourlyRate ?? 0)), 0).toLocaleString()}
-                      </td>
-                      {canEditLabor && <td />}
-                    </tr>
-                    {canEditLabor && (
-                      <tr>
-                        <td colSpan={6} className="px-3 py-2">
-                          <button onClick={() => addLabor.mutate()} disabled={addLabor.isPending}
-                            className="flex items-center gap-1.5 text-xs text-purple-400 hover:text-purple-300 font-bold transition-colors">
-                            <Plus size={13} /> Мэргэжил нэмэх
-                          </button>
-                        </td>
-                      </tr>
-                    )}
-                  </tfoot>
-                </table>
-              </div>
-            </div>
-          )}
-
           {/* Дүгнэлт */}
           {(proposal.finalUnitCost || proposal.suggestedPrice) && (
             <div className="bg-gradient-to-r from-amber-600/10 to-teal-600/10 border border-amber-600/30 rounded-xl p-4">
@@ -308,16 +223,6 @@ function ProposalCard({ proposal }: { proposal: any }) {
                   </button>
                 </div>
               )}
-            </div>
-          )}
-
-          {/* HR тайлбар */}
-          {canEditLabor && (
-            <div>
-              <label className="text-xs text-slate-400 mb-1 block">HR тайлбар</label>
-              <textarea defaultValue={proposal.hrNotes ?? ""} rows={2}
-                onBlur={e => patchProposal.mutate({ hrNotes: e.target.value })}
-                className="w-full bg-slate-700 border border-slate-600 text-white rounded-xl px-3 py-2 text-xs resize-none" />
             </div>
           )}
 
@@ -489,106 +394,6 @@ function ItemRow({ item, canEditNorm, canEditPrice, canDelete, onSave, onDelete 
   );
 }
 
-// ── Хүний тоо тооцоолол ───────────────────────────────────────────────────────
-function WorkerCalculator({ labor, unit }: { labor: any[]; unit: string }) {
-  const [qty, setQty] = useState("");
-  const [days, setDays] = useState("1");
-  const qtyNum = parseFloat(qty) || 0;
-  const daysNum = parseFloat(days) || 1;
-
-  const rows = labor.map(l => {
-    const unitsPerPersonPerDay = l.hoursPerUnit > 0 ? 8 / l.hoursPerUnit : 0;
-    const needed = unitsPerPersonPerDay > 0 ? Math.ceil(qtyNum / (unitsPerPersonPerDay * daysNum)) : 0;
-    return { role: l.roleName, needed, unitsPerDay: Math.round(unitsPerPersonPerDay) };
-  });
-  const totalWorkers = rows.reduce((s, r) => s + r.needed, 0);
-
-  return (
-    <div className="mb-3 bg-purple-900/20 border border-purple-600/30 rounded-xl p-3">
-      <p className="text-xs font-bold text-purple-300 mb-2">🧮 Хэдэн хүн хэрэгтэй вэ?</p>
-      <div className="flex gap-2 mb-3">
-        <div className="flex-1">
-          <label className="text-xs text-slate-400 mb-1 block">Захиалгын тоо ({unit})</label>
-          <input type="number" value={qty} onChange={e => setQty(e.target.value)} placeholder="жишээ: 400"
-            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2 py-1.5 text-xs" />
-        </div>
-        <div className="w-24">
-          <label className="text-xs text-slate-400 mb-1 block">Хэдэн өдөр</label>
-          <input type="number" value={days} onChange={e => setDays(e.target.value)} placeholder="1"
-            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2 py-1.5 text-xs" />
-        </div>
-      </div>
-      {qtyNum > 0 && (
-        <div className="space-y-1">
-          {rows.map(r => (
-            <div key={r.role} className="flex justify-between items-center text-xs">
-              <span className="text-slate-300">{r.role}</span>
-              <span className="text-purple-300 font-bold">{r.needed} хүн</span>
-            </div>
-          ))}
-          <div className="flex justify-between items-center text-xs border-t border-purple-600/30 pt-1 mt-1">
-            <span className="text-white font-bold">Нийт шаардлагатай</span>
-            <span className="text-white font-black text-sm">{totalWorkers} хүн</span>
-          </div>
-        </div>
-      )}
-      {!qtyNum && <p className="text-xs text-slate-500 text-center">Тоо ширхэг оруулна уу</p>}
-    </div>
-  );
-}
-
-// ── Хүний нөөц мөр ──────────────────────────────────────────────────────────
-function LaborRow({ labor, canEdit, canDelete, onSave, onDelete }: any) {
-  const [roleName, setRoleName] = useState(labor.roleName ?? "");
-  const [rate, setRate] = useState(String(labor.hourlyRate ?? ""));
-  const [count, setCount] = useState(String(labor.count ?? 1));
-  const [hours, setHours] = useState(String(labor.hoursPerUnit ?? 1));
-  const total = (parseFloat(count) || 1) * (parseFloat(hours) || 1) * (parseFloat(rate) || 0);
-  return (
-    <tr className="hover:bg-slate-700/20 transition-colors group">
-      <td className="px-3 py-2 text-white">
-        {canEdit ? (
-          <input type="text" value={roleName} onChange={e => setRoleName(e.target.value)}
-            onBlur={() => onSave({ roleName })}
-            className="w-full bg-slate-700 border border-slate-600 text-white rounded px-1.5 py-0.5 text-xs" />
-        ) : labor.roleName}
-      </td>
-      <td className="px-3 py-2 text-center">
-        {canEdit ? (
-          <input type="number" value={count} onChange={e => setCount(e.target.value)}
-            onBlur={() => onSave({ count: parseInt(count) })}
-            className="w-14 bg-slate-700 border border-slate-600 text-white rounded px-1 py-0.5 text-xs text-center" />
-        ) : <span className="text-slate-300">{labor.count}</span>}
-      </td>
-      <td className="px-3 py-2 text-center">
-        {canEdit ? (
-          <input type="number" value={hours} onChange={e => setHours(e.target.value)}
-            onBlur={() => onSave({ hoursPerUnit: parseFloat(hours) })}
-            className="w-16 bg-slate-700 border border-slate-600 text-white rounded px-1 py-0.5 text-xs text-center" />
-        ) : <span className="text-slate-300">{labor.hoursPerUnit}</span>}
-      </td>
-      <td className="px-3 py-2 text-center">
-        {canEdit ? (
-          <input type="number" value={rate} onChange={e => setRate(e.target.value)}
-            onBlur={() => onSave({ hourlyRate: parseFloat(rate), count: parseInt(count), hoursPerUnit: parseFloat(hours) })}
-            className="w-24 bg-slate-700 border border-slate-600 text-white rounded px-1 py-0.5 text-xs text-center"
-            placeholder="цагийн тариф" />
-        ) : <span className="text-slate-300">{labor.hourlyRate?.toLocaleString() ?? "—"}</span>}
-      </td>
-      <td className="px-3 py-2 text-right text-purple-300 font-medium">
-        {total > 0 ? `₮${total.toLocaleString()}` : "—"}
-      </td>
-      {canDelete && (
-        <td className="px-2 py-2 text-center">
-          <button onClick={() => onDelete()}
-            className="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all">
-            <Trash2 size={13} />
-          </button>
-        </td>
-      )}
-    </tr>
-  );
-}
 
 // ── Үндсэн хуудас ────────────────────────────────────────────────────────────
 export default function PriceProposalPage() {
@@ -615,9 +420,8 @@ export default function PriceProposalPage() {
   const visible = proposals.filter(p => {
     if (r === "ADMIN") return true;
     if (r === "SALES") return true;
-    if (r === "LAB") return ["lab_review", "lab_approved", "finance_pricing", "hr_review", "completed"].includes(p.status);
-    if (r === "HR") return ["hr_review", "finance_pricing", "completed"].includes(p.status);
-    if (r === "WAREHOUSE") return ["lab_approved", "finance_pricing", "hr_review", "completed"].includes(p.status);
+    if (r === "LAB") return ["lab_review", "lab_approved", "finance_pricing", "completed"].includes(p.status);
+    if (r === "WAREHOUSE") return ["lab_approved", "finance_pricing", "completed"].includes(p.status);
     return false;
   });
 
@@ -658,7 +462,7 @@ export default function PriceProposalPage() {
               <h1 className="text-white font-black text-base flex items-center gap-2">
                 <Sparkles size={16} className="text-amber-500" /> Үнийн санал / Орц норм
               </h1>
-              <p className="text-slate-500 text-xs">AI + БНбД стандарт · Lab → Санхүү → HR → Борлуулалт</p>
+              <p className="text-slate-500 text-xs">AI + БНбД стандарт · Lab → Санхүү → Борлуулалт</p>
             </div>
           </div>
           {["SALES", "ADMIN"].includes(r) && (
@@ -675,12 +479,11 @@ export default function PriceProposalPage() {
         {/* Workflow харуулалт */}
         <div className="hidden sm:flex items-center gap-1 bg-slate-800/60 border border-slate-700 rounded-2xl px-5 py-3 text-xs overflow-x-auto">
           {[
-            { s: "draft", icon: Sparkles, label: "AI норм", role: "SALES" },
-            { s: "lab_review", icon: FlaskConical, label: "Lab шалгах", role: "LAB" },
-            { s: "lab_approved", icon: Check, label: "Lab батласан", role: "LAB" },
-            { s: "finance_pricing", icon: DollarSign, label: "Санхүү үнэ", role: "ADMIN" },
-            { s: "hr_review", icon: Users, label: "HR норм", role: "HR" },
-            { s: "completed", icon: TrendingUp, label: "Борлуулалт", role: "SALES" },
+            { s: "draft",           icon: Sparkles,  label: "AI норм",      role: "SALES" },
+            { s: "lab_review",      icon: FlaskConical, label: "Lab шалгах", role: "LAB" },
+            { s: "lab_approved",    icon: Check,     label: "Lab батласан",  role: "LAB" },
+            { s: "finance_pricing", icon: DollarSign, label: "Санхүү үнэ",  role: "ADMIN" },
+            { s: "completed",       icon: TrendingUp, label: "Борлуулалт",   role: "SALES" },
           ].map((step, i, arr) => (
             <div key={step.s} className="flex items-center gap-1 shrink-0">
               <div className={`flex items-center gap-1 px-2.5 py-1 rounded-lg ${step.role === r || r === "ADMIN" ? "bg-amber-500/20 text-amber-400" : "text-slate-500"}`}>
