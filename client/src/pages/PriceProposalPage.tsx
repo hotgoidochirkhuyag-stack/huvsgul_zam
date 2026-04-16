@@ -104,9 +104,12 @@ function ProposalCard({ proposal }: { proposal: any }) {
     (proposal.status === "finance_pricing" && ["ADMIN", "SALES", "WAREHOUSE"].includes(r)) ||
     (proposal.status === "hr_review" && ["HR", "ADMIN"].includes(r));
 
+  const isCompleted = proposal.status === "completed";
   const canEditNorms = ["LAB", "ADMIN"].includes(r) && ["lab_review", "lab_approved"].includes(proposal.status);
   const canEditPrices = ["ADMIN", "SALES", "WAREHOUSE"].includes(r) && ["lab_approved", "finance_pricing"].includes(proposal.status);
   const canEditLabor = ["HR", "ADMIN"].includes(r) && ["hr_review", "finance_pricing"].includes(proposal.status);
+  // Admin бол completed саналын үнэ, тоог засах боломжтой
+  const canEditCompleted = r === "ADMIN" && isCompleted;
 
   return (
     <div className="bg-slate-800 border border-slate-700 rounded-2xl overflow-hidden" data-testid={`proposal-card-${proposal.id}`}>
@@ -138,6 +141,11 @@ function ProposalCard({ proposal }: { proposal: any }) {
       {open && (
         <div className="border-t border-slate-700 px-5 py-4 space-y-5">
           {isLoading && <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-slate-500" /></div>}
+
+          {/* Admin — completed саналын үнэ засах хэсэг */}
+          {canEditCompleted && (
+            <CompletedEditPanel proposal={proposal} patchProposal={patchProposal} recalc={recalc} />
+          )}
 
           {/* AI тайлбар */}
           {full?.aiNotes && (
@@ -324,6 +332,100 @@ function ProposalCard({ proposal }: { proposal: any }) {
           )}
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Батлагдсан саналын үнэ засах самбар (Admin-д) ────────────────────────────
+function CompletedEditPanel({ proposal, patchProposal, recalc }: { proposal: any; patchProposal: any; recalc: any }) {
+  const [markupPct, setMarkupPct] = useState(String(proposal.markupPct ?? 15));
+  const [suggestedPrice, setSuggestedPrice] = useState(String(proposal.suggestedPrice ?? ""));
+  const [finalUnitCost, setFinalUnitCost] = useState(String(proposal.finalUnitCost ?? ""));
+  const [productName, setProductName] = useState(proposal.productName ?? "");
+  const [unit, setUnit] = useState(proposal.unit ?? "м³");
+
+  const save = () => {
+    patchProposal.mutate({
+      markupPct: parseFloat(markupPct) || 15,
+      suggestedPrice: parseFloat(suggestedPrice) || undefined,
+      finalUnitCost: parseFloat(finalUnitCost) || undefined,
+      productName,
+      unit,
+    });
+  };
+
+  return (
+    <div className="bg-green-500/5 border border-green-500/20 rounded-xl p-4">
+      <p className="text-xs font-bold text-green-400 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+        <Check size={12} /> Admin засварлах — Батлагдсан санал
+      </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <div>
+          <label className="text-[11px] text-slate-400 mb-1 block">Бүтээгдэхүүний нэр</label>
+          <input
+            type="text" value={productName}
+            onChange={e => setProductName(e.target.value)}
+            onBlur={save}
+            data-testid="input-completed-product-name"
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-1.5 text-xs"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] text-slate-400 mb-1 block">Нэгж ({proposal.unit})</label>
+          <input
+            type="text" value={unit}
+            onChange={e => setUnit(e.target.value)}
+            onBlur={save}
+            data-testid="input-completed-unit"
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-1.5 text-xs"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] text-slate-400 mb-1 block">Нэмэгдэл %</label>
+          <input
+            type="number" value={markupPct}
+            onChange={e => setMarkupPct(e.target.value)}
+            onBlur={save}
+            min={0} max={200}
+            data-testid="input-completed-markup"
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-1.5 text-xs"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] text-slate-400 mb-1 block">Нэгж өртөг ₮</label>
+          <input
+            type="number" value={finalUnitCost}
+            onChange={e => setFinalUnitCost(e.target.value)}
+            onBlur={save}
+            placeholder="0"
+            data-testid="input-completed-unit-cost"
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-1.5 text-xs"
+          />
+        </div>
+        <div>
+          <label className="text-[11px] text-slate-400 mb-1 block">Санал болгох үнэ ₮</label>
+          <input
+            type="number" value={suggestedPrice}
+            onChange={e => setSuggestedPrice(e.target.value)}
+            onBlur={save}
+            placeholder="0"
+            data-testid="input-completed-suggested-price"
+            className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-2.5 py-1.5 text-xs"
+          />
+        </div>
+        <div className="flex items-end">
+          <button
+            onClick={() => recalc.mutate()}
+            disabled={recalc.isPending}
+            data-testid="btn-completed-recalc"
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-amber-600 hover:bg-amber-500 text-black text-xs font-bold rounded-lg transition-all"
+          >
+            <RefreshCw size={11} className={recalc.isPending ? "animate-spin" : ""} />
+            Дахин тооцоолох
+          </button>
+        </div>
+      </div>
+      <p className="text-slate-500 text-[10px] mt-2">Утгуудыг бөглөж талбайгаас гарахад автоматаар хадгалагдана.</p>
     </div>
   );
 }
