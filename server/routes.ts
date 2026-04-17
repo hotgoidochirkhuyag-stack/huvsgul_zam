@@ -4050,6 +4050,7 @@ ${cert.testResults ? `
         productType: p.productType,
         unit: p.unit,
         suggestedPrice: Number(p.suggestedPrice),
+        barterPrice: p.barterPrice ? Number(p.barterPrice) : null,
         updatedAt: p.updatedAt,
       })));
     } catch (e: any) { res.status(500).json({ error: e.message }); }

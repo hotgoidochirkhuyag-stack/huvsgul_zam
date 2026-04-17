@@ -33,6 +33,7 @@ type CatalogItem = {
   productType: string;
   unit: string;
   suggestedPrice: number;
+  barterPrice: number | null;
   updatedAt: string;
 };
 
@@ -137,7 +138,12 @@ function ProductCatalog({ onSelect }: {
                     </div>
                     <div className="text-right shrink-0">
                       <p className="text-sm font-black text-primary">{fmtMNT(item.suggestedPrice)}</p>
-                      <p className="text-[10px] text-muted-foreground">/ {item.unit}</p>
+                      <p className="text-[10px] text-muted-foreground">/ {item.unit} · бэлэн</p>
+                      {item.barterPrice && (
+                        <p className="text-[10px] text-blue-400 font-semibold mt-0.5">
+                          {fmtMNT(item.barterPrice)} · бартер
+                        </p>
+                      )}
                     </div>
                   </div>
                   <div className="flex items-center gap-1 mt-1.5 text-[10px] text-primary/70 opacity-0 group-hover:opacity-100 transition-opacity">
