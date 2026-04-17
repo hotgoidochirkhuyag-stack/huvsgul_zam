@@ -21,7 +21,7 @@ import NotificationBell from "@/components/NotificationBell";
 import { FactoryControl, type MeetingMode } from "@/components/FactoryControl";
 import { useToast } from "@/hooks/use-toast";
 
-type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "lab";
+type Tab = "attendance" | "project" | "production" | "norm" | "kpi" | "ai" | "meeting" | "lab" | "catalog";
 
 function hdrs() {
   return {
@@ -2404,6 +2404,195 @@ function LabTab() {
   );
 }
 
+// ── Бүтээгдэхүүний ангилал удирдах таб ──────────────────────────────────────
+function CatalogTab() {
+  const qc = useQueryClient();
+  const { toast } = useToast();
+  const [editing, setEditing] = useState<Record<number, any>>({});
+  const [adding, setAdding] = useState(false);
+  const [newCat, setNewCat] = useState({ key: "", label: "", filterLabel: "", showFilter: true, sortOrder: 0 });
+
+  const { data: cats = [], isLoading } = useQuery<any[]>({
+    queryKey: ["/api/product-categories"],
+    queryFn: () => fetch("/api/product-categories").then(r => r.json()),
+  });
+
+  const patch = useMutation({
+    mutationFn: ({ id, body }: { id: number; body: any }) =>
+      fetch(`/api/product-categories/${id}`, { method: "PATCH", headers: hdrs(), body: JSON.stringify(body) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/product-categories"] }); toast({ title: "Хадгаллаа" }); setEditing({}); },
+  });
+
+  const add = useMutation({
+    mutationFn: (body: any) =>
+      fetch("/api/product-categories", { method: "POST", headers: hdrs(), body: JSON.stringify(body) }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/product-categories"] }); toast({ title: "Нэмэгдлээ" }); setAdding(false); setNewCat({ key: "", label: "", filterLabel: "", showFilter: true, sortOrder: 0 }); },
+  });
+
+  const del = useMutation({
+    mutationFn: (id: number) =>
+      fetch(`/api/product-categories/${id}`, { method: "DELETE", headers: hdrs() }).then(r => r.json()),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ["/api/product-categories"] }); toast({ title: "Устгагдлаа" }); },
+  });
+
+  const startEdit = (cat: any) => setEditing({ [cat.id]: { label: cat.label, filterLabel: cat.filterLabel, showFilter: cat.showFilter, sortOrder: cat.sortOrder, isActive: cat.isActive } });
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-xl font-black text-white">Бүтээгдэхүүний ангилал</h2>
+          <p className="text-slate-400 text-sm mt-0.5">Вэбсайтын "Үнийн санал" хэсгийн шүүлтүүр болон ангиллын нэрийг энд засна</p>
+        </div>
+        <button onClick={() => setAdding(true)}
+          className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black text-sm font-bold rounded-xl transition-all">
+          <Plus className="w-4 h-4" /> Ангилал нэмэх
+        </button>
+      </div>
+
+      {/* Шинэ ангилал нэмэх форм */}
+      {adding && (
+        <div className="bg-slate-800/60 border border-amber-500/30 rounded-xl p-5 space-y-4">
+          <p className="text-amber-400 text-sm font-bold">Шинэ ангилал нэмэх</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Түлхүүр (key) *</label>
+              <input value={newCat.key} onChange={e => setNewCat(p => ({ ...p, key: e.target.value }))}
+                placeholder="жишээ: ready_mix"
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Дэлгэрэнгүй нэр *</label>
+              <input value={newCat.label} onChange={e => setNewCat(p => ({ ...p, label: e.target.value }))}
+                placeholder="жишээ: Бэлэн зуурмаг"
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Товчлуур дээрх нэр *</label>
+              <input value={newCat.filterLabel} onChange={e => setNewCat(p => ({ ...p, filterLabel: e.target.value }))}
+                placeholder="жишээ: Бэлэн"
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" />
+            </div>
+            <div>
+              <label className="text-xs text-slate-400 mb-1 block">Дараалал</label>
+              <input type="number" value={newCat.sortOrder} onChange={e => setNewCat(p => ({ ...p, sortOrder: parseInt(e.target.value) || 0 }))}
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded-lg px-3 py-2 text-sm" />
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-300 cursor-pointer">
+              <input type="checkbox" checked={newCat.showFilter} onChange={e => setNewCat(p => ({ ...p, showFilter: e.target.checked }))}
+                className="rounded" />
+              Шүүлтүүрт харуулах
+            </label>
+            <div className="flex gap-2 ml-auto">
+              <button onClick={() => setAdding(false)} className="px-4 py-2 text-sm text-slate-400 hover:text-white border border-slate-600 rounded-lg transition-colors">Болих</button>
+              <button onClick={() => add.mutate(newCat)} disabled={!newCat.key || !newCat.label || !newCat.filterLabel || add.isPending}
+                className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-500 text-black text-sm font-bold rounded-lg transition-all disabled:opacity-50">
+                {add.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />} Нэмэх
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Жагсаалт */}
+      {isLoading ? (
+        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-slate-500" /></div>
+      ) : (
+        <div className="bg-slate-800/40 border border-white/10 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-slate-700/50 border-b border-white/10">
+              <tr>
+                <th className="text-left px-5 py-3 text-slate-400 font-semibold">Key</th>
+                <th className="text-left px-5 py-3 text-slate-400 font-semibold">Дэлгэрэнгүй нэр</th>
+                <th className="text-left px-5 py-3 text-slate-400 font-semibold">Товчлуур нэр</th>
+                <th className="text-center px-5 py-3 text-slate-400 font-semibold">Шүүлтүүр</th>
+                <th className="text-center px-5 py-3 text-slate-400 font-semibold">Идэвхтэй</th>
+                <th className="text-center px-5 py-3 text-slate-400 font-semibold">Дараалал</th>
+                <th className="w-28 px-5 py-3" />
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5">
+              {cats.map(cat => {
+                const e = editing[cat.id];
+                return (
+                  <tr key={cat.id} className="hover:bg-white/3 transition-colors">
+                    <td className="px-5 py-3 text-slate-400 font-mono text-xs">{cat.key}</td>
+                    <td className="px-5 py-3">
+                      {e ? (
+                        <input value={e.label} onChange={ev => setEditing(p => ({ ...p, [cat.id]: { ...p[cat.id], label: ev.target.value } }))}
+                          className="w-full bg-slate-700 border border-amber-500/50 text-white rounded px-2 py-1 text-sm" />
+                      ) : <span className="text-white font-medium">{cat.label}</span>}
+                    </td>
+                    <td className="px-5 py-3">
+                      {e ? (
+                        <input value={e.filterLabel} onChange={ev => setEditing(p => ({ ...p, [cat.id]: { ...p[cat.id], filterLabel: ev.target.value } }))}
+                          className="w-full bg-slate-700 border border-amber-500/50 text-white rounded px-2 py-1 text-sm" />
+                      ) : <span className="text-slate-300">{cat.filterLabel}</span>}
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      {e ? (
+                        <input type="checkbox" checked={e.showFilter} onChange={ev => setEditing(p => ({ ...p, [cat.id]: { ...p[cat.id], showFilter: ev.target.checked } }))} className="rounded" />
+                      ) : (
+                        <span className={cat.showFilter ? "text-green-400" : "text-slate-600"}>{cat.showFilter ? "Тийм" : "Үгүй"}</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      {e ? (
+                        <input type="checkbox" checked={e.isActive} onChange={ev => setEditing(p => ({ ...p, [cat.id]: { ...p[cat.id], isActive: ev.target.checked } }))} className="rounded" />
+                      ) : (
+                        <span className={cat.isActive ? "text-green-400" : "text-red-400"}>{cat.isActive ? "Тийм" : "Үгүй"}</span>
+                      )}
+                    </td>
+                    <td className="px-5 py-3 text-center">
+                      {e ? (
+                        <input type="number" value={e.sortOrder} onChange={ev => setEditing(p => ({ ...p, [cat.id]: { ...p[cat.id], sortOrder: parseInt(ev.target.value) || 0 } }))}
+                          className="w-16 bg-slate-700 border border-amber-500/50 text-white rounded px-2 py-1 text-sm text-center" />
+                      ) : <span className="text-slate-400">{cat.sortOrder}</span>}
+                    </td>
+                    <td className="px-5 py-3">
+                      <div className="flex items-center gap-2 justify-end">
+                        {e ? (
+                          <>
+                            <button onClick={() => patch.mutate({ id: cat.id, body: e })} disabled={patch.isPending}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-green-600 hover:bg-green-500 text-white text-xs font-bold rounded-lg transition-all">
+                              <Save className="w-3 h-3" /> Хадгалах
+                            </button>
+                            <button onClick={() => setEditing({})}
+                              className="p-1.5 text-slate-500 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
+                          </>
+                        ) : (
+                          <>
+                            <button onClick={() => startEdit(cat)}
+                              className="flex items-center gap-1 px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold rounded-lg transition-all">
+                              <Pencil className="w-3 h-3" /> Засах
+                            </button>
+                            <button onClick={() => { if (confirm("Устгах уу?")) del.mutate(cat.id); }}
+                              className="p-1.5 text-slate-600 hover:text-red-400 transition-colors"><Trash2 className="w-4 h-4" /></button>
+                          </>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <div className="bg-slate-800/30 border border-white/5 rounded-xl p-4">
+        <p className="text-xs text-slate-500 leading-relaxed">
+          <span className="text-amber-400 font-semibold">Дэлгэрэнгүй нэр</span> — бүтээгдэхүүний картан дээр харагдана (жишээ: "Бетон зуурмаг").{" "}
+          <span className="text-amber-400 font-semibold">Товчлуур нэр</span> — шүүлтүүрийн товч дээр харагдана (жишээ: "Бетон").{" "}
+          <span className="text-amber-400 font-semibold">Шүүлтүүр</span> — "Тийм" бол нийтийн хуудсанд шүүлтүүрийн товч гарч ирнэ.
+        </p>
+      </div>
+    </div>
+  );
+}
+
 const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "attendance",   label: "Ирц / ХАБЭА",         icon: UserCheck   },
   { key: "project",     label: "Төслийн явц",           icon: TrendingUp  },
@@ -2413,6 +2602,7 @@ const TABS: { key: Tab; label: string; icon: any }[] = [
   { key: "lab",         label: "Гэрчилгээ & Тохирол",  icon: Award       },
   { key: "ai",          label: "AI Агент",              icon: Bot         },
   { key: "meeting",     label: "Онлайн хурал",          icon: Video       },
+  { key: "catalog",     label: "Ангилал тохиргоо",      icon: Globe       },
 ];
 
 export default function AdminDashboard() {
@@ -2486,7 +2676,8 @@ export default function AdminDashboard() {
         {tab === "kpi"         && <KpiTab />}
         {tab === "lab"         && <LabTab />}
         {tab === "ai"          && <AiAgentTab />}
-        {tab === "meeting"      && <MeetingTab />}
+        {tab === "meeting"     && <MeetingTab />}
+        {tab === "catalog"     && <CatalogTab />}
       </main>
     </div>
   );

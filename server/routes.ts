@@ -4037,6 +4037,39 @@ ${cert.testResults ? `
     res.json({ ok: true });
   });
 
+  // ── Бүтээгдэхүүний ангилал (admin CRUD + public GET) ─────────────────────────
+  app.get("/api/product-categories", async (_req, res) => {
+    try {
+      const rows = await db.select().from(schema.productCategories)
+        .orderBy(schema.productCategories.sortOrder);
+      res.json(rows);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.post("/api/product-categories", requireAdmin, async (req, res) => {
+    try {
+      const [row] = await db.insert(schema.productCategories).values(req.body).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.patch("/api/product-categories/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const [row] = await db.update(schema.productCategories).set(req.body)
+        .where(eq(schema.productCategories.id, id)).returning();
+      res.json(row);
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
+  app.delete("/api/product-categories/:id", requireAdmin, async (req, res) => {
+    try {
+      await db.delete(schema.productCategories)
+        .where(eq(schema.productCategories.id, parseInt(req.params.id)));
+      res.json({ ok: true });
+    } catch (e: any) { res.status(500).json({ error: e.message }); }
+  });
+
   // ── Нийтэд харагдах үнийн каталог (auth хэрэггүй) ──────────────────────────
   app.get("/api/public/price-catalog", async (_req, res) => {
     try {

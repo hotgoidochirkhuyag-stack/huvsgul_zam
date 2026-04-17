@@ -37,20 +37,7 @@ type CatalogItem = {
   updatedAt: string;
 };
 
-const CATEGORY_LABEL: Record<string, string> = {
-  concrete:   "Бетон зуурмаг",
-  foam_block: "Хөөс блок",
-  asphalt:    "Асфальт",
-  stone:      "Чулуу / Хайрга",
-  sand:       "Элс",
-  finished:   "Эцсийн бүтээгдэхүүн",
-  other:      "Бусад",
-};
-
-function getCategory(productType: string) {
-  const base = productType.replace("_custom", "");
-  return CATEGORY_LABEL[base] || "Бусад";
-}
+type ProductCategory = { id: number; key: string; label: string; filterLabel: string; isActive: boolean; showFilter: boolean; sortOrder: number };
 
 function fmtMNT(n: number) {
   if (n >= 1_000_000) return `₮${(n / 1_000_000).toFixed(1)} сая`;
@@ -68,16 +55,24 @@ function ProductCatalog({ onSelect }: {
     queryFn: () => fetch("/api/public/price-catalog").then(r => r.json()),
   });
 
+  const { data: categories = [] } = useQuery<ProductCategory[]>({
+    queryKey: ["/api/product-categories"],
+    queryFn: () => fetch("/api/product-categories").then(r => r.json()),
+  });
+
   const { data: products = [] } = useQuery<CompanyProduct[]>({
     queryKey: ["/api/company-products"],
   });
 
+  const categoryMap = Object.fromEntries(categories.map(c => [c.key, c.label]));
+  const getCategory = (productType: string) => {
+    const base = productType.replace("_custom", "");
+    return categoryMap[base] || "Бусад";
+  };
+
   const filters = [
     { key: "all", label: "Бүгд" },
-    { key: "concrete", label: "Бетон" },
-    { key: "foam_block", label: "Хөөс блок" },
-    { key: "asphalt", label: "Асфальт" },
-    { key: "stone", label: "Чулуу" },
+    ...categories.filter(c => c.isActive && c.showFilter).map(c => ({ key: c.key, label: c.filterLabel })),
   ];
 
   const filtered = activeFilter === "all"
@@ -173,7 +168,7 @@ function ProductCatalog({ onSelect }: {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-xs font-bold text-foreground truncate">{p.name}</p>
-                  <p className="text-[10px] text-muted-foreground">{CATEGORY_LABEL[p.category] || p.category} · {p.unit}</p>
+                  <p className="text-[10px] text-muted-foreground">{categoryMap[p.category] || p.category} · {p.unit}</p>
                 </div>
                 <ChevronRight className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
               </button>

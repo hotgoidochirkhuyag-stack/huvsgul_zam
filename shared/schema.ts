@@ -1200,3 +1200,18 @@ export const contractTemplateSections = pgTable("contract_template_sections", {
 export const insertContractTemplateSectionSchema = createInsertSchema(contractTemplateSections).omit({ id: true, updatedAt: true });
 export type ContractTemplateSection       = typeof contractTemplateSections.$inferSelect;
 export type InsertContractTemplateSection = z.infer<typeof insertContractTemplateSectionSchema>;
+
+// ===================== БҮТЭЭГДЭХҮҮНИЙ АНГИЛАЛ =====================
+export const productCategories = pgTable("product_categories", {
+  id:          serial("id").primaryKey(),
+  key:         text("key").notNull().unique(),        // concrete | foam_block | asphalt | stone | sand
+  label:       text("label").notNull(),               // Бетон зуурмаг (product card дээр)
+  filterLabel: text("filter_label").notNull(),        // Бетон (шүүлтүүрийн товч)
+  isActive:    boolean("is_active").default(true),
+  showFilter:  boolean("show_filter").default(true),  // шүүлтүүрт харуулах эсэх
+  sortOrder:   integer("sort_order").default(0),
+  createdAt:   timestamp("created_at").defaultNow(),
+});
+export const insertProductCategorySchema = createInsertSchema(productCategories).omit({ id: true, createdAt: true });
+export type ProductCategory       = typeof productCategories.$inferSelect;
+export type InsertProductCategory = z.infer<typeof insertProductCategorySchema>;
