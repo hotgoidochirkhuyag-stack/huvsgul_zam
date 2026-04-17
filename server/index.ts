@@ -2,6 +2,7 @@ import express from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes.js";
 import { startScheduledJobs } from "./scheduledJobs.js";
+import { runMigrations } from "./migrate.js";
 import path from "path";
 import fs from "fs";
 
@@ -17,6 +18,9 @@ async function startServer() {
   app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 
   const httpServer = createServer(app);
+
+  // DB migration + seed (шинэ table, column, анхны өгөгдөл)
+  await runMigrations();
 
   await registerRoutes(httpServer, app);
 
