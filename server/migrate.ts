@@ -6,7 +6,6 @@ export async function runMigrations() {
 
   try {
     // 1. Үндсэн хүснэгтүүдийг үүсгэх (Хэрэв байхгүй бол)
-    // Алдаа заагаад байсан skills, company_products, price_proposals-г бүгдийг нь үүсгэнэ
     await db.execute(sql`
       CREATE TABLE IF NOT EXISTS price_proposals (
         id serial PRIMARY KEY,
@@ -29,6 +28,7 @@ export async function runMigrations() {
       CREATE TABLE IF NOT EXISTS skills (
         id serial PRIMARY KEY,
         name text NOT NULL,
+        category text, -- Энд 'category' баганыг нэмлээ
         description text
       );
 
@@ -51,10 +51,10 @@ export async function runMigrations() {
     `);
 
     // 2. Хэрэв хүснэгт нь байгаад багана нь дутуу бол нэмэх
-    // 'barter_price' болон 'deadline' байхгүй бол нэмнэ
     await db.execute(sql`
       ALTER TABLE price_proposals ADD COLUMN IF NOT EXISTS barter_price real;
       ALTER TABLE price_proposals ADD COLUMN IF NOT EXISTS deadline timestamp;
+      ALTER TABLE skills ADD COLUMN IF NOT EXISTS category text; -- Skills дээр нэмэлтээр шалгаж байна
     `);
 
     // 3. Seed product categories if empty
@@ -76,7 +76,6 @@ export async function runMigrations() {
     }
 
     // 4. Seed M150–M550 price proposals
-    // Эхлээд price_proposals хүснэгт дотор өгөгдөл байгаа эсэхийг шалгана
     const propCount = await db.execute(sql`SELECT COUNT(*) as cnt FROM price_proposals`);
     const propCnt = Number((propCount.rows[0] as any).cnt);
 
@@ -114,6 +113,5 @@ export async function runMigrations() {
     console.log("[migrate] Дууслаа.");
   } catch (error) {
     console.error("[migrate] Алдаа гарлаа:", error);
-    // Алдаа гарсан ч сервер унтахгүй байхаар тохируулав
   }
 }
