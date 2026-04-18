@@ -5,18 +5,20 @@ export async function runMigrations() {
   console.log("[migrate] Schema шинэчлэлт эхэллээ...");
 
   try {
-    // 1. Үндсэн хүснэгтүүдийг үүсгэх (Хэрэв байхгүй бол)
+    // 1. Үндсэн хүснэгтүүдийг үүсгэх ба багануудыг баталгаажуулах
     await db.execute(sql`
+      -- price_proposals хүснэгт
       CREATE TABLE IF NOT EXISTS price_proposals (
         id serial PRIMARY KEY,
         product_type text,
         product_name text,
-        unit text,
+        unit text DEFAULT 'м³',
         requested_by text,
         status text DEFAULT 'pending',
         final_unit_cost real,
         markup_pct real,
         suggested_price real,
+        barter_price real,
         sales_notes text,
         deadline timestamp,
         lab_approved_by text,
@@ -25,19 +27,23 @@ export async function runMigrations() {
         updated_at timestamp DEFAULT NOW()
       );
 
+      -- skills хүснэгт
       CREATE TABLE IF NOT EXISTS skills (
         id serial PRIMARY KEY,
         name text NOT NULL,
-        category text, -- Энд 'category' баганыг нэмлээ
+        category text,
         description text
       );
 
+      -- company_products хүснэгт
       CREATE TABLE IF NOT EXISTS company_products (
         id serial PRIMARY KEY,
         name text NOT NULL,
-        price real
+        price real,
+        unit text DEFAULT 'м³'
       );
 
+      -- product_categories хүснэгт
       CREATE TABLE IF NOT EXISTS product_categories (
         id serial PRIMARY KEY,
         key text NOT NULL UNIQUE,
@@ -50,11 +56,28 @@ export async function runMigrations() {
       );
     `);
 
-    // 2. Хэрэв хүснэгт нь байгаад багана нь дутуу бол нэмэх
+    // 2. Хэрэв хүснэгтүүд нь байгаад баганууд нь дутуу бол нэмэх (Лог дээрх алдааг засах хэсэг)
     await db.execute(sql`
+      -- price_proposals баганууд
+      ALTER TABLE price_proposals ADD COLUMN IF NOT EXISTS unit text DEFAULT 'м³';
       ALTER TABLE price_proposals ADD COLUMN IF NOT EXISTS barter_price real;
       ALTER TABLE price_proposals ADD COLUMN IF NOT EXISTS deadline timestamp;
-      ALTER TABLE skills ADD COLUMN IF NOT EXISTS category text; -- Skills дээр нэмэлтээр шалгаж байна
+
+      -- company_products баганууд (Лог дээрх 'unit' алдааг засна)
+      ALTER TABLE company_products ADD COLUMN IF NOT EXISTS unit text DEFAULT 'м³';
+
+      -- skills баганууд
+      ALTER TABLE skills ADD COLUMN IF NOT EXISTS category text;
+
+      -- vehicles/equipment алдааг засах (Лог дээрх 'equipment_type' алдаа)
+      -- Хэрэв таны системд vehicles хүснэгт байгаа бол эдгээр баганыг нэмнэ
+      DO $$ 
+      BEGIN 
+        IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'vehicles') THEN
+          ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS equipment_type text;
+          ALTER TABLE vehicles ADD COLUMN IF NOT EXISTS unit text DEFAULT 'цаг';
+        END IF;
+      END $$;
     `);
 
     // 3. Seed product categories if empty
@@ -76,7 +99,8 @@ export async function runMigrations() {
     }
 
     // 4. Seed M150–M550 price proposals
-    const propCount = await db.execute(sql`SELECT COUNT(*) as cnt FROM price_proposals`);
+    // Одоо байгаа өгөгдлийг шалгахдаа concrete_custom төрлөөр нь шалгая
+    const propCount = await db.execute(sql`SELECT COUNT(*) as cnt FROM price_proposals WHERE product_type = 'concrete_custom'`);
     const propCnt = Number((propCount.rows[0] as any).cnt);
 
     if (propCnt === 0) {
