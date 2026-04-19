@@ -317,10 +317,10 @@ export default function Pricelist() {
               Бүтээн байгуулалтын түнш
             </h2>
             <h3 className="text-3xl md:text-4xl font-display font-black text-foreground uppercase mb-6">
-              Үнийн санал <span className="text-primary">Авах</span>
+              Манай <span className="text-primary">үнийн санал</span>
             </h3>
             <p className="text-muted-foreground text-base mb-8 max-w-md leading-relaxed">
-              Доорх жагсаалтаас бүтээгдэхүүн сонгоход форм автоматаар бөглөгдөнө. Хүсэлт илгээсний дараа PDF үнийн санал болон онлайн гэрээний линк нээгдэнэ.
+              Нийлүүлэлтийн оновчтой шийдэл болон төслийн онцлогт тохирсон санхүүгийн уян хатан нөхцөлүүдийг танд санал болгоно. 
             </p>
 
             <div className="space-y-5">
@@ -365,8 +365,9 @@ export default function Pricelist() {
                   className="space-y-4"
                 >
                   <div>
-                    <h4 className="text-foreground font-bold text-lg mb-1">Үнийн санал хүсэх</h4>
-                    <p className="text-xs text-muted-foreground">Зүүн талаас бүтээгдэхүүн сонгоход автоматаар бөглөгдөнө</p>
+                    <h4 className="text-foreground font-bold text-lg mb-1">Гэрээ байгуулах хүсэлт </h4>
+                    <p className="text-xs text-muted-foreground"> 
+                      Таны ирүүлсэн хүсэлтийн дагуу манай менежер 24 цагийн дотор зах зээлийн динамик үнэ, төлбөрийн уян хатан нөхцөл тусгасан гэрээг илгээх болно.</p>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3">
@@ -459,7 +460,7 @@ export default function Pricelist() {
                   <button type="submit" disabled={isSending}
                     className="w-full py-3.5 bg-primary text-primary-foreground font-display font-bold uppercase tracking-widest rounded-sm hover:bg-primary/90 transition-all active:scale-[0.98] disabled:opacity-70 flex items-center justify-center gap-3"
                     data-testid="btn-submit-quote">
-                    {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><FileText className="w-5 h-5" /> Үнийн санал авах</>}
+                    {isSending ? <Loader2 className="w-5 h-5 animate-spin" /> : <><FileText className="w-5 h-5" /> гэрээ байгуулах хүсэлт илгээх</>}
                   </button>
                 </motion.form>
               )}
