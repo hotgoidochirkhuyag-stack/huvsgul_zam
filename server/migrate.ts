@@ -5,22 +5,72 @@ export async function runMigrations() {
   console.log("[migrate] Schema шинэчлэлт эхэллээ...");
 
   try {
-    // 1. Алдаа зааж байгаа багануудыг ХҮЧЭЭР нэмэх
-    // Энэ хэсэг нь лог дээрх бүх 'does not exist' алдааг засна.
+    // 1. БҮХ ХҮСНЭГТҮҮДИЙГ ҮҮСГЭХ (Таны анхны кодонд байсан бүх хэсэг)
     await db.execute(sql`
-      -- skills хүснэгтэд багана нэмэх
+      CREATE TABLE IF NOT EXISTS price_proposals (
+        id serial PRIMARY KEY,
+        product_type text,
+        product_name text,
+        unit text DEFAULT 'м³',
+        requested_by text,
+        status text DEFAULT 'pending',
+        final_unit_cost real,
+        markup_pct real,
+        suggested_price real,
+        barter_price real,
+        sales_notes text,
+        deadline timestamp,
+        lab_approved_by text,
+        lab_approved_at timestamp,
+        created_at timestamp DEFAULT NOW(),
+        updated_at timestamp DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS skills (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        category text,
+        description text,
+        sort_order integer DEFAULT 0,
+        created_at timestamp DEFAULT NOW()
+      );
+
+      CREATE TABLE IF NOT EXISTS company_products (
+        id serial PRIMARY KEY,
+        name text NOT NULL,
+        price real,
+        unit text DEFAULT 'м³'
+      );
+
+      CREATE TABLE IF NOT EXISTS product_categories (
+        id serial PRIMARY KEY,
+        key text NOT NULL UNIQUE,
+        label text NOT NULL,
+        filter_label text NOT NULL,
+        is_active boolean DEFAULT true,
+        show_filter boolean DEFAULT true,
+        sort_order integer DEFAULT 0,
+        created_at timestamp DEFAULT NOW()
+      );
+    `);
+
+    // 2. ДУТУУ БАГАНУУДЫГ ХҮЧЭЭР НЭМЭХ (Алдаа засах хэсэг)
+    await db.execute(sql`
+      -- Skills
       ALTER TABLE IF EXISTS skills ADD COLUMN IF NOT EXISTS category text;
       ALTER TABLE IF EXISTS skills ADD COLUMN IF NOT EXISTS sort_order integer DEFAULT 0;
+      ALTER TABLE IF EXISTS skills ADD COLUMN IF NOT EXISTS created_at timestamp DEFAULT NOW();
 
-      -- price_proposals хүснэгтэд багана нэмэх
+      -- Price Proposals
       ALTER TABLE IF EXISTS price_proposals ADD COLUMN IF NOT EXISTS unit text DEFAULT 'м³';
-      ALTER TABLE IF EXISTS price_proposals ADD COLUMN IF NOT EXISTS deadline timestamp;
       ALTER TABLE IF EXISTS price_proposals ADD COLUMN IF NOT EXISTS barter_price real;
+      ALTER TABLE IF EXISTS price_proposals ADD COLUMN IF NOT EXISTS deadline timestamp;
+      ALTER TABLE IF EXISTS price_proposals ADD COLUMN IF NOT EXISTS category text;
 
-      -- company_products хүснэгтэд багана нэмэх
+      -- Company Products
       ALTER TABLE IF EXISTS company_products ADD COLUMN IF NOT EXISTS unit text DEFAULT 'м³';
 
-      -- vehicles хүснэгтэд багана нэмэх
+      -- Vehicles (Хэрэв хүснэгт нь байгаа бол)
       DO $$ 
       BEGIN 
         IF EXISTS (SELECT FROM pg_tables WHERE tablename = 'vehicles') THEN
@@ -30,10 +80,14 @@ export async function runMigrations() {
       END $$;
     `);
 
-    // 2. Өгөгдлийг цэвэрлэх (Хуучин буруу ангиллуудыг устгаж шинээр оруулах)
-    console.log("[migrate] Ангиллуудыг шинэчилж байна...");
-    await db.execute(sql`DELETE FROM product_categories`);
+    // 3. ӨГӨГДЛИЙГ ЦЭВЭРЛЭЖ, ШИНЭЧЛЭХ (Энэ хэсэг таны вэб дээр өгөгдөл харагдахыг баталгаажуулна)
+    console.log("[migrate] Ангилал болон үнийн саналыг шинэчилж байна...");
 
+    // Хуучин буруу өгөгдлийг устгах
+    await db.execute(sql`DELETE FROM product_categories`);
+    await db.execute(sql`DELETE FROM price_proposals WHERE product_type = 'concrete_custom'`);
+
+    // Ангиллуудыг оруулах
     await db.execute(sql`
       INSERT INTO product_categories (key, label, filter_label, is_active, show_filter, sort_order) VALUES
         ('concrete',    'Бетон зуурмаг',        'Бетон',      true, true,  1),
@@ -48,11 +102,8 @@ export async function runMigrations() {
         filter_label = EXCLUDED.filter_label;
     `);
 
-    // 3. Бетоны үнийн саналыг ХҮЧЭЭР шинэчилж оруулах
-    console.log("[migrate] Үнийн саналыг оруулж байна...");
-    await db.execute(sql`DELETE FROM price_proposals WHERE product_type = 'concrete_custom'`);
-
-    const salesNotes = "2026.03-р сар. Налархайжуулагч нэмэлт + 15 км доторхи тээвэрлэлт багтсан.";
+    // Бетоны үнийн саналуудыг оруулах
+    const salesNotes = "2026.03-р сар. Налархайжуулагч нэмэлт + 15 км доторхи тээвэрлэлт багтсан. Авто помп: 50м3 хүртэл 1,200,000₮/зогсолт, 50м3-ээс дээш 25,000₮/м3.";
     const grades = [
       { name: "М150 Бетон зуурмаг", price: 294000, barter: 305000 },
       { name: "М200 Бетон зуурмаг", price: 316000, barter: 324000 },
@@ -79,7 +130,7 @@ export async function runMigrations() {
       `);
     }
 
-    console.log("[migrate] Дууслаа. Бүх өгөгдөл амжилттай шинэчлэгдлээ.");
+    console.log("[migrate] Дууслаа. Бүх систем хэвийн ажиллагаанд орлоо.");
   } catch (error) {
     console.error("[migrate] Алдаа гарлаа:", error);
   }
