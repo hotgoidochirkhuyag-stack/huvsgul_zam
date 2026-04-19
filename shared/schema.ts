@@ -734,15 +734,13 @@ export type InsertEmployeeSkill = z.infer<typeof insertEmployeeSkillSchema>;
 
 // ===================== УР ЧАДВАРЫН САН (Skills catalog) =====================
 export const skills = pgTable("skills", {
-  id:        serial("id").primaryKey(),
-  category:  text("category").notNull(),   // Зам барилга | Гүүр барилга | г.м.
-  name:      text("name").notNull(),        // Чадварын нэр
-  sortOrder: integer("sort_order").default(0),
-  createdAt: timestamp("created_at").defaultNow(),
+  id:          serial("id").primaryKey(),
+  name:        text("name").notNull(),
+  category:    text("category"),           // <--- Энийг нэмэх
+  description: text("description"),
+  sortOrder:   integer("sort_order").default(0),      // <--- Энийг нэмэх
+  createdAt:   timestamp("created_at").defaultNow(),  // <--- Энийг нэмэх
 });
-export const insertSkillSchema = createInsertSchema(skills).omit({ id: true, createdAt: true });
-export type Skill       = typeof skills.$inferSelect;
-export type InsertSkill = z.infer<typeof insertSkillSchema>;
 
 // ===================== УР ЧАДВАРЫН ҮНЭЛГЭЭ (Skill assessments) =====================
 export const skillAssessments = pgTable("skill_assessments", {
@@ -1097,31 +1095,25 @@ export type SuccessGalleryResponse = SuccessGallery;
 export type SubscriptionResponse = Subscription;
 
 // ===================== ҮНИЙН САНАЛ (Price Proposal Workflow) =====================
-// draft → lab_review → lab_approved → finance_pricing → hr_review → completed
 export const priceProposals = pgTable("price_proposals", {
   id:             serial("id").primaryKey(),
-  productType:    text("product_type").notNull(), // concrete_b25 | concrete_b30 | asphalt | crushed_stone | ...
-  productName:    text("product_name").notNull(),
-  unit:           text("unit").notNull().default("м³"),
-  requestedBy:    text("requested_by").notNull().default("SALES"),
-  status:         text("status").notNull().default("draft"),
-  aiNotes:        text("ai_notes"),
+  productType:    text("product_type"),
+  productName:    text("product_name"),
+  category:       text("category"),      // <--- Энэ мөрийг нэмлээ
+  unit:           text("unit").default('м³'),
+  requestedBy:    text("requested_by"),
+  status:         text("status").default('pending'),
   finalUnitCost:  real("final_unit_cost"),
-  markupPct:      real("markup_pct").default(15),
+  markupPct:      real("markup_pct"),
   suggestedPrice: real("suggested_price"),
   barterPrice:    real("barter_price"),
-  hrNotes:        text("hr_notes"),
   salesNotes:     text("sales_notes"),
-  recommendedQty: real("recommended_qty"),
+  deadline:       timestamp("deadline"),
   labApprovedBy:  text("lab_approved_by"),
   labApprovedAt:  timestamp("lab_approved_at"),
   createdAt:      timestamp("created_at").defaultNow(),
   updatedAt:      timestamp("updated_at").defaultNow(),
 });
-export const insertPriceProposalSchema = createInsertSchema(priceProposals).omit({ id: true, createdAt: true, updatedAt: true });
-export type PriceProposal       = typeof priceProposals.$inferSelect;
-export type InsertPriceProposal = z.infer<typeof insertPriceProposalSchema>;
-
 // Орц нормын бүтэц (материал + хөдөлмөр + тоног)
 export const priceProposalItems = pgTable("price_proposal_items", {
   id:           serial("id").primaryKey(),
